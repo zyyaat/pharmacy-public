@@ -230,6 +230,25 @@ export const pharmacyApi = {
       body: JSON.stringify(input),
     })
   },
+  getProduct(productId: string) {
+    return apiFetch<{ data: PharmacyProductDetail }>(`/pharmacy/products/${productId}`)
+  },
+  updateProduct(productId: string, input: UpdatePharmacyProductInput) {
+    return apiFetch<{ data: PharmacyProductDetail }>(`/pharmacy/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
+  },
+  adjustBatchStock(batchId: string, delta: number, reason: string, idempotencyKey: string) {
+    return apiFetch<{ data: { movement_id: string; new_quantity: number; replayed: boolean } }>(
+      `/pharmacy/inventory/${batchId}/adjust`,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify({ delta, reason }),
+      },
+    )
+  },
   lookupPOSProduct(barcode: string) {
     return apiFetch<{ data: POSProduct }>(`/pharmacy/pos/products?barcode=${encodeURIComponent(barcode)}`)
   },
@@ -294,6 +313,33 @@ export interface CreatePharmacyProductInput {
   initial_strips: number
   batch_number: string
   expiry_date: string
+}
+
+export interface PharmacyProductDetail {
+  id: string
+  name: string
+  generic_name: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  cost_price_piastres: number
+  selling_price_piastres: number
+  partial_selling_price_piastres: number | null
+  min_stock_level: number
+  is_active: boolean
+}
+
+export interface UpdatePharmacyProductInput {
+  name: string
+  generic_name: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  cost_price_piastres: number
+  selling_price_piastres: number
+  partial_selling_price_piastres: number | null
+  min_stock_level: number
+  is_active?: boolean
 }
 
 export interface POSSaleItem {
