@@ -354,7 +354,11 @@ func (h *Handler) LookupPOSProduct(c *gin.Context) {
 // only covers pre-existing rows.
 func loadPOSPricing(ctx context.Context, tx pgx.Tx, pharmacyID, pharmacyProductID string) (posPricingSnapshot, error) {
         var snapshot posPricingSnapshot
-        var boxPrice, partialPrice money.Piastres
+        var boxPrice money.Piastres
+        // partial_selling_price is nullable (legacy rows ship without a strip
+        // price), so it MUST scan into a pointer; a NULL must never fail the
+        // read, it triggers the documented fallback instead.
+        var partialPrice *int64
         err := tx.QueryRow(ctx, `
                 SELECT COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int8, 1),
                        pp.selling_price::int8, pp.partial_selling_price::int8
@@ -368,8 +372,13 @@ func loadPOSPricing(ctx context.Context, tx pgx.Tx, pharmacyID, pharmacyProductI
                 return snapshot, err
         }
         snapshot.BoxPrice = boxPrice
-        snapshot.StripPrice = partialPrice
-        if snapshot.PackagingType == packagingBoxStrip && !partialPrice.Valid() {
+        snapshot.StripPrice = 0
+        if partialPrice != nil && *partialPrice >= 0 {
+                snapshot.StripPrice = money.Piastres(*partialPrice)
+        }
+        if snapshot.PackagingType == packagingBoxStrip && snapshot.StripPrice == 0 {
+                // Legacy row without an explicit strip price: the only
+                // sanctioned division in the system, half-up on piastres.
                 snapshot.StripPrice = boxPrice.DivRoundHalfUp(snapshot.UnitsPerBox)
         }
         return snapshot, nil

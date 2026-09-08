@@ -284,6 +284,51 @@ def main():
         check("partial price required 400", r.status_code, 400)
         check("error code", r.json().get("error"), "partial_price_required")
 
+        print("== LEGACY NULL strip price: the exact production bug (barcode 111111 shape) ==")
+        # Legacy row inserted straight into SQL: BOX_STRIP, 5 strips/box,
+        # box price 4000, NO strip price (NULL), 19 strips in stock.
+        qc.execute("SELECT id FROM branches WHERE is_active = true LIMIT 1")
+        branch_id = qc.fetchone()[0]
+        qc.execute(
+            "INSERT INTO global_products (name, dosage_form, default_unit, product_category, requires_prescription, is_active, barcode) "
+            "VALUES ('ليجسي NULL', 'tablet'::dosage_form, 'strip'::unit_type, 'medication'::product_category, 'no'::prescription_required, true, '9900006') RETURNING id")
+        gp4 = qc.fetchone()[0]
+        qc.execute(
+            "INSERT INTO pharmacy_products (pharmacy_id, global_product_id, cost_price, selling_price, partial_selling_price, "
+            "packaging_type, units_per_box, min_stock_level, is_active) "
+            "VALUES ((SELECT pharmacy_id FROM branches WHERE id=%s), %s, 600, 4000, NULL, 'BOX_STRIP', 5, 0, true) RETURNING id",
+            (branch_id, gp4))
+        product4 = qc.fetchone()[0]
+        qc.execute(
+            "INSERT INTO inventory_batches (pharmacy_product_id, branch_id, batch_number, quantity, unit, cost_per_unit, received_by, reference_type) "
+            "VALUES (%s, %s, 'LEGACY-NULL', 19, 'strip'::unit_type, 600, NULL, 'opening_balance')",
+            (product4, branch_id))
+
+        r = s.get(f"{BASE}/pharmacy/pos/products", params={"barcode": "9900006"}, timeout=10)
+        check("legacy lookup 200", r.status_code, 200)
+        check("legacy box price 4000", r.json()["data"]["selling_price_piastres"], 4000)
+        check("legacy partial shown as 0", r.json()["data"]["partial_selling_price_piastres"], 0)
+
+        r = s.post(f"{BASE}/pharmacy/pos/sales", headers=headers, json={
+            "idempotency_key": "sale-legacy-null-abc123456",
+            "items": [
+                {"pharmacy_product_id": product4, "sale_unit": "strip", "quantity": 3},
+            ],
+        }, timeout=15)
+        print(f"  legacy strip sale -> {r.status_code} {r.text[:140]}")
+        check("legacy NULL-price strip sale 201", r.status_code, 201)
+        # fallback half-up: 4000/5 = 800 per strip -> 3 x 800 = 2400 (the 24.00 EGP from the screenshot)
+        check("3 strips at fallback 800 = 2400", r.json()["data"]["total_amount_piastres"], 2400)
+
+        r = s.post(f"{BASE}/pharmacy/pos/sales", headers=headers, json={
+            "idempotency_key": "sale-legacy-box-abc1234567",
+            "items": [
+                {"pharmacy_product_id": product4, "sale_unit": "box", "quantity": 1},
+            ],
+        }, timeout=15)
+        check("legacy box sale 201", r.status_code, 201)
+        check("1 box = 4000", r.json()["data"]["total_amount_piastres"], 4000)
+
     finally:
         if server is not None:
             server.send_signal(signal.SIGTERM)

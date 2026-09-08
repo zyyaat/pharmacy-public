@@ -7,7 +7,6 @@ import {
   pharmacyApi,
   type POSProduct,
   type POSSaleItem,
-  type PriceChangedItem,
 } from '@/lib/api'
 import { formatPiastres, stripPricePiastres } from '@/lib/money'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
@@ -84,22 +83,6 @@ export default function POSPage() {
     idempotencyKey.current = null
   }
 
-  /** Apply the authoritative prices returned with 409 price_changed to the cart. */
-  function applyPriceUpdates(updates: PriceChangedItem[]) {
-    setCart((current) => current.map((line, index) => {
-      const update = updates.find((item) => item.index === index)
-      if (!update) return line
-      const product = { ...line.product }
-      if (update.sale_unit === 'box') {
-        // For box sales the backend price is the price of one whole box.
-        product.selling_price_piastres = update.unit_price_piastres
-      } else {
-        product.partial_selling_price_piastres = update.unit_price_piastres
-      }
-      return { ...line, product }
-    }))
-  }
-
   async function checkout() {
     if (cart.length === 0 || checkoutLoading) return
     setCheckoutLoading(true)
@@ -110,16 +93,13 @@ export default function POSPage() {
     }
     const items: POSSaleItem[] = cart.map((line) => {
       const isBox = line.unitChoice === 'box'
-      const unitPrice = isBox
-        ? line.product.selling_price_piastres
-        : stripPricePiastres(line.product)
-      const quantity = isBox ? line.quantity : line.quantity * (line.unitChoice as number)
+      // The frontend is a VIEW only: it sends product + unit + quantity.
+      // The backend re-reads the authoritative prices and computes the
+      // invoice; the displayed total below comes from the backend response.
       return {
         pharmacy_product_id: line.product.id,
         sale_unit: isBox ? 'box' : 'strip',
-        quantity,
-        expected_unit_price_piastres: unitPrice,
-        expected_line_total_piastres: unitPrice * quantity,
+        quantity: isBox ? line.quantity : line.quantity * (line.unitChoice as number),
       }
     })
     try {
@@ -128,15 +108,7 @@ export default function POSPage() {
       setCart([])
       resetIdempotency()
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === 'price_changed') {
-        const updates = (cause.payload?.data as { items?: PriceChangedItem[] } | undefined)?.items
-        if (updates?.length) applyPriceUpdates(updates)
-        setError('أسعار بعض الأصناف تغيّرت وتم تحديث الفاتورة. راجع الإجمالي ثم اعتمد البيع مرة أخرى.')
-      } else {
-        setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
-        // A rejected sale (stock, network, validation) keeps its key so the
-        // cashier's immediate retry is still idempotent.
-      }
+      setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
     } finally {
       setCheckoutLoading(false)
     }
