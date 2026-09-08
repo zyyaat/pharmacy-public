@@ -3,24 +3,37 @@
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { ApiError } from '@/lib/api'
+import { isConnectivityError } from '@/lib/diagnostics'
+import { ConnectionDiagnostics } from '@/components/diagnostics-panel'
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ApiError | null>(null)
+  const [genericError, setGenericError] = useState('')
+  const [diagnosticsKey, setDiagnosticsKey] = useState(0)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError('')
+    setError(null)
+    setGenericError('')
     setLoading(true)
     try {
       await login(email, password)
       router.push('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'فشل تسجيل الدخول')
+      if (err instanceof ApiError) {
+        setError(err)
+        // Connectivity problems (server down / CORS / wrong URL) trigger the
+        // automatic diagnostics run inside the panel.
+        if (isConnectivityError(err)) setDiagnosticsKey((key) => key + 1)
+      } else {
+        setGenericError(err instanceof Error ? err.message : 'فشل تسجيل الدخول')
+      }
     } finally {
       setLoading(false)
     }
@@ -67,7 +80,29 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-muted-foreground">سجّل دخولك للوصول إلى لوحة الصيدلية.</p>
           </div>
           <form className="mt-8 space-y-5" autoComplete="on" onSubmit={handleSubmit}>
-            {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+            {error && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4" role="alert">
+                <p className="text-sm font-semibold text-destructive">{error.message}</p>
+
+                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground sm:grid-cols-3">
+                  <span>النوع: <b className="font-mono">{error.kind}</b></span>
+                  <span>الحالة: <b className="font-mono">{error.status ?? '—'}</b></span>
+                  <span>الكود: <b className="font-mono">{error.code ?? '—'}</b></span>
+                  <span className="col-span-2 sm:col-span-3 truncate">الطلب: <b className="font-mono">{error.url}</b></span>
+                  {error.requestId && (
+                    <span className="col-span-2 sm:col-span-3">request_id: <b className="font-mono">{error.requestId}</b></span>
+                  )}
+                </div>
+
+                <details className="mt-3 rounded-lg bg-background/60 p-2" open={Boolean(error.detail)}>
+                  <summary className="cursor-pointer text-xs font-medium text-destructive">التفاصيل التقنية الكاملة</summary>
+                  <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-muted-foreground" dir="ltr">
+{JSON.stringify(error.toJSON(), null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
+            {!error && genericError && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{genericError}</p>}
             <label className="block">
               <span className="mb-2 block text-sm font-medium">البريد الإلكتروني</span>
               <input
@@ -101,7 +136,12 @@ export default function LoginPage() {
               {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
             </button>
           </form>
-          <p className="mt-8 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
+
+          <div className="mt-6">
+            <ConnectionDiagnostics autoRunKey={diagnosticsKey} />
+          </div>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
         </div>
       </div>
     </div>

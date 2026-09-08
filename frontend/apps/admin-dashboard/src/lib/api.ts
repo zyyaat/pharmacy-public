@@ -1,9 +1,167 @@
 // API Client for Backend (Go) - Real Implementation
 // This client connects to our Go backend for: CRUD operations, Admin tasks
+//
+// Detailed error system: every failure throws ApiError carrying the HTTP
+// status, backend code, request_id and Arabic hint, so deployment problems
+// surface with their REAL cause instead of a generic message.
 
 import type { Company, CompanyUser, DashboardStats, Account, ActivityItem } from '@/types'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
+export type ApiErrorKind = 'network' | 'timeout' | 'http' | 'unknown'
+
+export class ApiError extends Error {
+  readonly kind: ApiErrorKind
+  readonly status: number | null
+  readonly code: string | null
+  readonly requestId: string | null
+  readonly url: string
+  readonly hint: string
+  readonly detail: string | null
+  readonly time: string
+
+  constructor(fields: {
+    kind: ApiErrorKind
+    message: string
+    url: string
+    hint: string
+    status?: number | null
+    code?: string | null
+    requestId?: string | null
+    detail?: string | null
+  }) {
+    super(fields.message)
+    this.name = 'ApiError'
+    this.kind = fields.kind
+    this.url = fields.url
+    this.hint = fields.hint
+    this.status = fields.status ?? null
+    this.code = fields.code ?? null
+    this.requestId = fields.requestId ?? null
+    this.detail = fields.detail ?? null
+    this.time = new Date().toISOString()
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      kind: this.kind,
+      message: this.message,
+      status: this.status,
+      code: this.code,
+      requestId: this.requestId,
+      url: this.url,
+      hint: this.hint,
+      detail: this.detail,
+      time: this.time,
+    }
+  }
+}
+
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL
+export const API_BASE_URL = (RAW_API_URL || '/api/v1').replace(/\/+$/, '')
+export const USING_CUSTOM_API_URL = Boolean(RAW_API_URL)
+
+const REQUEST_TIMEOUT_MS = 20_000
+
+const NETWORK_HINT = [
+  'السيرفر غير قابل للوصول من المتصفح. الأسباب الأكثر شيوعاً:',
+  '1) NEXT_PUBLIC_API_URL غير مضبوط على Vercel (أو BACKEND_URL للوسيط) — أعد النشر بعد ضبطه.',
+  '2) الباك اند متوقف — افتح https://pharmacyos.dockhosting.dev/health.',
+  '3) CORS: أضف دومين Vercel إلى CORS_ORIGINS على DockHosting (مثال: *.vercel.app).',
+  '4) جرّب تعطيل مانع الإعلانات/VPN ثم أعد المحاولة.',
+].join('\n')
+
+function arabicMessageFor(status: number | null, code: string | null, backendMessage: string): string {
+  switch (status) {
+    case 400:
+      return backendMessage ? `الطلب غير مقبول من السيرفر: ${backendMessage}` : 'الطلب غير مقبول من السيرفر (400)'
+    case 401:
+      return code === 'REFRESH_REQUIRED' || code === 'INVALID_REFRESH_SESSION'
+        ? 'انتهت صلاحية الجلسة — سجّل الدخول من جديد'
+        : 'البريد الإلكتروني أو كلمة المرور غير صحيحة (401)'
+    case 403:
+      if (code === 'EMAIL_NOT_VERIFIED') return 'لم يتم تفعيل البريد الإلكتروني — فعّل الحساب من رابط التفعيل (403)'
+      if (code === 'ACCOUNT_INACTIVE') return 'الحساب غير مفعّل/موقوف — راجع مسؤول النظام (403)'
+      return 'غير مسموح لك بتنفيذ هذا الطلب (403)'
+    case 404:
+      return 'المسار غير موجود على السيرفر (404) — تأكد من عنوان الـ API ومن أن نسخة الباك اند محدثة'
+    case 423:
+      return 'الحساب مقفول مؤقتاً بسبب 5 محاولات خاطئة — انتظر 15 دقيقة (423)'
+    case 500:
+      return 'خطأ داخلي في السيرفر (500) — راجع لوجز DockHosting وابحث عن request_id'
+    case 502:
+    case 503:
+    case 504:
+      return `الباك اند غير متاح حالياً (${status}) — راجع لوجز DockHosting`
+    default:
+      return backendMessage ? `فشل الطلب (${status}): ${backendMessage}` : `فشل الطلب (HTTP ${status ?? 'مجهول'})`
+  }
+}
+
+interface ErrorBody {
+  message?: unknown
+  error?: unknown
+  code?: unknown
+  request_id?: unknown
+  debug?: { internal_reason?: unknown } | null
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function buildNetworkError(url: string, timedOut: boolean): ApiError {
+  if (timedOut) {
+    return new ApiError({
+      kind: 'timeout',
+      url,
+      message: 'انتهت مهلة الاتصال بالسيرفر (20 ثانية بلا استجابة)',
+      hint: 'السيرفر بطيء جداً أو معلّق — راجع لوجز DockHosting.',
+    })
+  }
+  const mixed = typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')
+  return new ApiError({
+    kind: 'network',
+    url,
+    message: mixed
+      ? 'طلب محجوب: مزج HTTPS مع HTTP غير مسموح (mixed content)'
+      : 'فشل الاتصال بسيرفر الـ API — لا يمكن الوصول إلى الخادم من المتصفح',
+    hint: mixed
+      ? 'استخدم عنوان https:// للـ API.'
+      : NETWORK_HINT,
+  })
+}
+
+function buildHttpError(url: string, response: Response, body: ErrorBody | null): ApiError {
+  const backendMessage = asString(body?.message)
+  const code = asString(body?.code) ?? asString(body?.error)
+  const requestId = asString(body?.request_id) ?? response.headers.get('x-request-id')
+  const internalReason = asString(body?.debug?.internal_reason)
+  const status = response.status
+
+  let hint = 'راجع التفاصيل التقنية.'
+  if (status === 401) hint = 'تأكد من بيانات الدخول ومن وجود الحساب في قاعدة البيانات المتصلة.'
+  else if (status === 404) hint = `المسار ${url} غير موجود — تأكد من NEXT_PUBLIC_API_URL ونسخة الباك اند.`
+  else if (status >= 500) hint = 'افتح لوجز DockHosting وابحث عن request_id نفسه.'
+
+  const detail = internalReason
+    ? `internal_reason: ${internalReason}`
+    : backendMessage
+      ? `server_message: ${backendMessage}`
+      : `body: ${JSON.stringify(body ?? {})}`
+
+  return new ApiError({
+    kind: 'http',
+    url,
+    message: arabicMessageFor(status, code, backendMessage),
+    hint,
+    status,
+    code,
+    requestId,
+    detail,
+  })
+}
+
 let refreshPromise: Promise<boolean> | null = null
 
 // Generic fetch wrapper with auth
@@ -46,27 +204,36 @@ async function apiFetch<T>(
     if (csrf) headers['X-CSRF-Token'] = decodeURIComponent(csrf)
   }
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let timedOut = false
+
+  let response: Response
   try {
-    const response = await fetch(url, {
+    response = await fetch(url, {
       ...options,
       headers,
       credentials: 'include',
+      signal: options.signal ?? controller.signal,
     })
-
-    if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
-      if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }))
-      throw new Error(error.message || `API Error: ${response.status}`)
-    }
-
-    return await response.json()
-  } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error)
-    throw error
+  } catch (fetchError) {
+    if (fetchError instanceof DOMException && fetchError.name === 'AbortError') timedOut = true
+    throw buildNetworkError(url, timedOut)
+  } finally {
+    clearTimeout(timer)
   }
+
+  if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
+    if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
+  }
+
+  const body = (await response.json().catch(() => null)) as ErrorBody | null
+
+  if (!response.ok) {
+    throw buildHttpError(url, response, body)
+  }
+
+  return body as T
 }
 
 // ============================================
