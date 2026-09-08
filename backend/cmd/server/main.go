@@ -51,9 +51,14 @@ func main() {
 	}
 
 	if cfg.IsProduction() {
+		// The shared startup context may already be spent after a long cold
+		// migration run against a fresh database, so the super admin bootstrap
+		// gets its own time budget instead of reusing the ping context.
+		bootstrapCtx, cancelBootstrap := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancelBootstrap()
 		bootstrap := auth.NewService(db, auth.Config{})
 		if err := bootstrap.BootstrapSuperAdmin(
-			ctx,
+			bootstrapCtx,
 			cfg.BootstrapSuperAdminEmail,
 			cfg.BootstrapSuperAdminPassword,
 			cfg.BootstrapSuperAdminFirstName,
