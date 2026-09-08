@@ -239,6 +239,20 @@ export const pharmacyApi = {
       body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
     })
   },
+  listPOSSales(limit = 20, offset = 0, search = '') {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    if (search) params.set('search', search)
+    return apiFetch<{ data: POSSalesPage }>(`/pharmacy/pos/sales?${params.toString()}`)
+  },
+  getPOSSale(saleId: string) {
+    return apiFetch<{ data: POSSaleDetail }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}`)
+  },
+  createPOSSaleReturn(saleId: string, items: POSReturnItemInput[], reason: string, idempotencyKey?: string) {
+    return apiFetch<{ data: POSReturnResult }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}/returns`, {
+      method: 'POST',
+      body: JSON.stringify({ items, reason, idempotency_key: idempotencyKey }),
+    })
+  },
   getEmployees() {
     return apiFetch<{ data: PharmacyEmployee[]; total: number }>('/pharmacy/employees')
   },
@@ -297,4 +311,83 @@ export interface PriceChangedItem {
   quantity: number
   unit_price_piastres: number
   line_total_piastres: number
+}
+
+// ---------------------------------------------------------------------------
+// Sales history + returns (credit notes)
+// ---------------------------------------------------------------------------
+
+export type POSSaleStatus = 'completed' | 'partially_returned' | 'returned'
+
+export interface POSSaleReturnSummary {
+  id: string
+  return_number: number
+  total_amount_piastres: number
+  reason: string
+  created_at: string
+  quantity_base?: number
+}
+
+export interface POSSaleSummary {
+  id: string
+  invoice_number: number
+  status: POSSaleStatus
+  total_amount_piastres: number
+  created_at: string
+  products_count: number
+  total_quantity_base: number
+  returned_amount_piastres: number
+  returns: POSSaleReturnSummary[]
+}
+
+export interface POSSalesPage {
+  sales: POSSaleSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface POSSaleItemRow {
+  sale_item_id: string
+  pharmacy_product_id: string
+  product_name: string
+  generic_name: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  sale_unit: 'box' | 'strip'
+  batch_number: string
+  quantity_base: number
+  unit_price_piastres: number
+  amount_piastres: number
+  returned_quantity_base: number
+  returnable_quantity_base: number
+  returned_amount_piastres: number
+}
+
+export interface POSSaleDetail {
+  sale: {
+    id: string
+    invoice_number: number
+    status: POSSaleStatus
+    total_amount_piastres: number
+    created_at: string
+    returned_amount_piastres: number
+    returns: POSSaleReturnSummary[]
+  }
+  items: POSSaleItemRow[]
+}
+
+export interface POSReturnItemInput {
+  sale_item_id: string
+  quantity: number
+}
+
+export interface POSReturnResult {
+  return_id: string
+  return_number: number
+  total_amount_piastres: number
+  sale_status: POSSaleStatus
+  replayed: boolean
+  items?: Array<{ sale_item_id: string; quantity: number; amount_piastres: number }>
 }
