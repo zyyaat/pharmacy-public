@@ -78,8 +78,7 @@ var migrationChain = []migration{
                 name: "00000000000014_money_piastres.sql",
         },
         {
-                name:          "00000000000015_sales_history_returns.sql",
-                legacyMarkers: []string{"sale_returns"},
+                name: "00000000000015_sales_history_returns.sql",
         },
 }
 
