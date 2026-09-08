@@ -4,7 +4,27 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Package, Plus, Search, ShoppingCart } from 'lucide-react'
 import { pharmacyApi, type PharmacyInventoryItem } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+
+const statusLabels: Record<string, { label: string; variant: 'destructive' | 'warning' | 'secondary' | 'success' | 'outline' }> = {
+  out_of_stock: { label: 'نفذ', variant: 'destructive' },
+  low_stock: { label: 'منخفض', variant: 'warning' },
+  expiring_soon: { label: 'قريب الانتهاء', variant: 'secondary' },
+  quarantined: { label: 'محجوز', variant: 'outline' },
+  normal: { label: 'متوفر', variant: 'success' },
+}
+
+function formatQuantity(item: PharmacyInventoryItem): string {
+  if (item.packaging_type === 'BOX_STRIP') {
+    const boxes = Math.floor(item.quantity / item.units_per_box)
+    const strips = item.quantity % item.units_per_box
+    if (boxes === 0 && strips === 0) return 'نفذ من المخزون'
+    if (boxes === 0) return `${new Intl.NumberFormat('ar-EG').format(strips)} شريط`
+    if (strips === 0) return `${new Intl.NumberFormat('ar-EG').format(boxes)} علبة`
+    return `${new Intl.NumberFormat('ar-EG').format(boxes)} علبة و${new Intl.NumberFormat('ar-EG').format(strips)} شريط`
+  }
+  return `${new Intl.NumberFormat('ar-EG').format(item.quantity)} عبوة`
+}
 
 export default function InventoryPage() {
   const [items, setItems] = useState<PharmacyInventoryItem[]>([])
@@ -41,7 +61,7 @@ export default function InventoryPage() {
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" />الأصناف المتاحة</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" />كل الأصناف</CardTitle>
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث بالاسم أو الباركود" className="h-10 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-ring" />
@@ -50,7 +70,7 @@ export default function InventoryPage() {
         <CardContent>
           {loading && <p className="py-10 text-center text-muted-foreground">جاري تحميل المخزون...</p>}
           {error && !loading && <p className="py-10 text-center text-destructive">{error}</p>}
-          {!loading && !error && filteredItems.length === 0 && <p className="py-10 text-center text-muted-foreground">لا توجد أصناف مسجلة في هذه الصيدلية</p>}
+          {!loading && !error && filteredItems.length === 0 && <p className="py-10 text-center text-muted-foreground">لا توجد أصناف مطابقة</p>}
           {!loading && !error && filteredItems.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-right text-sm">
@@ -64,12 +84,16 @@ export default function InventoryPage() {
                       <td className="p-3">{item.batch_number}</td>
                       <td className="p-3">{item.branch_name || 'كل الفروع'}</td>
                       <td className="p-3 font-semibold">
-                        {item.packaging_type === 'BOX_STRIP'
-                          ? `${Math.floor(item.quantity / item.units_per_box)} علبة و${item.quantity % item.units_per_box} شريط`
-                          : `${new Intl.NumberFormat('ar-EG').format(item.quantity)} عبوة`}
+                        {item.quantity <= 0
+                          ? <span className="text-destructive">نفذ من المخزون</span>
+                          : formatQuantity(item)}
                       </td>
                       <td className="p-3">{item.expiry_date || '—'}</td>
-                      <td className="p-3">{item.status === 'low_stock' ? 'منخفض' : item.status === 'expiring_soon' ? 'قريب الانتهاء' : item.status === 'quarantined' ? 'محجوز' : 'طبيعي'}</td>
+                      <td className="p-3">
+                        <Badge variant={statusLabels[item.status]?.variant ?? 'outline'}>
+                          {statusLabels[item.status]?.label ?? item.status}
+                        </Badge>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
