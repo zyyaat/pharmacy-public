@@ -303,11 +303,38 @@ export interface LoginResponse {
   expires_in: number
 }
 
+export interface RegisterInput {
+  companyName: string
+  companyEmail: string
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+}
+
 export const authApi = {
+  register(input: RegisterInput) {
+    return apiFetch<{ user?: Record<string, unknown>; message?: string; email_verified?: boolean }>(
+      '/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          company_name: input.companyName,
+          company_email: input.companyEmail,
+          first_name: input.firstName,
+          last_name: input.lastName,
+          email: input.email,
+          password: input.password,
+        }),
+      },
+    )
+  },
   login(email: string, password: string) {
+    // account_type intentionally omitted: the backend tries the owner and
+    // employee tables when no type is given, so both can sign in here.
     return apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, account_type: 'employee' }),
+      body: JSON.stringify({ email, password }),
     })
   },
   me() {

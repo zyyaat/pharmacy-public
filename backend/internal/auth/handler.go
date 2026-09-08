@@ -180,6 +180,8 @@ func (h *Handler) login(c *gin.Context) {
                         writeErrorDetail(c, http.StatusForbidden, "account_inactive", "Account is inactive", err.Error())
                 case errors.Is(err, ErrEmailNotVerified):
                         writeErrorDetail(c, http.StatusForbidden, "email_not_verified", "Please verify your email before signing in", err.Error())
+                case errors.Is(err, ErrAmbiguousAccount):
+                        writeError(c, http.StatusConflict, "ambiguous_account", "This email exists as both a company owner and an employee; contact support to resolve it")
                 case errors.Is(err, ErrInvalidCredentials):
                         log.Printf("[AUTH] login failed: email=%s principal_type=%s reason=%q request_id=%s",
                                 req.Email, req.AccountType, err.Error(), requestIDFrom(c))

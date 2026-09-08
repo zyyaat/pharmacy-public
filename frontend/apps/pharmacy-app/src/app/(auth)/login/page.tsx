@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { ApiError } from '@/lib/api'
@@ -141,10 +142,13 @@ export default function LoginPage() {
             <ConnectionDiagnostics autoRunKey={diagnosticsKey} />
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
-          <p className="mt-2 text-center text-xs leading-6 text-muted-foreground">
-            هذه البوابة خاصة بموظفي الصيدلية — حساب المالك يُنشأ ويُستخدم من لوحة تحكم الشركة (Admin Dashboard)
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            ليس لديك حساب؟{' '}
+            <Link className="font-medium text-primary hover:underline" href="/register">
+              أنشئ حساب جديد
+            </Link>
           </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
         </div>
       </div>
     </div>
