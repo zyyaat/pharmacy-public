@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import BrandSplash from "@/components/brand-splash";
 import { useAuth } from "@/hooks/useAuth";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -23,15 +24,11 @@ export default function DashboardLayout({
     }
   }, [loading, user, router, pathname]);
 
-  if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        جاري التحقق من الجلسة...
-      </div>
-    );
-  }
-
   return (
+    <>
+      {/* شاشة الافتتاحية أثناء التحقق من الجلسة — بتختفي بنعومة فوق الواجهة */}
+      <BrandSplash show={loading || !user} />
+      {user && (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar 
@@ -48,5 +45,7 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+      )}
+    </>
   );
 }

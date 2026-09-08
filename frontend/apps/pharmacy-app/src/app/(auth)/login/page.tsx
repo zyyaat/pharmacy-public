@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import BrandSplash from '@/components/brand-splash'
 import { ApiError } from '@/lib/api'
 import { getSafeRedirectPath } from '@/lib/navigation'
 
@@ -45,11 +46,7 @@ export default function LoginPage() {
   }
 
   if (authLoading || (user && redirectPath)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        جاري التحقق من الجلسة...
-      </div>
-    )
+    return <BrandSplash />
   }
 
   return (

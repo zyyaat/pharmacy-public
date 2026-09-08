@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import BrandSplash from "@/components/brand-splash";
 import { ApiError } from "@/lib/api";
 import { getSafeRedirectPath } from "@/lib/navigation";
 
@@ -69,11 +70,7 @@ export default function LoginPage() {
   };
 
   if (authLoading || (user && redirectPath)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        جاري التحقق من الجلسة...
-      </div>
-    );
+    return <BrandSplash />;
   }
 
   return (
