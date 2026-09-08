@@ -73,12 +73,14 @@ func (r *CompanyUserPermissionRepository) Revoke(
         revokedBy string,
         reason string,
 ) error {
+        // NOTE: is_active is a GENERATED ALWAYS column (revoked_at IS NULL),
+        // so it must never be written directly (PostgreSQL error 428C9).
+        // Setting revoked_at is enough — is_active flips to false automatically.
         const query = `
                 UPDATE company_user_permissions SET
                         revoked_by = $1,
                         revoked_at = NOW(),
-                        revocation_reason = $2,
-                        is_active = false
+                        revocation_reason = $2
                 WHERE company_user_id = $3
                   AND permission_id = (SELECT id FROM permissions WHERE key = $4)
                   AND is_active = true
@@ -268,12 +270,14 @@ func (r *CompanyUserPermissionRepository) BatchGrant(
 
 // RevokeAll revokes all permissions for a user (e.g., when deactivating)
 func (r *CompanyUserPermissionRepository) RevokeAll(ctx context.Context, companyUserID string, revokedBy string) error {
+        // NOTE: is_active is a GENERATED ALWAYS column (revoked_at IS NULL),
+        // so it must never be written directly (PostgreSQL error 428C9).
+        // Setting revoked_at is enough — is_active flips to false automatically.
         const query = `
                 UPDATE company_user_permissions SET
                         revoked_by = $1,
                         revoked_at = NOW(),
-                        revocation_reason = 'All permissions revoked',
-                        is_active = false
+                        revocation_reason = 'All permissions revoked'
                 WHERE company_user_id = $2 AND is_active = true
         `
 

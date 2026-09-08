@@ -360,13 +360,21 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 	// The central registration flow must provision the same minimum company
 	// permissions as the legacy registration handler. Do this before commit so
 	// a newly verified owner can immediately use the authenticated API.
+	//
+	// NOTE: company_user_permissions.is_active is a GENERATED ALWAYS column
+	// (computed as revoked_at IS NULL), so it must never be written directly
+	// (PostgreSQL error 428C9: column can only be updated to DEFAULT). The
+	// only unique index on this table is PARTIAL (WHERE revoked_at IS NULL),
+	// therefore we use a target-less ON CONFLICT DO NOTHING, which matches
+	// any unique index without naming an arbiter and never writes generated
+	// columns. Rows cannot pre-exist here anyway: the company user was
+	// created earlier in this same transaction.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO company_user_permissions (company_user_id, permission_id, granted_by, notes)
 		SELECT $1, p.id, $1, 'Initial company owner permissions'
 		FROM permissions p
 		WHERE p.key = ANY($2::text[])
-		ON CONFLICT (company_user_id, permission_id)
-		DO UPDATE SET is_active = true, revoked_at = NULL, revocation_reason = NULL
+		ON CONFLICT DO NOTHING
 	`, userID, []string{
 		"companies.view", "companies.update",
 		"company_users.view", "company_users.create", "company_users.update",

@@ -460,8 +460,7 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyUserPermissions() {
 			UPDATE company_user_permissions SET
 				revoked_by = $2,
 				revoked_at = NOW(),
-				revocation_reason = 'Test revocation',
-				is_active = false
+				revocation_reason = 'Test revocation'
 			WHERE company_user_id = $1
 			  AND permission_id = (SELECT id FROM permissions WHERE key = 'accounts.view')
 			  AND is_active = true
