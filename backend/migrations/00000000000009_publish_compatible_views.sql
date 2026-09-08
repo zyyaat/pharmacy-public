@@ -4,6 +4,120 @@
 -- before restoring custom enum types. Keep view output stable for the API while
 -- avoiding enum references in those placeholder definitions.
 
+-- ------------------------------------------------------------------
+-- Legacy schema reconciliation (idempotent).
+--
+-- Some databases carry a partial copy of an earlier schema that predates
+-- one or more ALTER statements from holding_company.sql (most notably
+-- accounts.deleted_at). The views below reference those columns, so make
+-- sure they exist before creating anything. Every statement is additive
+-- (ADD COLUMN IF NOT EXISTS, no NOT NULL / UNIQUE enforcement) and safe
+-- to run repeatedly; on an up-to-date database they are all no-ops.
+-- ------------------------------------------------------------------
+
+ALTER TABLE accounts
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
+ALTER TABLE accounts
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS name_ar VARCHAR(255);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS legal_name VARCHAR(255);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS registration_number VARCHAR(100);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS website VARCHAR(255);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS address_line1 VARCHAR(255);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS address_line2 VARCHAR(255);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS state_province VARCHAR(100);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'EG';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS status company_status DEFAULT 'trial';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS plan company_plan DEFAULT 'free';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS subscription_current_period_start TIMESTAMPTZ;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMPTZ;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS max_accounts INTEGER DEFAULT 1;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS max_users_per_account INTEGER DEFAULT 10;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS default_currency VARCHAR(10) DEFAULT 'EGP';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS timezone VARCHAR(100) DEFAULT 'Africa/Cairo';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT 'ar-EG';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS primary_color VARCHAR(7);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(7);
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS is_active BOOLEAN GENERATED ALWAYS AS (deleted_at IS NULL) STORED;
+
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS login_attempts INTEGER DEFAULT 0;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS display_name VARCHAR(200);
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS permission_version INTEGER DEFAULT 0;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255);
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255);
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';
+ALTER TABLE company_users
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+ALTER TABLE pharmacies
+    ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+ALTER TABLE pharmacies
+    ADD COLUMN IF NOT EXISTS is_main_branch BOOLEAN DEFAULT true;
+ALTER TABLE pharmacies
+    ADD COLUMN IF NOT EXISTS default_branch_id UUID;
+ALTER TABLE pharmacies
+    ADD COLUMN IF NOT EXISTS currency currency_code;
+
+ALTER TABLE branches
+    ADD COLUMN IF NOT EXISTS code VARCHAR(50);
+ALTER TABLE branches
+    ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+
 DROP VIEW IF EXISTS current_inventory;
 DROP VIEW IF EXISTS v_company_summary;
 DROP VIEW IF EXISTS v_company_user_with_permissions;
