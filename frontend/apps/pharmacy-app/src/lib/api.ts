@@ -13,12 +13,14 @@ let refreshPromise: Promise<boolean> | null = null
 export class ApiError extends Error {
   code: string
   status: number
+  payload: Record<string, unknown>
 
-  constructor(message: string, code: string, status: number) {
+  constructor(message: string, code: string, status: number, payload: Record<string, unknown> = {}) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
+    this.payload = payload
   }
 }
 
@@ -70,6 +72,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
       body.message || 'API request failed',
       body.code || body.error || 'API_ERROR',
       response.status,
+      body,
     )
   }
   return body as T
@@ -154,12 +157,12 @@ export interface PharmacyInventoryItem {
   batch_number: string
   unit: string
   quantity: number
-  cost_per_unit: number
-  total_cost: number
+  cost_per_unit_piastres: number
+  total_cost_piastres: number
   expiry_date: string | null
   days_until_expiry: number | null
-  selling_price: number
-  partial_selling_price: number
+  selling_price_piastres: number
+  partial_selling_price_piastres: number
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
   min_stock_level: number
@@ -230,10 +233,10 @@ export const pharmacyApi = {
   lookupPOSProduct(barcode: string) {
     return apiFetch<{ data: POSProduct }>(`/pharmacy/pos/products?barcode=${encodeURIComponent(barcode)}`)
   },
-  createPOSSale(items: POSSaleItem[]) {
-    return apiFetch<{ data: { sale_id: string; total_amount: number } }>('/pharmacy/pos/sales', {
+  createPOSSale(items: POSSaleItem[], idempotencyKey?: string) {
+    return apiFetch<{ data: { sale_id: string; total_amount_piastres: number; replayed: boolean } }>('/pharmacy/pos/sales', {
       method: 'POST',
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
     })
   },
   getEmployees() {
@@ -254,8 +257,8 @@ export interface PharmacyProduct {
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
-  selling_price: number
-  partial_selling_price: number
+  selling_price_piastres: number
+  partial_selling_price_piastres: number
   stock: number
 }
 
@@ -269,9 +272,9 @@ export interface CreatePharmacyProductInput {
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
-  cost_price: number
-  selling_price: number
-  partial_selling_price: number | null
+  cost_price_piastres: number
+  selling_price_piastres: number
+  partial_selling_price_piastres: number | null
   min_stock_level: number
   initial_boxes: number
   initial_strips: number
@@ -283,4 +286,15 @@ export interface POSSaleItem {
   pharmacy_product_id: string
   sale_unit: 'box' | 'strip'
   quantity: number
+  expected_unit_price_piastres?: number
+  expected_line_total_piastres?: number
+}
+
+export interface PriceChangedItem {
+  index: number
+  pharmacy_product_id: string
+  sale_unit: 'box' | 'strip'
+  quantity: number
+  unit_price_piastres: number
+  line_total_piastres: number
 }

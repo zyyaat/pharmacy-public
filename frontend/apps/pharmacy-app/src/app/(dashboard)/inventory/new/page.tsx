@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FormEvent, useState } from 'react'
 import { ArrowRight, PackagePlus } from 'lucide-react'
 import { ApiError, pharmacyApi, type CreatePharmacyProductInput } from '@/lib/api'
+import { parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
 
 const dosageForms = [
@@ -23,30 +24,65 @@ export default function NewProductPage() {
   const [packagingType, setPackagingType] = useState<CreatePharmacyProductInput['packaging_type']>('WHOLE_ONLY')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [priceError, setPriceError] = useState<string | null>(null)
+
+  /** Suggest a strip price (half-up) whenever the user has not typed one yet. */
+  function suggestStripPrice(form: HTMLFormElement) {
+    const stripField = form.elements.namedItem('partial_selling_price') as HTMLInputElement | null
+    if (!stripField || stripField.value.trim()) return
+    const boxPiastres = parseEGPToPiastres((form.elements.namedItem('selling_price') as HTMLInputElement)?.value || '')
+    const units = Number((form.elements.namedItem('units_per_box') as HTMLInputElement)?.value || 0)
+    if (boxPiastres === null || units < 2) return
+    stripField.value = piastresToEGPInput(Math.round(boxPiastres / units))
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true)
     setError(null)
-    const form = new FormData(event.currentTarget)
+    setPriceError(null)
+    const form = event.currentTarget
+    const data = new FormData(form)
+
+    const costPiastres = parseEGPToPiastres(String(data.get('cost_price') || ''))
+    const sellingPiastres = parseEGPToPiastres(String(data.get('selling_price') || ''))
+    const partialRaw = String(data.get('partial_selling_price') || '').trim()
+    let partialPiastres: number | null = null
+    if (packagingType === 'BOX_STRIP') {
+      if (!partialRaw) {
+        setPriceError('سعر بيع الشريط مطلوب للمنتجات التي تُباع بالشرائط (تم اقتراح قيمة تلقائياً — عدّلها إذا لزم).')
+        setSaving(false)
+        return
+      }
+      partialPiastres = parseEGPToPiastres(partialRaw)
+      if (partialPiastres === null) {
+        setPriceError('سعر بيع الشريط غير صالح. اكتب المبلغ بالجنيه مثل 17.55')
+        setSaving(false)
+        return
+      }
+    }
+    if (costPiastres === null || sellingPiastres === null) {
+      setPriceError('أسعار الشراء والبيع مطلوبة بالجنيه مثل 105.50')
+      setSaving(false)
+      return
+    }
+
     const value: CreatePharmacyProductInput = {
-      name: String(form.get('name') || '').trim(),
-      generic_name: String(form.get('generic_name') || '').trim(),
-      dosage_form: String(form.get('dosage_form') || 'tablet'),
-      strength: String(form.get('strength') || '').trim(),
-      barcode: String(form.get('barcode') || '').trim(),
+      name: String(data.get('name') || '').trim(),
+      generic_name: String(data.get('generic_name') || '').trim(),
+      dosage_form: String(data.get('dosage_form') || 'tablet'),
+      strength: String(data.get('strength') || '').trim(),
+      barcode: String(data.get('barcode') || '').trim(),
       packaging_type: packagingType,
-      units_per_box: packagingType === 'BOX_STRIP' ? Number(form.get('units_per_box') || 0) : 1,
-      cost_price: Number(form.get('cost_price') || 0),
-      selling_price: Number(form.get('selling_price') || 0),
-      partial_selling_price: packagingType === 'BOX_STRIP' && String(form.get('partial_selling_price') || '').trim()
-        ? Number(form.get('partial_selling_price'))
-        : null,
-      min_stock_level: Number(form.get('min_stock_level') || 0),
-      initial_boxes: Number(form.get('initial_boxes') || 0),
-      initial_strips: packagingType === 'BOX_STRIP' ? Number(form.get('initial_strips') || 0) : 0,
-      batch_number: String(form.get('batch_number') || '').trim(),
-      expiry_date: String(form.get('expiry_date') || ''),
+      units_per_box: packagingType === 'BOX_STRIP' ? Number(data.get('units_per_box') || 0) : 1,
+      cost_price_piastres: costPiastres,
+      selling_price_piastres: sellingPiastres,
+      partial_selling_price_piastres: partialPiastres,
+      min_stock_level: Number(data.get('min_stock_level') || 0),
+      initial_boxes: Number(data.get('initial_boxes') || 0),
+      initial_strips: packagingType === 'BOX_STRIP' ? Number(data.get('initial_strips') || 0) : 0,
+      batch_number: String(data.get('batch_number') || '').trim(),
+      expiry_date: String(data.get('expiry_date') || ''),
     }
     try {
       await pharmacyApi.createProduct(value)
@@ -108,8 +144,16 @@ export default function NewProductPage() {
             </div>
             {packagingType === 'BOX_STRIP' && (
               <div className="grid gap-4 rounded-xl bg-primary/5 p-4 sm:grid-cols-2">
-                <Input name="units_per_box" label="عدد الشرائط داخل العلبة" type="number" min="2" step="1" required />
-                <Input name="partial_selling_price" label="سعر بيع الشريط" type="number" min="0" step="0.01" placeholder="اختياري" />
+                <Input
+                  name="units_per_box"
+                  label="عدد الشرائط داخل العلبة"
+                  type="number"
+                  min="2"
+                  step="1"
+                  required
+                  onBlur={(event) => suggestStripPrice(event.currentTarget.form as HTMLFormElement)}
+                />
+                <Input name="partial_selling_price" label="سعر بيع الشريط (جنيه)" type="number" min="0" step="0.01" required placeholder="مثال: 17.55" />
               </div>
             )}
           </CardContent>
@@ -121,8 +165,17 @@ export default function NewProductPage() {
             <CardDescription>في حالة الشرائط، سعر الشراء للعلبة والمخزون يتحولان داخليًا إلى شرائط.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Input name="cost_price" label="سعر الشراء للعبوة" type="number" min="0" step="0.01" required />
-            <Input name="selling_price" label="سعر بيع العبوة" type="number" min="0" step="0.01" required />
+            <Input name="cost_price" label="سعر الشراء للعبوة (جنيه)" type="number" min="0" step="0.01" required placeholder="مثال: 80.00" />
+            <Input
+              name="selling_price"
+              label="سعر بيع العبوة (جنيه)"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="مثال: 105.50"
+              onBlur={(event) => suggestStripPrice(event.currentTarget.form as HTMLFormElement)}
+            />
             <Input name="min_stock_level" label="حد إعادة الطلب (بالوحدة الأساسية)" type="number" min="0" step="1" defaultValue="0" />
             <Input name="initial_boxes" label={packagingType === 'BOX_STRIP' ? 'عدد العلب المستلمة' : 'الكمية الافتتاحية'} type="number" min="0" step="1" defaultValue="0" />
             {packagingType === 'BOX_STRIP' && <Input name="initial_strips" label="عدد الشرائط الإضافية" type="number" min="0" step="1" defaultValue="0" />}
@@ -131,6 +184,7 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
 
+        {priceError && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{priceError}</p>}
         {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-3">
           <Button asChild variant="outline"><Link href="/inventory">إلغاء</Link></Button>

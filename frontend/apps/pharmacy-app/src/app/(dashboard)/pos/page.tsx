@@ -2,7 +2,14 @@
 
 import { FormEvent, useMemo, useRef, useState } from 'react'
 import { Barcode, Minus, Plus, ReceiptText, Trash2 } from 'lucide-react'
-import { ApiError, pharmacyApi, type POSProduct, type POSSaleItem } from '@/lib/api'
+import {
+  ApiError,
+  pharmacyApi,
+  type POSProduct,
+  type POSSaleItem,
+  type PriceChangedItem,
+} from '@/lib/api'
+import { formatPiastres, stripPricePiastres } from '@/lib/money'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
 
 type CartLine = {
@@ -13,9 +20,18 @@ type CartLine = {
 
 function unitLabel(line: CartLine) {
   if (line.unitChoice === 'box') return 'علبة كاملة'
-  if (line.unitChoice === 1) return `${line.quantity} شريط`
-  if (line.unitChoice === 2) return `${line.quantity * 2} شريطين`
-  return `${line.quantity * line.unitChoice} شرائط`
+  const total = line.quantity * line.unitChoice
+  if (total === 1) return 'شريط واحد'
+  if (total === 2) return 'شريطان'
+  return `${total} شرائط`
+}
+
+/** Revenue of one line, exact in integer piastres. */
+function lineTotalPiastres(line: CartLine): number {
+  if (line.unitChoice === 'box') {
+    return line.product.selling_price_piastres * line.quantity
+  }
+  return stripPricePiastres(line.product) * line.unitChoice * line.quantity
 }
 
 export default function POSPage() {
@@ -26,6 +42,9 @@ export default function POSPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const barcodeInput = useRef<HTMLInputElement>(null)
+  // One idempotency key per invoice attempt chain: retries of the same
+  // checkout reuse it, so a network hiccup can never create a second sale.
+  const idempotencyKey = useRef<string | null>(null)
 
   async function addByBarcode(event?: FormEvent) {
     event?.preventDefault()
@@ -52,15 +71,33 @@ export default function POSPage() {
     }
   }
 
-  const total = useMemo(() => cart.reduce((sum, line) => {
-    const price = line.unitChoice === 'box'
-      ? line.product.selling_price
-      : (line.product.partial_selling_price || line.product.selling_price / line.product.units_per_box) * line.unitChoice
-    return sum + price * line.quantity
-  }, 0), [cart])
+  const total = useMemo(
+    () => cart.reduce((sum, line) => sum + lineTotalPiastres(line), 0),
+    [cart],
+  )
 
   function updateLine(index: number, change: Partial<CartLine>) {
     setCart((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...change } : line))
+  }
+
+  function resetIdempotency() {
+    idempotencyKey.current = null
+  }
+
+  /** Apply the authoritative prices returned with 409 price_changed to the cart. */
+  function applyPriceUpdates(updates: PriceChangedItem[]) {
+    setCart((current) => current.map((line, index) => {
+      const update = updates.find((item) => item.index === index)
+      if (!update) return line
+      const product = { ...line.product }
+      if (update.sale_unit === 'box') {
+        // For box sales the backend price is the price of one whole box.
+        product.selling_price_piastres = update.unit_price_piastres
+      } else {
+        product.partial_selling_price_piastres = update.unit_price_piastres
+      }
+      return { ...line, product }
+    }))
   }
 
   async function checkout() {
@@ -68,17 +105,38 @@ export default function POSPage() {
     setCheckoutLoading(true)
     setError(null)
     setMessage(null)
-    const items: POSSaleItem[] = cart.map((line) => ({
-      pharmacy_product_id: line.product.id,
-      sale_unit: line.unitChoice === 'box' ? 'box' : 'strip',
-      quantity: line.unitChoice === 'box' ? line.quantity : line.quantity * line.unitChoice,
-    }))
+    if (!idempotencyKey.current && typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      idempotencyKey.current = crypto.randomUUID()
+    }
+    const items: POSSaleItem[] = cart.map((line) => {
+      const isBox = line.unitChoice === 'box'
+      const unitPrice = isBox
+        ? line.product.selling_price_piastres
+        : stripPricePiastres(line.product)
+      const quantity = isBox ? line.quantity : line.quantity * (line.unitChoice as number)
+      return {
+        pharmacy_product_id: line.product.id,
+        sale_unit: isBox ? 'box' : 'strip',
+        quantity,
+        expected_unit_price_piastres: unitPrice,
+        expected_line_total_piastres: unitPrice * quantity,
+      }
+    })
     try {
-      const response = await pharmacyApi.createPOSSale(items)
-      setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(response.data.total_amount)}`)
+      const response = await pharmacyApi.createPOSSale(items, idempotencyKey.current || undefined)
+      setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${formatPiastres(response.data.total_amount_piastres)}`)
       setCart([])
+      resetIdempotency()
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
+      if (cause instanceof ApiError && cause.code === 'price_changed') {
+        const updates = (cause.payload?.data as { items?: PriceChangedItem[] } | undefined)?.items
+        if (updates?.length) applyPriceUpdates(updates)
+        setError('أسعار بعض الأصناف تغيّرت وتم تحديث الفاتورة. راجع الإجمالي ثم اعتمد البيع مرة أخرى.')
+      } else {
+        setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
+        // A rejected sale (stock, network, validation) keeps its key so the
+        // cashier's immediate retry is still idempotent.
+      }
     } finally {
       setCheckoutLoading(false)
     }
@@ -110,7 +168,7 @@ export default function POSPage() {
             <CardTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />الفاتورة الحالية</CardTitle>
             <CardDescription>{cart.length ? `${cart.length} أصناف` : 'لم تتم إضافة أصناف بعد'}</CardDescription>
           </div>
-          {cart.length > 0 && <Button variant="ghost" onClick={() => setCart([])}>تفريغ الفاتورة</Button>}
+          {cart.length > 0 && <Button variant="ghost" onClick={() => { setCart([]); resetIdempotency() }}>تفريغ الفاتورة</Button>}
         </CardHeader>
         <CardContent>
           {cart.length === 0 ? (
@@ -118,9 +176,7 @@ export default function POSPage() {
           ) : (
             <div className="space-y-3">
               {cart.map((line, index) => {
-                const price = line.unitChoice === 'box'
-                  ? line.product.selling_price
-                  : (line.product.partial_selling_price || line.product.selling_price / line.product.units_per_box) * line.unitChoice
+                const lineTotal = lineTotalPiastres(line)
                 const maxBase = line.product.stock
                 const requestedBase = line.quantity * (line.unitChoice === 'box' ? line.product.units_per_box : line.unitChoice)
                 return (
@@ -149,7 +205,7 @@ export default function POSPage() {
                     </div>
                     <div className="text-left md:text-right">
                       <p className="text-xs text-muted-foreground">{unitLabel(line)}</p>
-                      <p className="mt-1 font-semibold">{new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(price * line.quantity)}</p>
+                      <p className="mt-1 font-semibold">{formatPiastres(lineTotal)}</p>
                       {requestedBase > maxBase && <p className="mt-1 text-xs text-destructive">الكمية تتجاوز المخزون</p>}
                     </div>
                     <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setCart((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label="حذف الصنف"><Trash2 className="h-4 w-4" /></Button>
@@ -157,9 +213,9 @@ export default function POSPage() {
                 )
               })}
               <div className="flex flex-col items-end gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-muted-foreground">سيعيد الباك إند التحقق من المخزون قبل الخصم.</div>
+                <div className="text-sm text-muted-foreground">الحساب هنا فوري للعرض، والباك إند يعيد التحقق من الأسعار والمخزون عند الاعتماد.</div>
                 <div className="flex items-center gap-5">
-                  <div><span className="text-sm text-muted-foreground">الإجمالي</span><p className="text-2xl font-bold text-primary">{new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(total)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">الإجمالي</span><p className="text-2xl font-bold text-primary">{formatPiastres(total)}</p></div>
                   <Button onClick={checkout} loading={checkoutLoading}>إتمام البيع</Button>
                 </div>
               </div>
