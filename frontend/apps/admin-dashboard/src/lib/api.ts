@@ -71,7 +71,7 @@ const NETWORK_HINT = [
   '4) جرّب تعطيل مانع الإعلانات/VPN ثم أعد المحاولة.',
 ].join('\n')
 
-function arabicMessageFor(status: number | null, code: string | null, backendMessage: string): string {
+function arabicMessageFor(status: number | null, code: string | null, backendMessage: string | null): string {
   switch (status) {
     case 400:
       return backendMessage ? `الطلب غير مقبول من السيرفر: ${backendMessage}` : 'الطلب غير مقبول من السيرفر (400)'

@@ -104,7 +104,7 @@ const NETWORK_HINT = [
 const MIXED_CONTENT_HINT =
   'الصفحة تعمل على HTTPS لكن عنوان الـ API يستخدم HTTP — المتصفح يحجب هذا الطلب (mixed content). استخدم عنوان https:// للـ API.'
 
-function arabicMessageFor(kind: ApiErrorKind, status: number | null, code: string | null, backendMessage: string): string {
+function arabicMessageFor(kind: ApiErrorKind, status: number | null, code: string | null, backendMessage: string | null): string {
   if (kind === 'network') return 'فشل الاتصال بسيرفر الـ API — لا يمكن الوصول إلى الخادم من المتصفح'
   if (kind === 'timeout') return 'انتهت مهلة الاتصال بالسيرفر (لم تصل استجابة خلال 20 ثانية)'
 
