@@ -121,6 +121,22 @@ func (h *Handler) register(c *gin.Context) {
                 writeErrorDetail(c, http.StatusInternalServerError, "registration_failed", "Could not create account", err.Error())
                 return
         }
+        if !h.mailer.configured() {
+                // No email provider (Brevo) is configured: a verification mail can
+                // never be delivered, and Login refuses unverified accounts, which
+                // would lock every newly registered owner out permanently. Activate
+                // the account right away and tell the caller it is ready to sign in.
+                if err := h.service.MarkEmailVerified(c.Request.Context(), principal); err != nil {
+                        writeError(c, http.StatusInternalServerError, "verification_failed", "Could not activate the account")
+                        return
+                }
+                c.JSON(http.StatusCreated, gin.H{
+                        "user":           userPayload(principal),
+                        "message":        "Account created and activated (email service not configured). You can sign in now.",
+                        "email_verified": true,
+                })
+                return
+        }
         token, err := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
         if err != nil {
                 writeError(c, http.StatusInternalServerError, "verification_failed", "Could not create verification request")
@@ -128,7 +144,7 @@ func (h *Handler) register(c *gin.Context) {
         }
         if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, token); err != nil {
                 log.Printf("registration verification email failed: %v", err)
-                writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Account created, but email service is not configured")
+                writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Account created, but the verification email could not be sent")
                 return
         }
         c.JSON(http.StatusCreated, gin.H{

@@ -158,6 +158,17 @@ export default function LoginPage() {
               {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
             </Button>
 
+            {/* Register Link */}
+            <p className="text-center text-sm text-muted-foreground">
+              ليس لديك حساب؟{" "}
+              <Link
+                href="/register"
+                className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
+              >
+                أنشئ حساب شركة جديد
+              </Link>
+            </p>
+
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">

@@ -241,6 +241,30 @@ async function apiFetch<T>(
 // ============================================
 
 export const authApi = {
+  async register(input: {
+    companyName: string
+    companyEmail: string
+    firstName: string
+    lastName: string
+    email: string
+    password: string
+  }) {
+    return apiFetch<{ user?: Record<string, unknown>; message?: string; email_verified?: boolean }>(
+      '/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          company_name: input.companyName,
+          company_email: input.companyEmail,
+          first_name: input.firstName,
+          last_name: input.lastName,
+          email: input.email,
+          password: input.password,
+        }),
+      },
+    )
+  },
+
   async login(email: string, password: string) {
     const response = await apiFetch<{
       data?: { user: CompanyUser; expires_in: number }

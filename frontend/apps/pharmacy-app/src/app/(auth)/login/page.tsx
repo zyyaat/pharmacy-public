@@ -142,6 +142,9 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
+          <p className="mt-2 text-center text-xs leading-6 text-muted-foreground">
+            هذه البوابة خاصة بموظفي الصيدلية — حساب المالك يُنشأ ويُستخدم من لوحة تحكم الشركة (Admin Dashboard)
+          </p>
         </div>
       </div>
     </div>
