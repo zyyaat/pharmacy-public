@@ -1,0 +1,2 @@
+- [Replit Go publishing](go-publishing.md) — imported Go services may need an available Replit Go module and newer dependencies before build/publish succeeds.
+- [Imported PostgreSQL migration validation](postgres-migration-validation.md) — validate imported migration chains against PostgreSQL before relying on their documentation order.

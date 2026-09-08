@@ -1,0 +1,337 @@
+
+DockHosting
+General
+Overview
+Notifications
+Projects
+Databases
+Account
+Billing
+Activity
+Settings
+Support
+
+dock CLI
+❯ dock deploy
+
+z
+zayat
+zayat2349@gmail.com
+
+zayat
+Switch account or workspace
+
+9+
+162 unread notifications
+Last deployment failed
+
+Command execution failed (exit code 1): docker exec qbew1bv64k9cv5w6unylmicb bash -c 'bash /artifacts/build.sh' Error: #0 building with "default" instance using docker driver #1 [internal] load build definition from Dockerfile #1 transferring dockerfile: 1.59kB 0.0s done #1 DONE 0.1s #2 [internal]
+
+View logs
+Try again
+docker
+pharmacyos
+error
+Auto
+zyyaat/pharmacyos
+
+Start
+
+Deploy
+Overview
+Files
+Deployments
+Environment
+Database
+Settings
+Logs & Deployments
+App Logs
+Live Build
+Trigger Deploy
+Deployment failed
+Stopped at build image
+Gracefully shutting down build container: qbew1bv64k9cv5w6unylmicb
+Streaming Live Build...
+Clear
+Docker 29.6.2 with BuildKit and Buildx detected on deployment server (localhost).
+Starting deployment of <REDACTED>:zyyaat/pharmacyos.git:main to localhost.
+Preparing container with helper image: docker.io/coollabsio/coolify-helper:1.0.16
+Error response from daemon: No such container: qbew1bv64k9cv5w6unylmicb
+85e9c349dde3a9e237eebdc5ceec10137d3324af14c880af1888f8395e474317
+20410d8c905f1ab3b430c52a8667739ac1429583 refs/heads/main
+----------------------------------------
+Importing <REDACTED>:zyyaat/pharmacyos.git:main (commit sha 20410d8c905f1ab3b430c52a8667739ac1429583) to /artifacts/qbew1bv64k9cv5w6unylmicb.
+Cloning into '/artifacts/qbew1bv64k9cv5w6unylmicb'...
+From github.com:zyyaat/pharmacyos
+* branch 20410d8c905f1ab3b430c52a8667739ac1429583 -> FETCH_HEAD
+Initial workspace
+# Pharmacy OS Backend - Standalone Dockerfile
+# Clean Go project - no monorepo overhead!
+# Stage 1: Build
+FROM golang:1.22-alpine AS builder
+RUN apk add --no-cache git ca-certificates
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+# Stage 2: Runtime
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates wget tzdata
+WORKDIR /app
+COPY --from=builder /app/server .
+RUN chmod +x ./server
+EXPOSE 8080
+CMD ["./server"]
+Creating build-time .env file in /artifacts (outside Docker context).
+# Pharmacy OS Backend - Standalone Dockerfile
+# Clean Go project - no monorepo overhead!
+# Stage 1: Build
+FROM golang:1.22-alpine AS builder
+RUN apk add --no-cache git ca-certificates
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+# Stage 2: Runtime
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates wget tzdata
+WORKDIR /app
+COPY --from=builder /app/server .
+RUN chmod +x ./server
+EXPOSE 8080
+CMD ["./server"]
+Final Dockerfile:
+# Pharmacy OS Backend - Standalone Dockerfile
+# Clean Go project - no monorepo overhead!
+# Stage 1: Build
+FROM golang:1.22-alpine AS builder
+ARG DB_PORT=5432
+ARG DB_DATABASE=gagshs
+ARG DB_PASSWORD=0Yn5TQj90XnAg9uPL9D-Q3Dx
+ARG TRUSTED_PROXIES=*
+ARG APP_URL=https://pharmacyos.dockhosting.dev
+ARG DB_CONNECTION=pgsql
+ARG DB_HOST=db-gagshs-6a9bb2c2
+ARG DB_USERNAME=postgres
+ARG PORT=80
+ARG HTTPS=on
+ARG DATABASE_URL=postgresql:<REDACTED>@db-gagshs-6a9bb2c2:5432/gagshs
+ARG COOLIFY_URL=https://pharmacyos.dockhosting.dev
+ARG COOLIFY_FQDN=pharmacyos.dockhosting.dev
+ARG COOLIFY_BRANCH=main
+ARG COOLIFY_RESOURCE_UUID=hgjxlx38hgp5dlhgrei6jkmt
+RUN apk add --no-cache git ca-certificates
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+# Stage 2:<REDACTED>@db-gagshs-6a9bb2c2:5432/gagshs
+ARG COOLIFY_URL=https://pharmacyos.dockhosting.dev
+ARG COOLIFY_FQDN=pharmacyos.dockhosting.dev
+ARG COOLIFY_BRANCH=main
+ARG COOLIFY_RESOURCE_UUID=hgjxlx38hgp5dlhgrei6jkmt
+RUN apk --no-cache add ca-certificates wget tzdata
+WORKDIR /app
+COPY --from=builder /app/server .
+RUN chmod +x ./server
+EXPOSE 8080
+CMD ["./server"]
+----------------------------------------
+Building docker image started.
+cd /artifacts/qbew1bv64k9cv5w6unylmicb/backend && set -a && source /artifacts/build-time.env && set +a && DOCKER_BUILDKIT=1 docker build --no-cache --add-host aqnjc38ernhvxewbn0iytr2s:172.24.0.53 --add-host backend-deploy-service-1:172.24.0.36 --add-host caddy-http:172.24.0.8 --add-host coolify:172.24.0.26 --add-host coolify-db:172.24.0.28 --add-host coolify-realtime:172.24.0.29 --add-host coolify-redis:172.24.0.32 --add-host db-absensi-yayasan-6a9ab5ca:172.24.0.13 --add-host db-adminpaneldb-6a9eee81:172.24.0.27 --add-host db-almuhajir-mysql512-6a9ab5ca:172.24.0.21 --add-host db-animals-db-6a7af0d0:172.24.0.17 --add-host db-confe-6a9c1640:172.24.0.11 --add-host db-edulib-test-6a9cbe5d:172.24.0.38 --add-host db-edumeet-6a932bd9:172.24.0.31 --add-host db-epseek-harness-universe-6a9a404c:172.24.0.42 --add-host db-ha-6a99f651:172.24.0.18 --add-host db-hanash-6a9ac154:172.24.0.25 --add-host db-hanash-delivery1-6a9c5170:172.24.0.2 --add-host db-laravel-6a9575ca:172.24.0.15 --add-host db-madar-test-db-6a91a859:172.24.0.6 --add-host db-mmaamm-6a9c5170:172.24.0.20 --add-host db-my-app-db-6a9ea654:172.24.0.48 --add-host db-portfolio-db-6a9f2fe4:172.24.0.39 --add-host db-postgre-6a99f651:172.24.0.37 --add-host db-student-management-6a9c5022:172.24.0.4 --add-host db-takafol-6a9c6235:172.24.0.47 --add-host db-travelagency-6a9edd32:172.24.0.58 --add-host db-veda-staging-6a9d067d:172.24.0.23 --add-host db-winky-store-db-6a9ba252:172.24.0.16 --add-host kw54lhheay7kwsw2xjfhld2i:172.24.0.41 --add-host p7ggoab5ko8dgml8pvmkdr6n:172.24.0.50 --add-host vpg8w3sm9rgodxl0z23yddln:172.24.0.43 --network host -f /artifacts/qbew1bv64k9cv5w6unylmicb/backend/Dockerfile --progress plain -t hgjxlx38hgp5dlhgrei6jkmt:20410d8c905f1ab3b430c52a8667739ac1429583 --build-arg 'COOLIFY_URL' --build-arg 'COOLIFY_FQDN' --build-arg 'COOLIFY_BRANCH' --build-arg 'COOLIFY_RESOURCE_UUID' --build-arg 'DB_PORT' --build-arg 'DB_DATABASE' --build-arg 'DB_PASSWORD' --build-arg 'TRUSTED_PROXIES' --build-arg 'APP_URL' --build-arg 'DB_CONNECTION' --build-arg 'DB_HOST' --build-arg 'DB_USERNAME' --build-arg 'PORT' --build-arg 'HTTPS' --build-arg 'DATABASE_URL' --build-arg COOLIFY_BUILD_SECRETS_HASH=c9decc5f351f48e6477ec0c1a922bbe60428feefdb255c633dd8bda144e4dbaf --build-arg 'COOLIFY_URL' --build-arg 'COOLIFY_FQDN' --build-arg 'COOLIFY_BRANCH' --build-arg 'COOLIFY_RESOURCE_UUID' /artifacts/qbew1bv64k9cv5w6unylmicb/backend
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.59kB 0.0s done
+#1 DONE 0.1s
+#2 [internal] load metadata for docker.io/library/golang:1.22-alpine
+#2 DONE 0.8s
+#3 [internal] load metadata for docker.io/library/alpine:latest
+#3 DONE 1.5s
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.2s
+#5 [internal] load build context
+#5 DONE 0.0s
+#6 [stage-1 1/5] FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 resolve docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 ...
+#7 [builder 1/7] FROM docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052
+#7 resolve docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052 0.2s done
+#7 DONE 0.2s
+#7 [builder 1/7] FROM docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052
+#7 CACHED
+#6 [stage-1 1/5] FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 resolve docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b 0.2s done
+#6 DONE 0.4s
+#8 [stage-1 2/5] RUN apk --no-cache add ca-certificates wget tzdata
+#8 1.697 (1/6) Installing ca-certificates (20260611-r0)
+#8 1.798 (2/6) Installing tzdata (2026c-r0)
+#8 ...
+#5 [internal] load build context
+#5 transferring context: 25.00MB 1.9s done
+#5 DONE 2.1s
+#8 [stage-1 2/5] RUN apk --no-cache add ca-certificates wget tzdata
+#8 1.917 (3/6) Installing libunistring (1.4.2-r0)
+#8 1.998 (4/6) Installing libidn2 (2.3.8-r0)
+#8 2.021 (5/6) Installing pcre2 (10.48-r0)
+#8 2.082 (6/6) Installing wget (1.25.0-r3)
+#8 2.128 Executing busybox-1.37.0-r31.trigger
+#8 2.177 Executing ca-certificates-20260611-r0.trigger
+#8 2.371 OK: 11.8 MiB in 22 packages
+#8 DONE 3.0s
+#9 [builder 2/7] RUN apk add --no-cache git ca-certificates
+#9 0.723 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+#9 1.211 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/community/x86_64/APKINDEX.tar.gz
+#9 2.387 (1/12) Installing brotli-libs (1.1.0-r2)
+#9 2.432 (2/12) Installing c-ares (1.34.8-r0)
+#9 2.479 (3/12) Installing libunistring (1.2-r0)
+#9 2.552 (4/12) Installing libidn2 (2.3.7-r0)
+#9 2.587 (5/12) Installing nghttp2-libs (1.69.0-r0)
+#9 2.649 (6/12) Installing libpsl (0.21.5-r3)
+#9 2.652 (7/12) Installing zstd-libs (1.5.6-r2)
+#9 2.706 (8/12) Installing libcurl (8.14.1-r2)
+#9 2.778 (9/12) Installing libexpat (2.8.4-r0)
+#9 2.799 (10/12) Installing pcre2 (10.43-r0)
+#9 2.838 (11/12) Installing git (2.47.3-r0)
+#9 3.039 (12/12) Installing git-init-template (2.47.3-r0)
+#9 3.082 Executing busybox-1.37.0-r9.trigger
+#9 3.107 OK: 19 MiB in 28 packages
+#9 ...
+#10 [stage-1 3/5] WORKDIR /app
+#10 DONE 0.3s
+#9 [builder 2/7] RUN apk add --no-cache git ca-certificates
+#9 DONE 3.7s
+#11 [builder 3/7] WORKDIR /app
+#11 DONE 0.2s
+#12 [builder 4/7] COPY go.mod go.sum ./
+#12 DONE 0.4s
+#13 [builder 5/7] RUN go mod download
+#13 0.523 go: go.mod requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)
+#13 ERROR: process "/bin/sh -c go mod download" did not complete successfully: exit code: 1
+------
+> [builder 5/7] RUN go mod download:
+0.523 go: go.mod requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)
+------
+2 warnings found (use docker --debug to expand):
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "DB_PASSWORD") (line 8)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "DB_PASSWORD") (line 32)
+Dockerfile:24
+--------------------
+22 | WORKDIR /app
+23 | COPY go.mod go.sum ./
+24 | >>> RUN go mod download
+25 | COPY . .
+26 | RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c go mod download" did not complete successfully: exit code: 1
+========================================
+Deployment failed: Command execution failed (exit code 1): docker exec qbew1bv64k9cv5w6unylmicb bash -c 'bash /artifacts/build.sh'
+Error: #0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.59kB 0.0s done
+#1 DONE 0.1s
+#2 [internal] load metadata for docker.io/library/golang:1.22-alpine
+#2 DONE 0.8s
+#3 [internal] load metadata for docker.io/library/alpine:latest
+#3 DONE 1.5s
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.2s
+#5 [internal] load build context
+#5 DONE 0.0s
+#6 [stage-1 1/5] FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 resolve docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 ...
+#7 [builder 1/7] FROM docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052
+#7 resolve docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052 0.2s done
+#7 DONE 0.2s
+#7 [builder 1/7] FROM docker.io/library/golang:1.22-alpine@sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052
+#7 CACHED
+#6 [stage-1 1/5] FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+#6 resolve docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b 0.2s done
+#6 DONE 0.4s
+#8 [stage-1 2/5] RUN apk --no-cache add ca-certificates wget tzdata
+#8 1.697 (1/6) Installing ca-certificates (20260611-r0)
+#8 1.798 (2/6) Installing tzdata (2026c-r0)
+#8 ...
+#5 [internal] load build context
+#5 transferring context: 25.00MB 1.9s done
+#5 DONE 2.1s
+#8 [stage-1 2/5] RUN apk --no-cache add ca-certificates wget tzdata
+#8 1.917 (3/6) Installing libunistring (1.4.2-r0)
+#8 1.998 (4/6) Installing libidn2 (2.3.8-r0)
+#8 2.021 (5/6) Installing pcre2 (10.48-r0)
+#8 2.082 (6/6) Installing wget (1.25.0-r3)
+#8 2.128 Executing busybox-1.37.0-r31.trigger
+#8 2.177 Executing ca-certificates-20260611-r0.trigger
+#8 2.371 OK: 11.8 MiB in 22 packages
+#8 DONE 3.0s
+#9 [builder 2/7] RUN apk add --no-cache git ca-certificates
+#9 0.723 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+#9 1.211 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/community/x86_64/APKINDEX.tar.gz
+#9 2.387 (1/12) Installing brotli-libs (1.1.0-r2)
+#9 2.432 (2/12) Installing c-ares (1.34.8-r0)
+#9 2.479 (3/12) Installing libunistring (1.2-r0)
+#9 2.552 (4/12) Installing libidn2 (2.3.7-r0)
+#9 2.587 (5/12) Installing nghttp2-libs (1.69.0-r0)
+#9 2.649 (6/12) Installing libpsl (0.21.5-r3)
+#9 2.652 (7/12) Installing zstd-libs (1.5.6-r2)
+#9 2.706 (8/12) Installing libcurl (8.14.1-r2)
+#9 2.778 (9/12) Installing libexpat (2.8.4-r0)
+#9 2.799 (10/12) Installing pcre2 (10.43-r0)
+#9 2.838 (11/12) Installing git (2.47.3-r0)
+#9 3.039 (12/12) Installing git-init-template (2.47.3-r0)
+#9 3.082 Executing busybox-1.37.0-r9.trigger
+#9 3.107 OK: 19 MiB in 28 packages
+#9 ...
+#10 [stage-1 3/5] WORKDIR /app
+#10 DONE 0.3s
+#9 [builder 2/7] RUN apk add --no-cache git ca-certificates
+#9 DONE 3.7s
+#11 [builder 3/7] WORKDIR /app
+#11 DONE 0.2s
+#12 [builder 4/7] COPY go.mod go.sum ./
+#12 DONE 0.4s
+#13 [builder 5/7] RUN go mod download
+#13 0.523 go: go.mod requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)
+#13 ERROR: process "/bin/sh -c go mod download" did not complete successfully: exit code: 1
+------
+> [builder 5/7] RUN go mod download:
+0.523 go: go.mod requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)
+------
+2 warnings found (use docker --debug to expand):
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "DB_PASSWORD") (line 8)
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "DB_PASSWORD") (line 32)
+Dockerfile:24
+--------------------
+22 | WORKDIR /app
+23 | COPY go.mod go.sum ./
+24 | >>> RUN go mod download
+25 | COPY . .
+26 | RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c go mod download" did not complete successfully: exit code: 1
+Error type: App\Exceptions\DeploymentException
+Error code: 0
+Location: /var/www/html/app/Traits/ExecuteRemoteCommand.php:243
+Stack trace (first 5 lines):
+#0 /var/www/html/app/Traits/ExecuteRemoteCommand.php(107): App\Jobs\ApplicationDeploymentJob->executeCommandWithProcess()
+#1 /var/www/html/vendor/laravel/framework/src/Illuminate/Collections/Traits/EnumeratesValues.php(275): App\Jobs\ApplicationDeploymentJob->{closure:App\Traits\ExecuteRemoteCommand::execute_remote_command():72}()
+#2 /var/www/html/app/Traits/ExecuteRemoteCommand.php(72): Illuminate\Support\Collection->each()
+#3 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(4070): App\Jobs\ApplicationDeploymentJob->execute_remote_command()
+#4 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(941): App\Jobs\ApplicationDeploymentJob->build_image()
+========================================
+Deployment failed. Removing the new version of your application.
+Error response from daemon: No such container: hgjxlx38hgp5dlhgrei6jkmt-220948761510
+Gracefully shutting down build container: qbew1bv64k9cv5w6unylmicb
+Commit / Detail	Status	Branch	Time	Actions
+Deploying main
+20410d8
+error
+main
+just now
+39.5s
+

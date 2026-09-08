@@ -1,0 +1,113 @@
+modules = ["go-1.21", "nodejs-20", "web"]
+
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["sh", "-c", "cd backend && GOTOOLCHAIN=local CGO_ENABLED=0 go build -mod=vendor -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api"]
+build = ["sh", "-c", "cd backend && GOTOOLCHAIN=local CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend API"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Pharmacy App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Dashboard"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Marketing Site"
+
+[[workflows.workflow]]
+name = "Backend API"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && GOTOOLCHAIN=local go run ./cmd/server"
+waitForPort = 8080
+
+[[workflows.workflow]]
+name = "Pharmacy App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend/apps/pharmacy-app && npm run dev -- -H 0.0.0.0 -p 5000"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Admin Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend/apps/admin-dashboard && npm run dev -- -H 0.0.0.0 -p 3001"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Marketing Site"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend/apps/marketing && npm run dev -- -H 0.0.0.0 -p 3002"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+
+[[ports]]
+localPort = 8099
+externalPort = 8099
+
+[userenv]
+
+[userenv.production]
+APP_ENV = "production"
+AUTH_COOKIE_SECURE = "true"
+CORS_ORIGINS = "https://pharmacy-app-theta-nine.vercel.app,https://admin-dashboard-swart-two-41.vercel.app"
+PUBLIC_APP_URL = "https://pharmacy-app-theta-nine.vercel.app"
