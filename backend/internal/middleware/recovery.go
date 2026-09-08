@@ -21,11 +21,16 @@ func Recovery() gin.HandlerFunc {
 // message in the JSON response when APP_DEBUG=true is configured. Use it so
 // deployment-time panics surface their real cause in the frontend error
 // panel instead of a blank 500.
-func RecoveryDebug(debug bool) gin.HandlerFunc {
-        return recoveryWith(debug)
+//
+// NOTE: the parameter is intentionally named debugMode (not debug) so the
+// identifier "debug" keeps referring to the runtime/debug package inside
+// recoveryWith; naming it "debug" would shadow the package and break
+// debug.Stack() compilation.
+func RecoveryDebug(debugMode bool) gin.HandlerFunc {
+        return recoveryWith(debugMode)
 }
 
-func recoveryWith(debug bool) gin.HandlerFunc {
+func recoveryWith(debugMode bool) gin.HandlerFunc {
         return func(c *gin.Context) {
                 defer func() {
                         if recovered := recover(); recovered != nil {
@@ -43,7 +48,7 @@ func recoveryWith(debug bool) gin.HandlerFunc {
                                         "message":    "Unexpected server error",
                                         "request_id": requestID,
                                 }
-                                if debug {
+                                if debugMode {
                                         body["debug"] = gin.H{"panic": toErrorString(recovered)}
                                 }
                                 c.AbortWithStatusJSON(http.StatusInternalServerError, body)

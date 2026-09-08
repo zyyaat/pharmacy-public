@@ -11,7 +11,7 @@ import "time"
 // TODO: Implement permission constants and validation
 type Permission struct {
         Key         string `json:"key"`
-        Description string `json:description"`
+        Description string `json:"description"`
         Category    string `json:"category"`
 }
 
