@@ -1,13 +1,11 @@
 /** @type {import('next').NextConfig} */
-const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:8080').replace(/\/$/, '')
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
+const backendOrigin = process.env.BACKEND_INTERNAL_URL || 'http://127.0.0.1:8080'
+const useDevelopmentProxy = apiBaseUrl.startsWith('/')
 
 const nextConfig = {
   reactStrictMode: true,
-  allowedDevOrigins: ['127.0.0.1', 'localhost'],
-  rewrites: async () => [
-    { source: '/api/v1/:path*', destination: `${backendUrl}/api/v1/:path*` },
-    { source: '/health', destination: `${backendUrl}/health` },
-  ],
+  allowedDevOrigins: ['127.0.0.1', 'localhost', process.env.REPLIT_DEV_DOMAIN].filter(Boolean),
   images: {
     remotePatterns: [
       {
@@ -15,6 +13,19 @@ const nextConfig = {
         hostname: "**",
       },
     ],
+  },
+  async rewrites() {
+    if (!useDevelopmentProxy) return []
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendOrigin}/api/v1/:path*`,
+      },
+      {
+        source: '/health',
+        destination: `${backendOrigin}/health`,
+      },
+    ]
   },
 };
 

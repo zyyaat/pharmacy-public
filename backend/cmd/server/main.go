@@ -6,19 +6,31 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pharmacy-os/backend/internal/auth"
 	"github.com/pharmacy-os/backend/internal/config"
-	"github.com/pharmacy-os/backend/internal/database"
 	"github.com/pharmacy-os/backend/internal/handlers"
 )
 
 func main() {
 	// Load configuration
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to parse database configuration: %v", err)
+	}
+	// Supabase's transaction pooler does not keep prepared statements between
+	// connections. Simple query execution works with both pooled and direct
+	// PostgreSQL URLs, so use it consistently across hosting providers.
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	db, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize database pool: %v", err)
 	}
@@ -27,10 +39,19 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	migrationCtx, cancelMigrations := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancelMigrations()
-	if err := database.RunMigrations(migrationCtx, db); err != nil {
-		log.Fatalf("Failed to run database migrations: %v", err)
+	if cfg.IsProduction() {
+		bootstrap := auth.NewService(db, auth.Config{})
+		if err := bootstrap.BootstrapSuperAdmin(
+			ctx,
+			cfg.BootstrapSuperAdminEmail,
+			cfg.BootstrapSuperAdminPassword,
+			cfg.BootstrapSuperAdminFirstName,
+			cfg.BootstrapSuperAdminLastName,
+			cfg.BootstrapSuperAdminCompany,
+		); err != nil {
+			log.Fatalf("Failed to bootstrap super admin: %v", err)
+		}
+		log.Printf("Super admin bootstrap completed or was already satisfied")
 	}
 
 	// Initialize handlers

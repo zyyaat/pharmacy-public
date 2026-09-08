@@ -1,237 +1,30 @@
-// ============================================================================
-// Pharmacy OS - API client with a detailed, deployment-friendly error system.
-//
-// Every failure throws an ApiError carrying:
-//   - kind:          network | timeout | http | unknown
-//   - status:        HTTP status code (when the server answered)
-//   - code:          backend error code (e.g. INVALID_CREDENTIALS)
-//   - requestId:     correlation id (matches backend log line + X-Request-ID)
-//   - hint:          Arabic actionable fix instructions
-//   - detail:        raw backend message / debug.internal_reason
-//
-// The login page renders these fields directly, so a broken deployment shows
-// the REAL cause instead of a generic "API request failed".
-// ============================================================================
-
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL
-
-/** Base URL used for every request (trailing slashes trimmed). */
-export const API_BASE_URL = (RAW_API_URL || '/api/v1').replace(/\/+$/, '')
-
-/** True when NEXT_PUBLIC_API_URL is set at build time on Vercel. */
-export const USING_CUSTOM_API_URL = Boolean(RAW_API_URL)
-
-const REQUEST_TIMEOUT_MS = 20_000
-
-export type ApiErrorKind = 'network' | 'timeout' | 'http' | 'unknown'
-
-export interface ApiErrorJSON {
-  name: 'ApiError'
-  kind: ApiErrorKind
-  message: string
-  status: number | null
-  code: string | null
-  requestId: string | null
-  url: string
-  hint: string
-  detail: string | null
-  time: string
-}
-
-export class ApiError extends Error {
-  readonly kind: ApiErrorKind
-  readonly status: number | null
-  readonly statusText: string
-  readonly code: string | null
-  readonly requestId: string | null
-  readonly url: string
-  readonly hint: string
-  readonly detail: string | null
-  readonly time: string
-
-  constructor(fields: {
-    kind: ApiErrorKind
-    message: string
-    url: string
-    hint: string
-    status?: number | null
-    statusText?: string
-    code?: string | null
-    requestId?: string | null
-    detail?: string | null
-  }) {
-    super(fields.message)
-    this.name = 'ApiError'
-    this.kind = fields.kind
-    this.url = fields.url
-    this.hint = fields.hint
-    this.status = fields.status ?? null
-    this.statusText = fields.statusText ?? ''
-    this.code = fields.code ?? null
-    this.requestId = fields.requestId ?? null
-    this.detail = fields.detail ?? null
-    this.time = new Date().toISOString()
-  }
-
-  toJSON(): ApiErrorJSON {
-    return {
-      name: 'ApiError',
-      kind: this.kind,
-      message: this.message,
-      status: this.status,
-      code: this.code,
-      requestId: this.requestId,
-      url: this.url,
-      hint: this.hint,
-      detail: this.detail,
-      time: this.time,
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Arabic guidance per failure class
-// ---------------------------------------------------------------------------
-
-const NETWORK_HINT = [
-  'السيرفر غير قابل للوصول من المتصفح. الأسباب الأكثر شيوعاً:',
-  '1) NEXT_PUBLIC_API_URL غير مضبوط على Vercel (أو BACKEND_URL لو بتستخدم الوسيط) — أعد النشر بعد ضبطه.',
-  '2) الباك اند متوقف — افتح https://pharmacyos.dockhosting.dev/health وتأكد أنه يرجع JSON.',
-  '3) CORS: أضف دومين Vercel إلى CORS_ORIGINS على DockHosting (مثال: *.vercel.app).',
-  '4) جرّب تعطيل مانع الإعلانات/VPN ثم أعد المحاولة.',
-].join('\n')
-
-const MIXED_CONTENT_HINT =
-  'الصفحة تعمل على HTTPS لكن عنوان الـ API يستخدم HTTP — المتصفح يحجب هذا الطلب (mixed content). استخدم عنوان https:// للـ API.'
-
-function arabicMessageFor(kind: ApiErrorKind, status: number | null, code: string | null, backendMessage: string | null): string {
-  if (kind === 'network') return 'فشل الاتصال بسيرفر الـ API — لا يمكن الوصول إلى الخادم من المتصفح'
-  if (kind === 'timeout') return 'انتهت مهلة الاتصال بالسيرفر (لم تصل استجابة خلال 20 ثانية)'
-
-  switch (status) {
-    case 400:
-      return backendMessage
-        ? `الطلب غير مقبول من السيرفر: ${backendMessage}`
-        : 'الطلب غير مقبول من السيرفر (400)'
-    case 401:
-      return code === 'REFRESH_REQUIRED' || code === 'INVALID_REFRESH_SESSION'
-        ? 'انتهت صلاحية الجلسة — سجّل الدخول من جديد'
-        : 'البريد الإلكتروني أو كلمة المرور غير صحيحة (401)'
-    case 403:
-      if (code === 'EMAIL_NOT_VERIFIED') return 'لم يتم تفعيل البريد الإلكتروني — فعّل الحساب من رابط التفعيل المرسل (403)'
-      if (code === 'ACCOUNT_INACTIVE') return 'الحساب غير مفعّل/موقوف — راجع مسؤول النظام (403)'
-      return 'غير مسموح لك بتنفيذ هذا الطلب (403)'
-    case 404:
-      return 'المسار غير موجود على السيرفر (404) — تأكد من عنوان الـ API ومن أن نسخة الباك اند محدثة'
-    case 423:
-      return 'الحساب مقفول مؤقتاً بسبب 5 محاولات دخول خاطئة — انتظر 15 دقيقة ثم أعد المحاولة (423)'
-    case 429:
-      return 'عدد كبير جداً من المحاولات — انتظر قليلاً ثم أعد المحاولة (429)'
-    case 500:
-      return 'خطأ داخلي في السيرفر (500) — راجع لوجز DockHosting وابحث عن request_id الظاهر بالأسفل'
-    case 502:
-    case 503:
-    case 504:
-      return 'الباك اند غير متاح حالياً (' + status + ') — قد يكون قيد إعادة التشغيل أو متوقفاً على DockHosting'
-    default:
-      return backendMessage ? `فشل الطلب (${status}): ${backendMessage}` : `فشل الطلب (HTTP ${status ?? 'مجهول'})`
-  }
-}
-
-function hintFor(kind: ApiErrorKind, status: number | null): string {
-  if (kind === 'network') return NETWORK_HINT
-  if (kind === 'timeout') return 'السيرفر بطيء جداً أو معلّق. راجع لوجز DockHosting: قد يكون الاتصال بقاعدة البيانات معلقاً عند الإقلاع.'
-  if (status === 401) return 'تأكد من البريد وكلمة المرور. لو نسيتها استخدم "نسيت كلمة المرور". لو متأكد منها، تأكد أن الحساب موجود في قاعدة بيانات DockHosting.'
-  if (status === 403 || status === 423) return 'اتبع الرسالة أعلاه؛ التفاصيل التقنية توضح كود الخطأ الدقيق.'
-  if (status === 404) return 'المسار غير موجود — تأكد أن NEXT_PUBLIC_API_URL يشير إلى الجذر الصحيح وأن نسخة الباك اند تعمل.'
-  if (status === 500) return 'افتح لوجز التطبيق في لوحة DockHosting وابحث عن request_id نفسه — السطر الذي يحمله هو السبب الحقيقي.'
-  if (status === 502 || status === 503 || status === 504) return 'افتح https://pharmacyos.dockhosting.dev/health — لو لا يستجيب فالتطبيق متوقف، راجع لوجز النشر.'
-  return 'راجع التفاصيل التقنية بالأسفل.'
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-interface ErrorBody {
-  message?: unknown
-  error?: unknown
-  code?: unknown
-  request_id?: unknown
-  debug?: { internal_reason?: unknown } | null
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function isMixedContent(url: string): boolean {
-  if (typeof window === 'undefined') return false
-  return window.location.protocol === 'https:' && url.startsWith('http://')
-}
-
-function buildNetworkError(url: string, timedOut: boolean): ApiError {
-  if (timedOut) {
-    return new ApiError({ kind: 'timeout', url, message: arabicMessageFor('timeout', null, null, ''), hint: hintFor('timeout', null) })
-  }
-  if (isMixedContent(url)) {
-    return new ApiError({
-      kind: 'network',
-      url,
-      message: 'طلب محجوب من المتصفح: مزج HTTPS مع HTTP غير مسموح (mixed content)',
-      hint: MIXED_CONTENT_HINT,
-    })
-  }
-  return new ApiError({ kind: 'network', url, message: arabicMessageFor('network', null, null, ''), hint: NETWORK_HINT })
-}
-
-function buildHttpError(url: string, response: Response, body: ErrorBody | null): ApiError {
-  const backendMessage = asString(body?.message)
-  const code = asString(body?.code) ?? asString(body?.error)
-  const requestId = asString(body?.request_id) ?? response.headers.get('x-request-id')
-  const internalReason = asString(body?.debug?.internal_reason)
-  const status = response.status
-
-  const message = arabicMessageFor('http', status, code, backendMessage)
-  const detailParts: string[] = []
-  if (backendMessage) detailParts.push(`server_message: ${backendMessage}`)
-  if (internalReason) detailParts.push(`internal_reason: ${internalReason}`)
-  if (!detailParts.length) detailParts.push(`(لم يرجع السيرفر تفاصيل إضافية) body: ${JSON.stringify(body ?? {})}`)
-
-  let hint = 'راجع التفاصيل التقنية بالأسفل.'
-  if (status === 401) hint = 'تأكد من البريد وكلمة المرور، ومن أن الحساب موجود فعلاً في قاعدة البيانات المتصلة بالباك اند.'
-  else if (status === 403 || status === 423) hint = 'اتبع الرسالة أعلاه؛ التفاصيل التقنية توضح كود الخطأ الدقيق.'
-  else if (status === 404) hint = `المسار ${url} غير موجود — تأكد أن NEXT_PUBLIC_API_URL يشير إلى الجذر الصحيح وأن نسخة الباك اند تعمل.`
-  else if (status >= 500) hint = 'افتح لوجز التطبيق في لوحة DockHosting وابحث عن request_id نفسه — السطر الذي يحمله هو السبب الحقيقي.'
-
-  return new ApiError({
-    kind: 'http',
-    url,
-    message,
-    hint,
-    status,
-    statusText: response.statusText,
-    code,
-    requestId,
-    detail: detailParts.join(' | '),
-  })
-}
-
-// ---------------------------------------------------------------------------
-// CSRF + refresh session (same behaviour as before, now with diagnostics)
-// ---------------------------------------------------------------------------
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
+const AUTH_BASE_PATH = '/auth/pharmacy'
+const CSRF_COOKIE_NAME = 'pharmacy_csrf'
 
 function csrfHeaders(): HeadersInit {
   if (typeof document === 'undefined') return {}
-  const csrf = document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1]
+  const csrf = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1]
   return csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}
 }
 
 let refreshPromise: Promise<boolean> | null = null
 
+export class ApiError extends Error {
+  code: string
+  status: number
+
+  constructor(message: string, code: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.status = status
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE_URL}${AUTH_BASE_PATH}/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: csrfHeaders(),
@@ -245,102 +38,249 @@ async function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
-// ---------------------------------------------------------------------------
-// Core fetch wrapper
-// ---------------------------------------------------------------------------
+function shouldRefreshSession(endpoint: string): boolean {
+  return endpoint === `${AUTH_BASE_PATH}/me` || !endpoint.startsWith('/auth/')
+}
 
-export async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {},
-  canRefresh = true,
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  let timedOut = false
-
+export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       credentials: 'include',
-      signal: options.signal ?? controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(options.method && options.method !== 'GET' ? csrfHeaders() : {}),
         ...(options.headers || {}),
       },
     })
-  } catch (fetchError) {
-    // fetch() only rejects for network-level failures: DNS, refused, CORS
-    // blocked, mixed content, offline or our own timeout abort.
-    if (fetchError instanceof DOMException && fetchError.name === 'AbortError') timedOut = true
-    throw buildNetworkError(url, timedOut)
-  } finally {
-    clearTimeout(timer)
+  } catch {
+    throw new ApiError(
+      'تعذر الاتصال بخادم النظام. راجع NEXT_PUBLIC_API_URL وإعدادات CORS في الـ backend.',
+      'API_UNREACHABLE',
+      0,
+    )
   }
-
-  if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
+  if (response.status === 401 && canRefresh && shouldRefreshSession(endpoint)) {
     if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
   }
-
-  const body = (await response.json().catch(() => null)) as ErrorBody | null
-
+  const body = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw buildHttpError(url, response, body)
+    throw new ApiError(
+      body.message || 'API request failed',
+      body.code || body.error || 'API_ERROR',
+      response.status,
+    )
   }
-
   return body as T
 }
 
-// ---------------------------------------------------------------------------
-// Auth API (same public shape as before)
-// ---------------------------------------------------------------------------
-
-export interface LoginResponse {
-  user: Record<string, unknown>
-  expires_in: number
-}
-
-export interface RegisterInput {
-  companyName: string
-  companyEmail: string
-  firstName: string
-  lastName: string
-  email: string
-  password: string
-}
-
 export const authApi = {
-  register(input: RegisterInput) {
-    return apiFetch<{ user?: Record<string, unknown>; message?: string; email_verified?: boolean }>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          company_name: input.companyName,
-          company_email: input.companyEmail,
-          first_name: input.firstName,
-          last_name: input.lastName,
-          email: input.email,
-          password: input.password,
-        }),
-      },
-    )
-  },
   login(email: string, password: string) {
-    // account_type intentionally omitted: the backend tries the owner and
-    // employee tables when no type is given, so both can sign in here.
-    return apiFetch<LoginResponse>('/auth/login', {
+    return apiFetch<{ user: Record<string, unknown>; expires_in: number }>(`${AUTH_BASE_PATH}/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
   },
+  resendVerification(email: string) {
+    return apiFetch<{ message: string; sent?: boolean }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+  verifyEmail(email: string, code: string) {
+    return apiFetch<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
+  },
   me() {
-    return apiFetch<{ user: Record<string, unknown> }>('/auth/me')
+    return apiFetch<{ user: Record<string, unknown> }>(`${AUTH_BASE_PATH}/me`)
   },
   logout() {
-    return apiFetch('/auth/logout', { method: 'POST' })
+    return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
   },
+}
+
+export interface PharmacyDashboardStats {
+  totalProducts: number
+  lowStockCount: number
+  activeEmployees: number
+  activeToday: number
+  salesUnitsToday: number
+  lowStockItems: Array<{
+    name: string
+    generic_name: string
+    quantity: number
+    min_stock_level: number
+    status: string
+  }>
+}
+
+export interface PharmacyContext {
+  pharmacy: {
+    id: string
+    name: string
+    city: string
+    address: string
+    phone: string
+    product_count: number
+  }
+  branch: {
+    id: string
+    name: string
+    city: string
+  } | null
+  user: {
+    id: string
+    email: string
+    first_name: string
+    last_name: string
+    display_name: string
+    role: string
+  }
+}
+
+export interface PharmacyInventoryItem {
+  batch_id: string
+  pharmacy_product_id: string
+  global_product_id: string
+  product_name: string
+  generic_name: string
+  brand_name: string
+  barcode: string
+  dosage_form: string
+  strength: string
+  batch_number: string
+  unit: string
+  quantity: number
+  cost_per_unit: number
+  total_cost: number
+  expiry_date: string | null
+  days_until_expiry: number | null
+  selling_price: number
+  partial_selling_price: number
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  min_stock_level: number
+  branch_name: string
+  status: string
+}
+
+export interface PharmacyEmployee {
+  id: string
+  first_name: string
+  last_name: string
+  display_name: string
+  email: string
+  phone: string
+  job_title: string
+  status: string
+  branch_id: string
+  branch_name: string
+  created_at: string
+}
+
+export interface PharmacyBranch {
+  id: string
+  name: string
+  code: string
+  phone: string
+  email: string
+  address: string
+  city: string
+  is_active: boolean
+  manager_name: string
+}
+
+export interface PharmacyAttendance {
+  id: string
+  employee_id: string
+  employee_name: string
+  branch_id: string
+  branch_name: string
+  clock_in: string
+  clock_out?: string
+  total_minutes?: number
+  status: string
+}
+
+export const pharmacyApi = {
+  getContext() {
+    return apiFetch<PharmacyContext>('/pharmacy/context')
+  },
+  getDashboardStats() {
+    return apiFetch<PharmacyDashboardStats>('/pharmacy/dashboard/stats')
+  },
+  getDashboardActivity() {
+    return apiFetch<{ data: Array<Record<string, unknown>> }>('/pharmacy/dashboard/activity')
+  },
+  getInventory() {
+    return apiFetch<{ data: PharmacyInventoryItem[] }>('/pharmacy/inventory')
+  },
+  listProducts(search = '') {
+    return apiFetch<{ data: PharmacyProduct[] }>(`/pharmacy/products${search ? `?search=${encodeURIComponent(search)}` : ''}`)
+  },
+  createProduct(input: CreatePharmacyProductInput) {
+    return apiFetch<{ data: { id: string; initial_base_quantity: number } }>('/pharmacy/products', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+  lookupPOSProduct(barcode: string) {
+    return apiFetch<{ data: POSProduct }>(`/pharmacy/pos/products?barcode=${encodeURIComponent(barcode)}`)
+  },
+  createPOSSale(items: POSSaleItem[]) {
+    return apiFetch<{ data: { sale_id: string; total_amount: number } }>('/pharmacy/pos/sales', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    })
+  },
+  getEmployees() {
+    return apiFetch<{ data: PharmacyEmployee[]; total: number }>('/pharmacy/employees')
+  },
+  getBranches() {
+    return apiFetch<{ data: PharmacyBranch[]; total: number }>('/pharmacy/branches')
+  },
+  getAttendance() {
+    return apiFetch<{ data: PharmacyAttendance[]; total: number }>('/pharmacy/attendance')
+  },
+}
+
+export interface PharmacyProduct {
+  id: string
+  name: string
+  generic_name: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  selling_price: number
+  partial_selling_price: number
+  stock: number
+}
+
+export interface POSProduct extends PharmacyProduct {}
+
+export interface CreatePharmacyProductInput {
+  name: string
+  generic_name: string
+  dosage_form: string
+  strength: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  cost_price: number
+  selling_price: number
+  partial_selling_price: number | null
+  min_stock_level: number
+  initial_boxes: number
+  initial_strips: number
+  batch_number: string
+  expiry_date: string
+}
+
+export interface POSSaleItem {
+  pharmacy_product_id: string
+  sale_unit: 'box' | 'strip'
+  quantity: number
 }

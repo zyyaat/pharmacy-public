@@ -59,10 +59,16 @@ export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [summary, setSummary] = useState({ total: 0, active: 0, trial: 0, suspended: 0 });
 
   useEffect(() => {
     let cancelled = false;
-    companiesApi.list({ page: 1, limit: 100 })
+    companiesApi.list({
+      page: 1,
+      limit: 100,
+      search: searchQuery || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+    })
       .then((response) => {
         if (cancelled) return;
         setCompanies(response.data.map((company) => ({
@@ -77,6 +83,7 @@ export default function CompaniesPage() {
           email: company.email || "",
           phone: company.phone,
         })));
+        setSummary(response.summary);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "تعذر تحميل الشركات");
@@ -85,7 +92,7 @@ export default function CompaniesPage() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [searchQuery, statusFilter]);
 
   const filteredCompanies = useMemo(() => companies.filter((company) => {
     const matchesSearch =
@@ -136,7 +143,7 @@ export default function CompaniesPage() {
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-               <p className="text-2xl font-bold">{companies.length}</p>
+               <p className="text-2xl font-bold">{summary.total}</p>
               <p className="text-sm text-muted-foreground">إجمالي الشركات</p>
             </div>
           </CardContent>
@@ -148,7 +155,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                 {companies.filter((c) => c.status === "active").length}
+                 {summary.active}
               </p>
               <p className="text-sm text-muted-foreground">شركات نشطة</p>
             </div>
@@ -161,7 +168,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                 {companies.filter((c) => c.status === "trial").length}
+                 {summary.trial}
               </p>
               <p className="text-sm text-muted-foreground">في الفترة التجريبية</p>
             </div>
@@ -174,7 +181,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                 {companies.filter((c) => c.status === "suspended").length}
+                 {summary.suspended}
               </p>
               <p className="text-sm text-muted-foreground">شركات موقوفة</p>
             </div>
@@ -335,8 +342,8 @@ export default function CompaniesPage() {
           {/* Pagination */}
            {!loading && !error && filteredCompanies.length > 0 && (
             <div className="flex items-center justify-between p-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">
-                 عرض {filteredCompanies.length} من {companies.length} شركة
+             <p className="text-sm text-muted-foreground">
+             عرض {filteredCompanies.length} من {summary.total} شركة
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" disabled>

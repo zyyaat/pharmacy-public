@@ -185,9 +185,10 @@ Each app supports these scripts:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | ✅ Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key | ✅ Yes |
-| `NEXT_PUBLIC_API_URL` | Custom backend API URL | ❌ No |
+| `NEXT_PUBLIC_SUPABASE_URL` | Only needed if a frontend feature directly uses Supabase | ❌ No |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Only needed if a frontend feature directly uses Supabase | ❌ No |
+| `NEXT_PUBLIC_API_URL` | `/api/v1` for the Vercel same-origin proxy, or the public API URL in direct mode | ✅ Yes for deployed apps |
+| `BACKEND_INTERNAL_URL` | Public backend origin used by the Next.js server-side proxy, without `/api/v1` | ✅ Yes when using proxy mode |
 
 ## Deployment
 

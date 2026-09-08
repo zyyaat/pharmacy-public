@@ -473,7 +473,7 @@ BEGIN
         WHERE ib.pharmacy_product_id = p_pharmacy_product_id;
     ELSE
         -- Sum for specific branch only
-        SELECT COALESCE(SM(sm.quantity), 0) INTO v_total_stock
+        SELECT COALESCE(SUM(sm.quantity), 0) INTO v_total_stock
         FROM stock_movements sm
         JOIN inventory_batches ib ON sm.batch_id = ib.id
         WHERE ib.pharmacy_product_id = p_pharmacy_product_id
@@ -537,7 +537,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Update the batch's cached quantity (optimization for frequent reads)
     UPDATE inventory_batches 
-    SET quantity = calculate_batch_current_quality(NEW.batch_id),
+    SET quantity = calculate_batch_current_stock(NEW.batch_id),
         updated_at = NOW()
     WHERE id = NEW.batch_id;
     

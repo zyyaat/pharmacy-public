@@ -55,12 +55,24 @@ See [`.env.example`](.env.example) for all available environment variables:
 | `DATABASE_URL` | PostgreSQL connection string | - |
 | `AUTH_COOKIE_SECURE` | Set to `true` in production | `false` |
 | `AUTH_COOKIE_DOMAIN` | Optional cookie domain | - |
-| `BREVO_API_KEY` | Brevo API key for verification and password reset email | - |
+| `BREVO_API_KEY` | Brevo API key for verification code and password reset email | - |
 | `MAIL_FROM_EMAIL` | Verified Brevo sender email | - |
 | `MAIL_FROM_NAME` | Sender name | `Pharmacy OS` |
 | `PUBLIC_APP_URL` | Public frontend URL used in email links | - |
 | `RIVER_DSN` | River Queue DSN | Same as DATABASE_URL |
 | `CORS_ORIGINS` | Allowed CORS origins | `localhost:3000,3001` |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL` | The only allowed initial platform administrator email | Required in production |
+| `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | One-time secret used only when initializing a new database | Required for a new database |
+| `BOOTSTRAP_SUPER_ADMIN_FIRST_NAME` | Initial platform administrator first name | `Mohamed` |
+| `BOOTSTRAP_SUPER_ADMIN_LAST_NAME` | Initial platform administrator last name | `Admin` |
+| `BOOTSTRAP_SUPER_ADMIN_COMPANY` | Initial platform company name | `Pharmacy OS` |
+
+In production, the backend verifies the singleton Super Admin bootstrap on every
+startup. A new database is initialized only when the bootstrap password secret
+is present. After successful initialization, the password secret may be removed;
+the persisted bootstrap state keeps later restarts idempotent. If a new
+database is provisioned later, add the secret again deliberately for that
+one-time initialization.
 
 ## 📁 Project Structure
 
@@ -124,10 +136,16 @@ SQL migration files are located in the [`migrations/`](migrations/) directory:
 3. `00000000000003_permissions_auth.sql` - Permissions & auth
 4. `00000000000004_audit_logs.sql` - Audit logging
 5. `00000000000005_holding_company.sql` - Multi-tenant support
+6. `00000000000006_go_auth.sql` - Go-owned sessions and email tokens
+7. `00000000000007_inventory_idempotency.sql` - Retry-safe inventory mutations
+8. `00000000000008_auth_realms.sql` - Separate platform and pharmacy sessions
+9. `00000000000009_publish_compatible_views.sql` - Stable published views
+10. `00000000000010_platform_super_admin_singleton.sql` - One-time admin bootstrap state
+11. `00000000000011_packaging_and_sales.sql` - Pharmacy packaging rules and POS sales ledger
 
-Apply the SQL migrations using your PostgreSQL provider. The
-`00000000000006_go_auth.sql` migration creates the Go-owned session and
-email-token tables.
+Apply the SQL migrations using your PostgreSQL provider in this order. The
+inventory adjustment endpoint also requires the idempotency column and unique
+index created by `00000000000007_inventory_idempotency.sql`.
 
 ## 🔐 Authentication
 
@@ -137,15 +155,27 @@ session revocation, and CSRF protection. Supabase is only used as PostgreSQL.
 
 Auth endpoints:
 ```
-POST /api/v1/auth/login
-POST /api/v1/auth/refresh
-POST /api/v1/auth/logout
-GET  /api/v1/auth/me
-POST /api/v1/auth/logout-all
-POST /api/v1/auth/change-password
+POST /api/v1/auth/platform/login
+POST /api/v1/auth/platform/refresh
+POST /api/v1/auth/platform/logout
+GET  /api/v1/auth/platform/me
+POST /api/v1/auth/platform/logout-all
+POST /api/v1/auth/platform/change-password
+
+POST /api/v1/auth/pharmacy/login
+POST /api/v1/auth/pharmacy/refresh
+POST /api/v1/auth/pharmacy/logout
+GET  /api/v1/auth/pharmacy/me
+POST /api/v1/auth/pharmacy/logout-all
+POST /api/v1/auth/pharmacy/change-password
+
+Platform and pharmacy sessions use separate cookies and database realms.
+Platform sessions are limited to `super_admin` accounts; pharmacy sessions
+accept employees and company managers with an assigned pharmacy, but never
+`company_viewer` or `super_admin` accounts.
 POST /api/v1/auth/forgot-password
 POST /api/v1/auth/reset-password
-POST /api/v1/auth/verify-email
+POST /api/v1/auth/verify-email   # body: {"email":"user@example.com","code":"123456"}
 POST /api/v1/auth/resend-verification
 ```
 

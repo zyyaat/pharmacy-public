@@ -3,7 +3,18 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { authApi } from '@/lib/api'
 
-export type PharmacyUser = Record<string, unknown>
+export type PharmacyUser = Record<string, unknown> & {
+  account_type?: 'company_user' | 'employee'
+  role?: string
+  pharmacy_id?: string
+}
+
+function isPharmacyAccount(user: PharmacyUser): boolean {
+  if (!user.pharmacy_id) return false
+  if (user.account_type === 'employee') return true
+  return user.account_type === 'company_user' &&
+    ['company_admin', 'company_manager'].includes(user.role || '')
+}
 
 interface AuthContextValue {
   user: PharmacyUser | null
@@ -26,6 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await authApi.me()
+      if (!isPharmacyAccount(response.user)) {
+        throw new Error('نوع الحساب غير مدعوم في تطبيق الصيدلية')
+      }
       setUser(response.user)
     } catch {
       setUser(null)
@@ -43,6 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await authApi.login(email, password)
+      if (!isPharmacyAccount(response.user)) {
+        throw new Error('هذا الحساب غير مخصص لتطبيق الصيدلية')
+      }
       setUser(response.user)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'فشل تسجيل الدخول'

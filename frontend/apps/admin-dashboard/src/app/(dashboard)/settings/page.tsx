@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Settings,
   User,
@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Badge } from "@/components/ui";
+import { platformSettingsApi } from "@/lib/api";
 
 type SettingsTab = "profile" | "notifications" | "security" | "appearance" | "system";
 
@@ -26,13 +27,38 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [trialDays, setTrialDays] = useState(30);
+  const [trialSettingsLoading, setTrialSettingsLoading] = useState(false);
+  const [trialSettingsError, setTrialSettingsError] = useState("");
+
+  useEffect(() => {
+    if (activeTab !== "system") return;
+    setTrialSettingsLoading(true);
+    platformSettingsApi.getTrialSettings()
+      .then((settings) => {
+        setTrialDays(settings.default_trial_days || 30);
+        setTrialSettingsError("");
+      })
+      .catch(() => setTrialSettingsError("تعذر تحميل إعداد مدة التجربة"))
+      .finally(() => setTrialSettingsLoading(false));
+  }, [activeTab]);
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      if (activeTab === "system") {
+        const settings = await platformSettingsApi.updateTrialSettings(trialDays);
+        setTrialDays(settings.default_trial_days);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setTrialSettingsError("تعذر حفظ مدة التجربة");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
@@ -289,6 +315,36 @@ export default function SettingsPage() {
           {/* System Tab */}
           {activeTab === "system" && (
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>الفترة التجريبية للشركات الجديدة</CardTitle>
+                  <CardDescription>
+                    هذه القيمة تُستخدم تلقائيًا عند تسجيل شركة جديدة. القيمة الافتراضية للنظام هي 30 يومًا.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="max-w-sm">
+                    <Input
+                      label="مدة الفترة التجريبية (بالأيام)"
+                      type="number"
+                      min={1}
+                      max={3650}
+                      value={trialDays}
+                      onChange={(event) => setTrialDays(Number(event.target.value))}
+                      disabled={trialSettingsLoading}
+                      dir="ltr"
+                      className="text-left"
+                    />
+                  </div>
+                  {trialSettingsError && (
+                    <p className="text-sm text-destructive">{trialSettingsError}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    يستطيع مسؤول ومدير الشركة استخدام عمليات الصيدلية كاملة أثناء التجربة، بينما يبقى حساب المشاهدة للقراءة فقط.
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>معلومات النظام</CardTitle>

@@ -29,29 +29,9 @@ export function usePharmacies(): UsePharmaciesReturn {
       setPharmacies(response.data)
       setTotal(response.total)
     } catch (err) {
-      // Return mock data if API fails (for development)
-      console.warn('Pharmacies API unavailable, using mock data')
-      setPharmacies([
-        {
-          id: '1',
-          companyId,
-          name: 'صيدلية الامل',
-          type: 'pharmacy',
-          isActive: true,
-          branchesCount: 2,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          companyId,
-          name: 'سلسلة صيدليات النور',
-          type: 'chain',
-          isActive: true,
-          branchesCount: 5,
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ])
-      setTotal(2)
+      setPharmacies([])
+      setTotal(0)
+      setError(err instanceof Error ? err.message : 'تعذر تحميل الحسابات')
     } finally {
       setLoading(false)
     }

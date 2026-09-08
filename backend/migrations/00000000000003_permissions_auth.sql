@@ -33,7 +33,7 @@ CREATE TABLE permissions (
     
     -- Constraints
     CONSTRAINT permissions_valid_key_format CHECK (
-        key ~ '^[a-z]+(\.[a-z_]+)+$' -- Format: module.action or module.area.action
+        key ~ '^[a-z][a-z_]*(\.[a-z_]+)+$' -- Format: module.action or module.area.action
     )
 );
 

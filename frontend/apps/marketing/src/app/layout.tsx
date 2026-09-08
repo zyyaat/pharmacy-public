@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Pharmacy OS - Modern Pharmacy Management',
-  description: 'Complete SaaS platform for pharmacy management',
+  title: 'Pharmacy OS — إدارة صيدليتك بذكاء',
+  description: 'منصة تشغيل حديثة لإدارة الصيدليات والفروع والموظفين والمخزون.',
 }
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="ar" dir="rtl">
       <body>{children}</body>
     </html>
   )

@@ -1,2 +1,13 @@
 - [Replit Go publishing](go-publishing.md) — imported Go services may need an available Replit Go module and newer dependencies before build/publish succeeds.
-- [Imported PostgreSQL migration validation](postgres-migration-validation.md) — validate imported migration chains against PostgreSQL before relying on their documentation order.
+- [Authentication ownership](authentication-ownership.md) — Marketing is informational; Pharmacy App owns registration, login, and authenticated account flows.
+- [Session restoration](session-restoration.md) — auth bootstrap must refresh an expired access cookie through the valid refresh cookie before redirecting to login.
+- [Auth query qualification](auth-query-qualification.md) — joined authentication queries must qualify shared columns such as email or failures surface as misleading credential errors.
+- [Tenant-scoped dashboards](tenant-scoped-dashboards.md) — dashboard reads must derive tenant scope from the authenticated principal, never client-supplied IDs or demo fallbacks.
+- [Multi-platform deployment](multi-platform-deployment.md) — Vercel should proxy relative `/api/v1` requests to a public backend via `BACKEND_INTERNAL_URL`.
+- [Pharmacy product ownership](pharmacy-product-ownership.md) — products, packaging, prices, and stock are pharmacy-owned; Super Admin is not the product business owner.
+- [Production database provisioning](replit-production-database.md) — first Replit publish may require enabling Create production database in Publishing settings before autoscale can start.
+- [Vercel lockfile registry](vercel-lockfile-registry.md) — package locks shared with Vercel must use public npm tarball URLs, never Replit's internal package firewall host.
+- [Initial platform admin provisioning](initial-platform-admin.md) — the first production Super Admin is bootstrapped once at backend startup with a temporary managed secret, then the secret must be removed.
+- [Critical account lockout policy](critical-account-lockout.md) — privileged platform accounts should not be disabled by credential failures; use scoped throttling and stronger authentication instead.
+- [Development database migrations](development-database-migrations.md) — the backend does not apply repository migrations at startup, so development schema state must be checked separately.
+- [Company-user ledger actors](company-user-ledger-actors.md) — company-user audit actors need nullable employee IDs and cascade-safe ownership cleanup.

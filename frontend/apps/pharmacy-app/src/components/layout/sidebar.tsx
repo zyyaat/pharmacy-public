@@ -1,15 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, Settings, Store, Users, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, ReceiptText, Settings, Store, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
+import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
-  { title: 'المخزون والأدوية', href: '/inventory', icon: Package, badge: '27' },
+  { title: 'المخزون والأدوية', href: '/inventory', icon: Package },
+  { title: 'نقطة البيع', href: '/pos', icon: ReceiptText },
   { title: 'الموظفون', href: '/employees', icon: Users },
   { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck },
   { title: 'الفروع', href: '/branches', icon: Store },
@@ -18,18 +21,52 @@ const items = [
 
 export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAuth()
+  const { context } = usePharmacyContext()
   const [collapsed, setCollapsed] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      router.replace('/login')
+    }
+  }
 
   const content = (
     <div className={cn('flex h-full flex-col border-l border-border bg-card transition-all duration-300', collapsed ? 'w-[70px]' : 'w-[260px]')}>
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>
-            <span className="gradient-text text-lg font-bold">Pharmacy OS</span>
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-9 w-auto max-w-[170px] dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-9 w-auto max-w-[170px] dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
         )}
-        {collapsed && <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>}
+        {collapsed && (
+          <img
+            src="/brand/pharmacy-os-icon.svg"
+            alt="Pharmacy OS"
+            className="mx-auto h-9 w-9"
+            width="36"
+            height="36"
+          />
+        )}
         <button className="rounded-lg p-1.5 hover:bg-accent lg:hidden" onClick={onMobileClose} aria-label="إغلاق القائمة">
           <X className="h-5 w-5" />
         </button>
@@ -42,8 +79,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
         <div className="border-b border-border p-3">
           <div className="rounded-lg bg-primary/10 p-3">
             <p className="text-xs text-muted-foreground">الصيدلية الحالية</p>
-            <p className="mt-1 truncate text-sm font-semibold">صيدليات الأمل</p>
-            <p className="mt-1 truncate text-xs text-muted-foreground">الفرع الرئيسي · القاهرة</p>
+            <p className="mt-1 truncate text-sm font-semibold">{context?.pharmacy.name || 'جاري تحميل الصيدلية...'}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {context?.branch
+                ? `${context.branch.name}${context.branch.city ? ` · ${context.branch.city}` : ''}`
+                : context?.pharmacy.city || 'لا يوجد فرع محدد'}
+            </p>
           </div>
         </div>
       )}
@@ -65,7 +106,11 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
               {!collapsed && (
                 <>
                   <span className="flex-1">{item.title}</span>
-                  {item.badge && <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>{item.badge}</span>}
+                  {item.href === '/inventory' && context && (
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
+                      {new Intl.NumberFormat('ar-EG').format(context.pharmacy.product_count)}
+                    </span>
+                  )}
                 </>
               )}
               {collapsed && <div className="absolute right-full z-50 mr-2 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-3 py-2 text-sm shadow-lg group-hover:block">{item.title}</div>}
@@ -85,11 +130,25 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">م</div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">محمد أحمد</p>
-              <p className="truncate text-xs text-muted-foreground">مدير الصيدلية</p>
+              <p className="truncate text-sm font-medium">
+                {context?.user.display_name || `${context?.user.first_name || ''} ${context?.user.last_name || ''}`.trim() || 'المستخدم'}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{context?.user.role || 'حساب الصيدلية'}</p>
             </div>
           )}
-          {!collapsed && <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive"><LogOut className="h-4 w-4" /></Button>}
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-label="تسجيل الخروج"
+              title="تسجيل الخروج"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

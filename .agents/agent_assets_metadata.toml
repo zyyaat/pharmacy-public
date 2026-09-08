@@ -1,0 +1,58 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "GF26dlwi7dSBeDYW6h7Os"
+uri = "file://backups/pharmacy-os-development-2026-09-05.sql"
+type = "unspecified"
+title = "Pharmacy OS development database backup"
+description = "Full SQL backup of the development database, including schema and data."
+logical_id = "6dbe1dfa-0b2e-470a-9a6b-88311512a269"
+content_hash = "sha256:91296db433316f3e01598a0446564861408aeca83ec14747f588d8ec9a9919e8"
+size = 143081
+mtime_ms = 1788624996567
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:88578e20-29e2-4f8b-a275-a5d9b2f4b331/6dbe1dfa-0b2e-470a-9a6b-88311512a269/53e0b05c-0a9d-4055-bf36-e4f65132ffd6"
+storage_version_token = "1788624997182473"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "yUb6G0ixqLX6r053rSvVQ"
+uri = "file://backups/pharmacy-os-development-2026-09-06.sql.gz"
+type = "unspecified"
+title = "Pharmacy OS development database backup — 2026-09-06"
+description = "Compressed plain SQL backup of the current development database after revoking active Super Admin sessions and applying the pharmacy access fix. SHA-256: fe5cfd0eaa93290a7c1a6612f57fbb36729a417b5a70b4265af390658df6690b"
+logical_id = "97c73795-4147-4376-9907-67f1a6453c01"
+content_hash = "sha256:fe5cfd0eaa93290a7c1a6612f57fbb36729a417b5a70b4265af390658df6690b"
+size = 21632
+mtime_ms = 1788678651701
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:8c39df70-cee0-4919-9334-a235bc3653a1/97c73795-4147-4376-9907-67f1a6453c01/901b307d-c085-4db4-8334-54aa0be1ee17"
+storage_version_token = "1788678668854850"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "d9irk0U46fF1LyAq9lXWu"
+uri = "file://frontend/apps/marketing/public/brand/pharmacy-os-icon.svg"
+type = "image"
+title = "Pharmacy OS — icon"
+description = "The standalone company icon extracted from the marketing header as a reusable vector SVG."
+logical_id = "36ed6895-6892-4d9c-9468-ff235ad813d5"
+content_hash = "sha256:0321ede9ac01d4c19ba9cef52b3ee703897966e4fc4961c2b733cd2878b2bff3"
+size = 545
+mtime_ms = 1788678802089
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:8c39df70-cee0-4919-9334-a235bc3653a1/36ed6895-6892-4d9c-9468-ff235ad813d5/2645bee4-5f27-4f39-944c-b86ce57b0bf6"
+storage_version_token = "1788678843494785"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "HLCo_se3Wjcc-2tqYK_fn"
+uri = "file://frontend/apps/marketing/public/brand/pharmacy-os-logo.svg"
+type = "image"
+title = "Pharmacy OS — full logo"
+description = "The complete Pharmacy OS logo with icon and wordmark, saved as a reusable vector SVG."
+logical_id = "61022748-5416-4bbf-a5b1-10c0f53182a4"
+content_hash = "sha256:ef6d916043d27eb2f3c8557a5b7877680f65f5f1b6d710ec41d80e215a0dd768"
+size = 825
+mtime_ms = 1788678807425
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:8c39df70-cee0-4919-9334-a235bc3653a1/61022748-5416-4bbf-a5b1-10c0f53182a4/403b05b7-9a5d-46ed-ae3b-e595282100e2"
+storage_version_token = "1788678844126470"
+content_type = "image/svg+xml"

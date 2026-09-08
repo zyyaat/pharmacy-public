@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: pharmacy-os-api
+    runtime: go
+    rootDir: backend
+    buildCommand: GOTOOLCHAIN=auto GOFLAGS=-mod=vendor go build -o bin/pharmacy-os-api ./cmd/server
+    startCommand: ./bin/pharmacy-os-api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Pharmacy OS
+      - key: BREVO_API_KEY
+        sync: false
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: LOG_LEVEL
+        value: info

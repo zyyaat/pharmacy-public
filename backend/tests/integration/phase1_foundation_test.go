@@ -541,7 +541,7 @@ func (s *Phase1FoundationTestSuite) grantPermissionToEmployee(ctx context.Contex
 func (s *Phase1FoundationTestSuite) revokePermissionFromEmployee(ctx context.Context, employeeID, permissionKey, revokedBy string) {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE employee_permissions 
-		SET revoked_at = NOW(), revoked_by = $3
+		SET revoked_at = NOW(), revoked_by = $3, is_active = false
 		WHERE employee_id = $1 
 		  AND permission_id = (SELECT id FROM permissions WHERE key = $2)
 		  AND is_active = true

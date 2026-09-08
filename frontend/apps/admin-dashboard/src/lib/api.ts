@@ -1,180 +1,36 @@
 // API Client for Backend (Go) - Real Implementation
 // This client connects to our Go backend for: CRUD operations, Admin tasks
-//
-// Detailed error system: every failure throws ApiError carrying the HTTP
-// status, backend code, request_id and Arabic hint, so deployment problems
-// surface with their REAL cause instead of a generic message.
 
-import type { Company, CompanyUser, DashboardStats, Account, ActivityItem } from '@/types'
+import type { Company, CompanyUser, DashboardStats, Account, ActivityItem, PlatformUser, PlatformPermission, PlatformRole } from '@/types'
 
-export type ApiErrorKind = 'network' | 'timeout' | 'http' | 'unknown'
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
+const AUTH_BASE_PATH = '/auth/platform'
+const CSRF_COOKIE_NAME = 'platform_csrf'
+let refreshPromise: Promise<boolean> | null = null
 
 export class ApiError extends Error {
-  readonly kind: ApiErrorKind
-  readonly status: number | null
-  readonly code: string | null
-  readonly requestId: string | null
-  readonly url: string
-  readonly hint: string
-  readonly detail: string | null
-  readonly time: string
+  code: string
+  status: number
 
-  constructor(fields: {
-    kind: ApiErrorKind
-    message: string
-    url: string
-    hint: string
-    status?: number | null
-    code?: string | null
-    requestId?: string | null
-    detail?: string | null
-  }) {
-    super(fields.message)
+  constructor(message: string, code: string, status: number) {
+    super(message)
     this.name = 'ApiError'
-    this.kind = fields.kind
-    this.url = fields.url
-    this.hint = fields.hint
-    this.status = fields.status ?? null
-    this.code = fields.code ?? null
-    this.requestId = fields.requestId ?? null
-    this.detail = fields.detail ?? null
-    this.time = new Date().toISOString()
-  }
-
-  toJSON() {
-    return {
-      name: this.name,
-      kind: this.kind,
-      message: this.message,
-      status: this.status,
-      code: this.code,
-      requestId: this.requestId,
-      url: this.url,
-      hint: this.hint,
-      detail: this.detail,
-      time: this.time,
-    }
+    this.code = code
+    this.status = status
   }
 }
-
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL
-export const API_BASE_URL = (RAW_API_URL || '/api/v1').replace(/\/+$/, '')
-export const USING_CUSTOM_API_URL = Boolean(RAW_API_URL)
-
-const REQUEST_TIMEOUT_MS = 20_000
-
-const NETWORK_HINT = [
-  'السيرفر غير قابل للوصول من المتصفح. الأسباب الأكثر شيوعاً:',
-  '1) NEXT_PUBLIC_API_URL غير مضبوط على Vercel (أو BACKEND_URL للوسيط) — أعد النشر بعد ضبطه.',
-  '2) الباك اند متوقف — افتح https://pharmacyos.dockhosting.dev/health.',
-  '3) CORS: أضف دومين Vercel إلى CORS_ORIGINS على DockHosting (مثال: *.vercel.app).',
-  '4) جرّب تعطيل مانع الإعلانات/VPN ثم أعد المحاولة.',
-].join('\n')
-
-function arabicMessageFor(status: number | null, code: string | null, backendMessage: string | null): string {
-  switch (status) {
-    case 400:
-      return backendMessage ? `الطلب غير مقبول من السيرفر: ${backendMessage}` : 'الطلب غير مقبول من السيرفر (400)'
-    case 401:
-      return code === 'REFRESH_REQUIRED' || code === 'INVALID_REFRESH_SESSION'
-        ? 'انتهت صلاحية الجلسة — سجّل الدخول من جديد'
-        : 'البريد الإلكتروني أو كلمة المرور غير صحيحة (401)'
-    case 403:
-      if (code === 'EMAIL_NOT_VERIFIED') return 'لم يتم تفعيل البريد الإلكتروني — فعّل الحساب من رابط التفعيل (403)'
-      if (code === 'ACCOUNT_INACTIVE') return 'الحساب غير مفعّل/موقوف — راجع مسؤول النظام (403)'
-      return 'غير مسموح لك بتنفيذ هذا الطلب (403)'
-    case 404:
-      return 'المسار غير موجود على السيرفر (404) — تأكد من عنوان الـ API ومن أن نسخة الباك اند محدثة'
-    case 423:
-      return 'الحساب مقفول مؤقتاً بسبب 5 محاولات خاطئة — انتظر 15 دقيقة (423)'
-    case 500:
-      return 'خطأ داخلي في السيرفر (500) — راجع لوجز DockHosting وابحث عن request_id'
-    case 502:
-    case 503:
-    case 504:
-      return `الباك اند غير متاح حالياً (${status}) — راجع لوجز DockHosting`
-    default:
-      return backendMessage ? `فشل الطلب (${status}): ${backendMessage}` : `فشل الطلب (HTTP ${status ?? 'مجهول'})`
-  }
-}
-
-interface ErrorBody {
-  message?: unknown
-  error?: unknown
-  code?: unknown
-  request_id?: unknown
-  debug?: { internal_reason?: unknown } | null
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function buildNetworkError(url: string, timedOut: boolean): ApiError {
-  if (timedOut) {
-    return new ApiError({
-      kind: 'timeout',
-      url,
-      message: 'انتهت مهلة الاتصال بالسيرفر (20 ثانية بلا استجابة)',
-      hint: 'السيرفر بطيء جداً أو معلّق — راجع لوجز DockHosting.',
-    })
-  }
-  const mixed = typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')
-  return new ApiError({
-    kind: 'network',
-    url,
-    message: mixed
-      ? 'طلب محجوب: مزج HTTPS مع HTTP غير مسموح (mixed content)'
-      : 'فشل الاتصال بسيرفر الـ API — لا يمكن الوصول إلى الخادم من المتصفح',
-    hint: mixed
-      ? 'استخدم عنوان https:// للـ API.'
-      : NETWORK_HINT,
-  })
-}
-
-function buildHttpError(url: string, response: Response, body: ErrorBody | null): ApiError {
-  const backendMessage = asString(body?.message)
-  const code = asString(body?.code) ?? asString(body?.error)
-  const requestId = asString(body?.request_id) ?? response.headers.get('x-request-id')
-  const internalReason = asString(body?.debug?.internal_reason)
-  const status = response.status
-
-  let hint = 'راجع التفاصيل التقنية.'
-  if (status === 401) hint = 'تأكد من بيانات الدخول ومن وجود الحساب في قاعدة البيانات المتصلة.'
-  else if (status === 404) hint = `المسار ${url} غير موجود — تأكد من NEXT_PUBLIC_API_URL ونسخة الباك اند.`
-  else if (status >= 500) hint = 'افتح لوجز DockHosting وابحث عن request_id نفسه.'
-
-  const detail = internalReason
-    ? `internal_reason: ${internalReason}`
-    : backendMessage
-      ? `server_message: ${backendMessage}`
-      : `body: ${JSON.stringify(body ?? {})}`
-
-  return new ApiError({
-    kind: 'http',
-    url,
-    message: arabicMessageFor(status, code, backendMessage),
-    hint,
-    status,
-    code,
-    requestId,
-    detail,
-  })
-}
-
-let refreshPromise: Promise<boolean> | null = null
 
 // Generic fetch wrapper with auth
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE_URL}${AUTH_BASE_PATH}/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: typeof document === 'undefined'
         ? {}
         : {
             'X-CSRF-Token': decodeURIComponent(
-              document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1] || ''
+              document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1] || ''
             ),
           },
     })
@@ -185,6 +41,10 @@ async function refreshSession(): Promise<boolean> {
       })
   }
   return refreshPromise
+}
+
+function shouldRefreshSession(endpoint: string): boolean {
+  return endpoint === `${AUTH_BASE_PATH}/me` || !endpoint.startsWith('/auth/')
 }
 
 async function apiFetch<T>(
@@ -200,40 +60,35 @@ async function apiFetch<T>(
   }
 
   if (typeof window !== 'undefined' && options.method && options.method !== 'GET') {
-    const csrf = document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1]
+    const csrf = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1]
     if (csrf) headers['X-CSRF-Token'] = decodeURIComponent(csrf)
   }
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  let timedOut = false
-
-  let response: Response
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers,
       credentials: 'include',
-      signal: options.signal ?? controller.signal,
     })
-  } catch (fetchError) {
-    if (fetchError instanceof DOMException && fetchError.name === 'AbortError') timedOut = true
-    throw buildNetworkError(url, timedOut)
-  } finally {
-    clearTimeout(timer)
+
+    if (response.status === 401 && canRefresh && shouldRefreshSession(endpoint)) {
+      if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }))
+      throw new ApiError(
+        error.message || `API Error: ${response.status}`,
+        error.code || error.error || 'API_ERROR',
+        response.status,
+      )
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error(`API Error [${endpoint}]:`, error)
+    throw error
   }
-
-  if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
-    if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
-  }
-
-  const body = (await response.json().catch(() => null)) as ErrorBody | null
-
-  if (!response.ok) {
-    throw buildHttpError(url, response, body)
-  }
-
-  return body as T
 }
 
 // ============================================
@@ -241,40 +96,17 @@ async function apiFetch<T>(
 // ============================================
 
 export const authApi = {
-  async register(input: {
-    companyName: string
-    companyEmail: string
-    firstName: string
-    lastName: string
-    email: string
-    password: string
-  }) {
-    return apiFetch<{ user?: Record<string, unknown>; message?: string; email_verified?: boolean }>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          company_name: input.companyName,
-          company_email: input.companyEmail,
-          first_name: input.firstName,
-          last_name: input.lastName,
-          email: input.email,
-          password: input.password,
-        }),
-      },
-    )
-  },
-
   async login(email: string, password: string) {
     const response = await apiFetch<{
       data?: { user: CompanyUser; expires_in: number }
       user?: CompanyUser
       expires_in?: number
-    }>('/auth/login', {
+    }>(`${AUTH_BASE_PATH}/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password, account_type: 'company_user' }),
     })
-    const user = response.data?.user || response.user
+    const rawUser = response.data?.user || response.user
+    const user = rawUser && normalizeCompanyUser(rawUser)
     if (!user) throw new Error('Login response did not include a user')
     return {
       user,
@@ -284,20 +116,51 @@ export const authApi = {
   },
 
   async logout() {
-    return apiFetch('/auth/logout', { method: 'POST' })
+    return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
+  },
+
+  async resendVerification(email: string) {
+    return apiFetch<{ message: string; sent?: boolean }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email, account_type: 'company_user' }),
+    })
+  },
+
+  async verifyEmail(email: string, code: string) {
+    return apiFetch<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
   },
 
   async getProfile() {
-    const response = await apiFetch<{ user: CompanyUser }>('/auth/me')
-    return response.user
+    const response = await apiFetch<{ user: CompanyUser }>(`${AUTH_BASE_PATH}/me`)
+    return normalizeCompanyUser(response.user)
   },
 
   async changePassword(currentPassword: string, newPassword: string) {
-    return apiFetch('/auth/change-password', {
+    return apiFetch(`${AUTH_BASE_PATH}/change-password`, {
       method: 'POST',
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
     })
   },
+}
+
+function normalizeCompanyUser(user: unknown): CompanyUser {
+  const raw = (user || {}) as Record<string, unknown>
+  return {
+    ...(raw as Partial<CompanyUser>),
+    id: String(raw.id || ''),
+    email: String(raw.email || ''),
+    displayName: String(raw.displayName || raw.display_name || `${raw.first_name || ''} ${raw.last_name || ''}`.trim() || raw.email),
+    companyId: String(raw.companyId || raw.company_id || ''),
+    avatarUrl: raw.avatarUrl as string | undefined || raw.avatar_url as string | undefined,
+    isActive: Boolean(raw.isActive ?? raw.is_active),
+    lastLoginAt: raw.lastLoginAt as string | undefined || raw.last_login_at as string | undefined,
+    createdAt: String(raw.createdAt || raw.created_at || ''),
+    account_type: (raw.account_type || 'company_user') as CompanyUser['account_type'],
+    role: raw.role as CompanyUser['role'],
+  }
 }
 
 // ============================================
@@ -328,7 +191,8 @@ export const companiesApi = {
         total_users?: number
       }>
       pagination: { total: number; page: number; page_size: number; total_pages: number }
-    }>(`/companies${query ? `?${query}` : ''}`)
+       summary: { total: number; active: number; trial: number; suspended: number }
+    }>(`/platform-admin/companies${query ? `?${query}` : ''}`)
 
     return {
       data: response.data.map((company) => ({
@@ -347,6 +211,7 @@ export const companiesApi = {
       total: response.pagination.total,
       page: response.pagination.page,
       limit: response.pagination.page_size,
+      summary: response.summary,
     }
   },
 
@@ -378,6 +243,33 @@ export const companiesApi = {
 // ============================================
 
 export const usersApi = {
+  async listPlatform(params?: { page?: number; limit?: number; search?: string; role?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.set('page', String(params.page))
+    if (params?.limit) queryParams.set('page_size', String(params.limit))
+    if (params?.search) queryParams.set('search', params.search)
+    if (params?.role) queryParams.set('role', params.role)
+    const query = queryParams.toString()
+    const response = await apiFetch<{ data: Array<Record<string, unknown>>; pagination: { total: number; page: number; page_size: number; total_pages: number } }>(
+      `/platform-admin/users${query ? `?${query}` : ''}`
+    )
+    return {
+      data: response.data.map((user) => ({
+        id: String(user.id),
+        accountType: user.account_type as PlatformUser['accountType'],
+        email: String(user.email || ''),
+        displayName: String(user.display_name || user.email || ''),
+        companyName: String(user.company_name || '—'),
+        role: String(user.role || ''),
+        isActive: Boolean(user.is_active),
+        lastLoginAt: user.last_login_at as string | undefined,
+        createdAt: user.created_at as string | undefined,
+        permissionsCount: Number(user.permissions_count || 0),
+      } satisfies PlatformUser)),
+      ...response.pagination,
+    }
+  },
+
   async list(companyId: string, params?: { page?: number; limit?: number; role?: string }) {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.set('page', String(params.page))
@@ -420,6 +312,33 @@ export const usersApi = {
 // ============================================
 
 export const accountsApi = {
+  async listPlatform(params?: { page?: number; limit?: number; search?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.set('page', String(params.page))
+    if (params?.limit) queryParams.set('page_size', String(params.limit))
+    if (params?.search) queryParams.set('search', params.search)
+    const query = queryParams.toString()
+    const response = await apiFetch<{ data: Array<Record<string, unknown>>; pagination: { total: number; page: number; page_size: number; total_pages: number } }>(
+      `/platform-admin/accounts${query ? `?${query}` : ''}`
+    )
+    return {
+      data: response.data.map((account) => ({
+        id: String(account.id),
+        companyId: String(account.company_id || ''),
+        companyName: String(account.company_name || '—'),
+        name: String(account.name || '—'),
+        status: String(account.status || 'unknown'),
+        plan: String(account.plan || ''),
+        pharmacyCount: Number(account.pharmacy_count || 0),
+        branchesCount: Number(account.branch_count || 0),
+        email: String(account.email || ''),
+        phone: String(account.phone || ''),
+        createdAt: String(account.created_at || ''),
+      } satisfies Account)),
+      ...response.pagination,
+    }
+  },
+
   async list(companyId: string, params?: { page?: number; limit?: number }) {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.set('page', String(params.page))
@@ -445,11 +364,54 @@ export const accountsApi = {
 
 export const dashboardApi = {
   async getStats() {
-    return apiFetch<DashboardStats>('/dashboard/stats')
+    return apiFetch<DashboardStats>('/platform-admin/stats')
   },
 
   async getRecentActivity(limit = 10) {
     return apiFetch<{ data: ActivityItem[] }>(`/dashboard/activity?limit=${limit}`)
+  },
+}
+
+export const permissionsApi = {
+  async list() {
+    const response = await apiFetch<{
+      permissions: Array<Record<string, unknown>>
+      roles: Array<Record<string, unknown>>
+    }>('/platform-admin/permissions')
+    return {
+      permissions: response.permissions.map((permission) => ({
+        key: String(permission.key),
+        name: String(permission.name || permission.key),
+        description: String(permission.description || ''),
+        module: String(permission.module || 'other'),
+        category: String(permission.category || ''),
+        isSystem: Boolean(permission.is_system),
+        sortOrder: Number(permission.sort_order || 0),
+      } satisfies PlatformPermission)),
+      roles: response.roles.map((role) => ({
+        id: String(role.id),
+        name: String(role.name),
+        description: String(role.description || ''),
+        isSystem: Boolean(role.is_system),
+        userCount: Number(role.user_count || 0),
+        permissionKeys: Array.isArray(role.permission_keys) ? role.permission_keys.map(String) : [],
+      } satisfies PlatformRole)),
+    }
+  },
+}
+
+export const platformSettingsApi = {
+  async getTrialSettings() {
+    const response = await apiFetch<{ data: { default_trial_days: number } }>('/platform-admin/settings')
+    return response.data
+  },
+
+  async updateTrialSettings(defaultTrialDays: number) {
+    const response = await apiFetch<{ data: { default_trial_days: number } }>('/platform-admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ default_trial_days: defaultTrialDays }),
+    })
+    return response.data
   },
 }
 
@@ -473,5 +435,7 @@ export const api = {
   users: usersApi,
   accounts: accountsApi,
   dashboard: dashboardApi,
+  permissions: permissionsApi,
+  platformSettings: platformSettingsApi,
   healthCheck,
 }

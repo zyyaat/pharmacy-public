@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const profile = await authApi.getProfile()
+      if (profile.account_type !== 'company_user' || profile.role !== 'super_admin') {
+        throw new Error('هذه اللوحة مخصصة لمديري النظام فقط')
+      }
       setUser(profile)
     } catch {
       setUser(null)
@@ -42,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await authApi.login(credentials.email, credentials.password)
+      if (response.user.account_type !== 'company_user' || response.user.role !== 'super_admin') {
+        throw new Error('هذه اللوحة مخصصة لمديري النظام فقط')
+      }
       setUser(response.user)
       return response
     } catch (err) {

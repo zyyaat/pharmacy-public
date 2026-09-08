@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -10,23 +10,37 @@ import {
   Mail, 
   ArrowLeft,
   AlertCircle,
-  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import { ApiError } from "@/lib/api";
+import { getSafeRedirectPath } from "@/lib/navigation";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
+
+  useEffect(() => {
+    setRedirectPath(
+      getSafeRedirectPath(new URLSearchParams(window.location.search).get("next")),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user && redirectPath) {
+      router.replace(redirectPath);
+    }
+  }, [authLoading, redirectPath, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,13 +56,25 @@ export default function LoginPage() {
     
     try {
       await login({ email: formData.email, password: formData.password });
-      router.push("/");
+      router.replace(redirectPath || "/");
     } catch (err) {
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        router.replace(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`);
+        return;
+      }
       setError(err instanceof Error ? err.message : "فشل تسجيل الدخول");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (authLoading || (user && redirectPath)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        جاري التحقق من الجلسة...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -63,12 +89,22 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md mx-4 animate-scale-in">
         {/* Logo & Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg shadow-primary/25">
-            <Building2 className="h-8 w-8" />
+          <Link href="/" className="mb-4 inline-flex items-center justify-center" aria-label="Pharmacy OS - الرئيسية">
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-16 w-auto dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-16 w-auto dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
-          <h1 className="text-3xl font-bold mb-2">
-            <span className="gradient-text">Pharmacy OS</span>
-          </h1>
           <p className="text-muted-foreground">
             مرحباً بعودتك! سجّل دخولك للوحة التحكم
           </p>
@@ -157,17 +193,6 @@ export default function LoginPage() {
             >
               {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
             </Button>
-
-            {/* Register Link */}
-            <p className="text-center text-sm text-muted-foreground">
-              ليس لديك حساب؟{" "}
-              <Link
-                href="/register"
-                className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
-              >
-                أنشئ حساب شركة جديد
-              </Link>
-            </p>
 
             {/* Divider */}
             <div className="relative my-6">

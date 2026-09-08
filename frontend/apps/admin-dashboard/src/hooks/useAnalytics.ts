@@ -23,31 +23,8 @@ export function useAnalytics(): UseAnalyticsReturn {
       const data = await dashboardApi.getStats()
       setStats(data)
     } catch (err) {
-      // Return mock data if API fails (for development)
-      console.warn('Dashboard API unavailable, using mock data')
-      setStats({
-        totalCompanies: 12,
-        activeCompanies: 8,
-        totalUsers: 48,
-        activeUsers: 32,
-        totalAccounts: 25,
-        recentActivity: [
-          {
-            id: '1',
-            type: 'company_created',
-            description: 'تم إنشاء شركة جديدة: صيدلية الامل',
-            userName: 'أحمد محمد',
-            timestamp: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            type: 'user_created',
-            description: 'إضافة مستخدم جديد: سارة أحمد',
-            userName: 'مدير النظام',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-          },
-        ],
-      })
+      setStats(null)
+      setError(err instanceof Error ? err.message : 'تعذر تحميل إحصاءات لوحة التحكم')
     } finally {
       setLoading(false)
     }

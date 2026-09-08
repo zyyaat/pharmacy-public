@@ -1,0 +1,100 @@
+2026-09-06T16:43:34.210Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:43:34.704Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:43:35.406Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:43:35.676Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:43:36.217Z crash loop detected
+2026-09-06T16:45:42.932Z starting up user application
+2026-09-06T16:45:42.933Z forwarding local port 8080 to external port 80 (mapped as 1104)
+2026-09-06T16:45:42.933Z metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-09-06T16:45:42.953Z healthcheck failed error=healthcheck /: Get "http://127.0.0.1:1104/": dial tcp 127.0.0.1:1104: connect: connection refused
+2026-09-06T16:45:42.970Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:42.983Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:43.011Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:43.067Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:43.131Z go: downloading go1.25.0 (linux/amd64)
+2026-09-06T16:45:43.167Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:43.314Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:43.771Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:44.519Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:45.755Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:47.477Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:49.123Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:49.782Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:51.731Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:53.443Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:54.188Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:54.798Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:56.634Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:57.094Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:58.682Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:45:58.845Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:00.292Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:01.846Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:03.681Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:04.008Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:05.778Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:07.021Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:08.884Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:08.978Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:10.440Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:10.878Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:10.926Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:11.201Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:12.484Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:14.027Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:15.234Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:16.192Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:17.485Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:18.335Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:20.140Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:20.551Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:20.820Z 2026/09/06 16:46:20 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:20.831Z 2026/09/06 16:46:20 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:20.832Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:21.010Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:21.154Z 2026/09/06 16:46:21 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:21.161Z 2026/09/06 16:46:21 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:21.162Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:21.468Z 2026/09/06 16:46:21 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:21.475Z 2026/09/06 16:46:21 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:21.476Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:21.707Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:21.932Z 2026/09/06 16:46:21 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:21.939Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:21.939Z 2026/09/06 16:46:21 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:22.737Z 2026/09/06 16:46:22 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:22.743Z 2026/09/06 16:46:22 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:22.744Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:22.981Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:23.692Z 2026/09/06 16:46:23 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:23.696Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:23.698Z 2026/09/06 16:46:23 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:23.699Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:24.324Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:26.154Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:26.341Z 2026/09/06 16:46:26 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:26.348Z 2026/09/06 16:46:26 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:26.349Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:27.095Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:28.100Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:29.294Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:30.858Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:31.497Z 2026/09/06 16:46:31 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:31.506Z 2026/09/06 16:46:31 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:31.507Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:32.223Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:33.214Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:33.334Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:34.901Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:36.379Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:37.005Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:37.754Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:39.255Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:39.740Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:41.553Z 2026/09/06 16:46:41 [CONFIG] Port: 8080, Environment: production, DatabaseURL: postgresql://postgres:password@helium/heliumdb?ssl...
+2026-09-06T16:46:41.563Z command finished with error [sh -c cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api]: exit status 1
+2026-09-06T16:46:41.563Z 2026/09/06 16:46:41 Failed to connect to database: failed to connect to `user=postgres database=heliumdb`: hostname resolving error: lookup helium on 169.254.169.254:53: no such host
+2026-09-06T16:46:41.687Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:41.860Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:42.596Z healthcheck failed error=healthcheck / returned status 500
+2026-09-06T16:46:42.935Z a port configuration was specified but the required port was never opened, expected port 8080

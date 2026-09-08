@@ -403,7 +403,7 @@ POST /api/v1/auth/logout-all
 POST /api/v1/auth/change-password
 POST /api/v1/auth/forgot-password
 POST /api/v1/auth/reset-password
-POST /api/v1/auth/verify-email
+POST /api/v1/auth/verify-email   # body: {"email":"user@example.com","code":"123456"}
 POST /api/v1/auth/resend-verification
 ```
 

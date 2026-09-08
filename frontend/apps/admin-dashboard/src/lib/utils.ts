@@ -38,7 +38,7 @@ export const ROLES = {
   SUPER_ADMIN: "super_admin",
   COMPANY_ADMIN: "company_admin",
   COMPANY_MANAGER: "company_manager",
-  VIEWER: "viewer",
+  VIEWER: "company_viewer",
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
@@ -47,7 +47,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   [ROLES.SUPER_ADMIN]: "مدير النظام",
   [ROLES.COMPANY_ADMIN]: "مدير الشركة",
   [ROLES.COMPANY_MANAGER]: "مدير العمليات",
-  [ROLES.VIEWER]: "مشاهد",
+  [ROLES.VIEWER]: "مشاهد الشركة",
 };
 
 export const PERMISSION_LABELS: Record<Permission, string> = {

@@ -196,10 +196,12 @@ CREATE TABLE company_user_permissions (
     
     -- Metadata
     notes TEXT
+    
+    -- Active rows are kept unique by the partial unique index below.
 );
 
 -- Indexes for company_user_permissions
-CREATE UNIQUE INDEX idx_company_user_perms_unique_active
+CREATE UNIQUE INDEX company_user_perms_unique_active
     ON company_user_permissions(company_user_id, permission_id)
     WHERE revoked_at IS NULL;
 CREATE INDEX idx_company_user_perms_user ON company_user_permissions(company_user_id) WHERE is_active = true;
@@ -225,6 +227,8 @@ COMMENT ON TABLE company_user_permissions IS '⭐ SOURCE OF TRUTH ⭐ - Company 
 -- ============================================
 ALTER TABLE accounts 
 ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
+ALTER TABLE accounts
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- Update existing accounts to link to a default company (migration helper)
 -- This allows existing data to work during transition
@@ -247,6 +251,11 @@ CREATE POLICY "accounts_can_view_own_accounts" ON accounts
 -- ============================================
 
 -- Add company-specific permissions if they don't exist
+ALTER TABLE permissions DROP CONSTRAINT IF EXISTS permissions_valid_key_format;
+ALTER TABLE permissions ADD CONSTRAINT permissions_valid_key_format CHECK (
+    key ~ '^[a-z][a-z_]*(\.[a-z_]+)+$'
+);
+
 INSERT INTO permissions (key, name, description, module, category, is_system, sort_order) VALUES
 -- Company Management
 ('companies.view', 'View Companies', 'Can view company information and details', 'companies', 'read', true, 70),
@@ -256,11 +265,11 @@ INSERT INTO permissions (key, name, description, module, category, is_system, so
 ('companies.manage_subscription', 'Manage Subscriptions', 'Can manage company subscriptions and billing', 'companies', 'admin', true, 74),
 
 -- Company User Management
-('companyusers.view', 'View Company Users', 'Can view company user list', 'company_users', 'read', true, 80),
-('companyusers.create', 'Create Company Users', 'Can add new company users', 'company_users', 'write', true, 81),
-('companyusers.update', 'Update Company Users', 'Can edit company user information', 'company_users', 'write', true, 82),
-('companyusers.delete', 'Delete Company Users', 'Can remove company users', 'company_users', 'delete', true, 83),
-('companyusers.manage_permissions', 'Manage User Permissions', 'Can grant/revoke permissions to company users', 'company_users', 'admin', true, 84),
+('company_users.view', 'View Company Users', 'Can view company user list', 'company_users', 'read', true, 80),
+('company_users.create', 'Create Company Users', 'Can add new company users', 'company_users', 'write', true, 81),
+('company_users.update', 'Update Company Users', 'Can edit company user information', 'company_users', 'write', true, 82),
+('company_users.delete', 'Delete Company Users', 'Can remove company users', 'company_users', 'delete', true, 83),
+('company_users.manage_permissions', 'Manage User Permissions', 'Can grant/revoke permissions to company users', 'company_users', 'admin', true, 84),
 
 -- Account Management (under company)
 ('accounts.view', 'View Accounts', 'Can view pharmacy accounts under company', 'accounts', 'read', true, 90),
@@ -464,7 +473,7 @@ SELECT
     COUNT(DISTINCT CASE WHEN a.status = 'active' THEN a.id END) AS active_accounts,
     COUNT(DISTINCT cu.id) AS total_users
 FROM companies c
-LEFT JOIN accounts a ON a.company_id = c.id
+LEFT JOIN accounts a ON a.company_id = c.id AND a.deleted_at IS NULL
 LEFT JOIN company_users cu ON cu.company_id = c.id AND cu.deleted_at IS NULL AND cu.is_active = true
 WHERE c.deleted_at IS NULL
 GROUP BY c.id;

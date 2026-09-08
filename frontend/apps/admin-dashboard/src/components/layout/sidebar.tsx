@@ -13,13 +13,14 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Store,
   LogOut,
   Menu,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface SidebarItem {
   title: string;
@@ -38,13 +39,11 @@ const sidebarItems: SidebarItem[] = [
     title: "الشركات",
     href: "/companies",
     icon: <Building2 className="h-5 w-5" />,
-    badge: "12",
   },
   {
     title: "المستخدمين",
     href: "/users",
     icon: <Users className="h-5 w-5" />,
-    badge: "48",
   },
   {
     title: "الصلاحيات",
@@ -55,11 +54,6 @@ const sidebarItems: SidebarItem[] = [
     title: "الحسابات",
     href: "/accounts",
     icon: <CreditCard className="h-5 w-5" />,
-  },
-  {
-    title: "الصيدليات",
-    href: "/pharmacies",
-    icon: <Store className="h-5 w-5" />,
   },
 ];
 
@@ -79,6 +73,8 @@ interface SidebarProps {
 
 export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const { stats } = useAnalytics();
   const [collapsed, setCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   
@@ -94,6 +90,12 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
     }
   };
 
+  const items = sidebarItems.map((item) => item.href === "/companies"
+    ? { ...item, badge: stats?.totalCompanies }
+    : item.href === "/users"
+      ? { ...item, badge: stats?.totalUsers }
+      : item)
+
   const SidebarContent = (
     <div
       className={cn(
@@ -105,17 +107,27 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
-              P
-            </div>
-            <span className="text-lg font-bold gradient-text">Pharmacy OS</span>
+          <Link href="/" className="flex items-center" aria-label="Pharmacy OS - الرئيسية">
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-9 w-auto max-w-[170px] dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-9 w-auto max-w-[170px] dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
         )}
         {collapsed && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold mx-auto">
-            P
-          </div>
+          <picture>
+            <img src="/brand/pharmacy-os-icon.svg" alt="Pharmacy OS" className="mx-auto h-9 w-9" width="36" height="36" />
+          </picture>
         )}
         
         {/* Mobile Close Button */}
@@ -142,7 +154,7 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
         <div className="space-y-1">
-          {sidebarItems.map((item) => {
+          {items.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== "/" && pathname.startsWith(item.href));
             
@@ -229,19 +241,19 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
           collapsed ? "justify-center" : ""
         )}>
           <Avatar className="h-9 w-9">
-            <AvatarImage src="/avatar.png" alt="User" />
+             <AvatarImage src={user?.avatarUrl} alt={user?.displayName || "User"} />
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              م
+               {(user?.displayName || user?.email || "م").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">مدير النظام</p>
-              <p className="text-xs text-muted-foreground truncate">admin@pharmacy.os</p>
+               <p className="text-sm font-medium truncate">{user?.displayName || "مدير النظام"}</p>
+               <p className="text-xs text-muted-foreground truncate" dir="ltr">{user?.email || ""}</p>
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive">
+             <Button variant="ghost" size="icon" onClick={() => void logout()} className="shrink-0 text-muted-foreground hover:text-destructive" title="تسجيل الخروج">
               <LogOut className="h-4 w-4" />
             </Button>
           )}
