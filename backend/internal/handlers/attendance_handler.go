@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,7 +29,7 @@ func (h *Handler) ClockOut(c *gin.Context) {
 func (h *Handler) GetAttendanceRecords(c *gin.Context) {
 	// TODO: Implement attendance listing with date filters
 	c.JSON(http.StatusOK, gin.H{
-		"data": []interface{}{},
+		"data":  []interface{}{},
 		"total": 0,
 	})
 }
@@ -39,7 +39,7 @@ func (h *Handler) GetAttendanceRecords(c *gin.Context) {
 func (h *Handler) GetMyTodayAttendance(c *gin.Context) {
 	// TODO: Implement today's attendance retrieval
 	c.JSON(http.StatusOK, gin.H{
-		"clock_in": nil,
+		"clock_in":  nil,
 		"clock_out": nil,
 	})
 }

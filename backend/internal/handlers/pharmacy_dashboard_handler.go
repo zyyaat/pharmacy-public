@@ -116,11 +116,15 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 	}
 
 	const query = `
-		SELECT batch_id, pharmacy_product_id, global_product_id, product_name,
-		       generic_name, brand_name, barcode, dosage_form, strength,
-		       batch_number, unit, quantity, cost_per_unit, total_cost,
-		       expiry_date, days_until_expiry, selling_price, partial_selling_price,
-		       packaging_type, units_per_box, min_stock_level, branch_name, status
+		SELECT batch_id::text, pharmacy_product_id::text, global_product_id::text,
+		       COALESCE(product_name::text, ''),
+		       COALESCE(generic_name::text, ''), COALESCE(brand_name::text, ''), COALESCE(barcode::text, ''),
+		       COALESCE(dosage_form::text, ''), COALESCE(strength::text, ''),
+		       COALESCE(batch_number::text, ''), COALESCE(unit::text, ''),
+		       quantity::float8, cost_per_unit::float8, total_cost::float8,
+		       expiry_date, days_until_expiry, selling_price::float8, COALESCE(partial_selling_price::float8, 0),
+		       COALESCE(packaging_type::text, ''), COALESCE(units_per_box::int, 1), min_stock_level::float8,
+		       COALESCE(branch_name::text, ''), COALESCE(status::text, 'normal')
 		FROM current_inventory
 		WHERE pharmacy_id = $1
 		ORDER BY product_name, expiry_date NULLS LAST
@@ -312,7 +316,8 @@ func idFromParam(c *gin.Context, name string) string {
 
 func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string]interface{}, error) {
 	const query = `
-		SELECT product_name, COALESCE(generic_name, ''), quantity, min_stock_level, status
+		SELECT COALESCE(product_name::text, ''), COALESCE(generic_name::text, ''), quantity::float8,
+		       min_stock_level::float8, COALESCE(status::text, 'normal')
 		FROM current_inventory
 		WHERE pharmacy_id = $1 AND quantity <= min_stock_level
 		ORDER BY quantity ASC, product_name

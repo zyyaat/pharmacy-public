@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,7 +11,7 @@ import (
 func (h *Handler) ListMedications(c *gin.Context) {
 	// TODO: Implement inventory listing with search/filter
 	c.JSON(http.StatusOK, gin.H{
-		"data": []interface{}{},
+		"data":  []interface{}{},
 		"total": 0,
 	})
 }

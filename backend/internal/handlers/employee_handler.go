@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,7 +11,7 @@ import (
 func (h *Handler) ListEmployees(c *gin.Context) {
 	// TODO: Implement employee listing with filters
 	c.JSON(http.StatusOK, gin.H{
-		"data": []interface{}{},
+		"data":  []interface{}{},
 		"total": 0,
 	})
 }

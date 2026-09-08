@@ -8,6 +8,7 @@ import (
 	"github.com/pharmacy-os/backend/internal/config"
 	appmiddleware "github.com/pharmacy-os/backend/internal/middleware"
 	"github.com/pharmacy-os/backend/internal/repository"
+	"os"
 )
 
 // Handler holds all dependencies for HTTP handlers
@@ -103,6 +104,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		pharmacy.GET("/employees", h.ListPharmacyEmployees)
 		pharmacy.GET("/branches", h.ListPharmacyBranches)
 		pharmacy.GET("/attendance", h.ListPharmacyAttendance)
+	}
+	// Temporary diagnostics for legacy-schema forensics. Only exposed when
+	// APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.
+	if os.Getenv("APP_DEBUG") == "true" {
+		v1.GET("/debug/schema", h.DebugSchema)
 	}
 
 	// Domain routes use the central opaque session created by /auth/login.

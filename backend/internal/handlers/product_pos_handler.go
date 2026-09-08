@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"context"
 	"errors"
 	"math"
@@ -58,9 +59,9 @@ func (h *Handler) ListPharmacyProducts(c *gin.Context) {
 
 	search := strings.TrimSpace(c.Query("search"))
 	rows, err := h.db.Query(c.Request.Context(), `
-		SELECT pp.id::text, gp.name, COALESCE(gp.generic_name, ''), COALESCE(gp.barcode, ''),
-		       pp.packaging_type, pp.units_per_box, pp.selling_price,
-		       COALESCE(pp.partial_selling_price, 0), COALESCE(SUM(ci.quantity), 0)
+		SELECT pp.id::text, COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''), COALESCE(gp.barcode::text, ''),
+		       COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int, 1), pp.selling_price::float8,
+		       COALESCE(pp.partial_selling_price::float8, 0), COALESCE(SUM(ci.quantity)::float8, 0)
 		FROM pharmacy_products pp
 		JOIN global_products gp ON gp.id = pp.global_product_id
 		LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
@@ -280,9 +281,9 @@ func (h *Handler) LookupPOSProduct(c *gin.Context) {
 		sellingPrice, partialPrice, stock                    float64
 	)
 	err := h.db.QueryRow(c.Request.Context(), `
-		SELECT pp.id::text, gp.name, COALESCE(gp.generic_name, ''), gp.barcode,
-		       pp.packaging_type, pp.units_per_box, pp.selling_price,
-		       COALESCE(pp.partial_selling_price, 0), COALESCE(SUM(ci.quantity), 0)
+		SELECT pp.id::text, COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''), COALESCE(gp.barcode::text, ''),
+		       COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int, 1), pp.selling_price::float8,
+		       COALESCE(pp.partial_selling_price::float8, 0), COALESCE(SUM(ci.quantity)::float8, 0)
 		FROM pharmacy_products pp
 		JOIN global_products gp ON gp.id = pp.global_product_id
 		LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
@@ -365,6 +366,7 @@ func (h *Handler) CreatePOSSale(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_sale_unit", "message": "وحدة البيع غير مسموحة لهذا المنتج"})
 				return
 			}
+			log.Printf("[POS] sale item failed (product=%s unit=%s qty=%v): %v", item.PharmacyProductID, item.SaleUnit, item.Quantity, saleErr)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "sale_failed", "message": "تعذر تسجيل حركة البيع"})
 			return
 		}
@@ -392,8 +394,8 @@ func sellPOSItem(c *gin.Context, tx interface {
 	var unitsPerBox int
 	var boxPrice, partialPrice float64
 	err := tx.QueryRow(c.Request.Context(), `
-		SELECT pp.packaging_type, pp.units_per_box, pp.selling_price,
-		       COALESCE(pp.partial_selling_price, pp.selling_price / NULLIF(pp.units_per_box, 0))
+		SELECT COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int, 1), pp.selling_price::float8,
+		       COALESCE(pp.partial_selling_price::float8, pp.selling_price::float8 / NULLIF(pp.units_per_box::int, 0), 0)
 		FROM pharmacy_products pp
 		WHERE pp.id = $1 AND pp.pharmacy_id = $2 AND pp.is_active = true
 	`, item.PharmacyProductID, principal.PharmacyID).Scan(&packagingType, &unitsPerBox, &boxPrice, &partialPrice)
@@ -426,18 +428,43 @@ func sellPOSItem(c *gin.Context, tx interface {
 		FOR UPDATE
 	`, item.PharmacyProductID, branchID)
 	if err != nil {
+		log.Printf("[POS] batch query failed (product=%s branch=%s): %v", item.PharmacyProductID, branchID, err)
 		return 0, err
 	}
-	defer rows.Close()
+	// pgx: the tx connection is busy while query rows are open. Buffer the
+	// batches and release the rows BEFORE running the sale INSERTs on the
+	// same transaction, otherwise every checkout fails with "conn busy".
+	type batchStock struct {
+		id          string
+		available   float64
+		baseUnit    string
+		costPerUnit float64
+	}
+	batches := make([]batchStock, 0)
+	for rows.Next() {
+		var b batchStock
+		if err := rows.Scan(&b.id, &b.available, &b.baseUnit, &b.costPerUnit); err != nil {
+			log.Printf("[POS] batch scan failed: %v", err)
+			rows.Close()
+			return 0, err
+		}
+		batches = append(batches, b)
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("[POS] batch rows failed: %v", err)
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
 
 	remaining := requiredBase
 	var total float64
-	for rows.Next() && remaining > 0.00001 {
-		var batchID, baseUnit string
-		var available, costPerUnit float64
-		if err := rows.Scan(&batchID, &available, &baseUnit, &costPerUnit); err != nil {
-			return 0, err
+	for _, b := range batches {
+		if remaining <= 0.00001 {
+			break
 		}
+		batchID, baseUnit := b.id, b.baseUnit
+		available, costPerUnit := b.available, b.costPerUnit
 		take := math.Min(available, remaining)
 		if take <= 0 {
 			continue
@@ -466,9 +493,6 @@ func sellPOSItem(c *gin.Context, tx interface {
 		}
 		remaining -= take
 		total += (take / unitFactor) * unitPrice
-	}
-	if err := rows.Err(); err != nil {
-		return 0, err
 	}
 	if remaining > 0.00001 {
 		return 0, errPOSSaleInsufficientStock
