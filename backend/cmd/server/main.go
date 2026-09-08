@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pharmacy-os/backend/internal/auth"
 	"github.com/pharmacy-os/backend/internal/config"
+	"github.com/pharmacy-os/backend/internal/database"
 	"github.com/pharmacy-os/backend/internal/handlers"
 )
 
@@ -37,6 +38,16 @@ func main() {
 	defer db.Close()
 	if err := db.Ping(ctx); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// Apply database migrations before anything else touches the schema.
+	// The SQL files are embedded in the binary (backend/migrations), so a
+	// single self-contained deployment can bootstrap a fresh database on
+	// any hosting provider. Safe to run on every startup.
+	migrationCtx, cancelMigrations := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelMigrations()
+	if err := database.RunMigrations(migrationCtx, db); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 
 	if cfg.IsProduction() {
