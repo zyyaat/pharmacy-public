@@ -10,6 +10,7 @@ import {
   type UpdatePharmacyProductInput,
 } from '@/lib/api'
 import { formatPiastres, parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
+import { extraStrengthLabel } from '@/lib/product'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Modal } from '@/components/ui'
 
 const statusLabels: Record<string, { label: string; variant: 'destructive' | 'warning' | 'secondary' | 'success' | 'outline' }> = {
@@ -328,8 +329,9 @@ export default function InventoryPage() {
     load()
   }, [load])
 
+  // البحث يشمل التركيز أيضاً — لو في أكثر من تركيز لنفس العلاج يسهّل الوصول للصنف المطلوب
   const filteredItems = items.filter((item) =>
-    [item.product_name, item.generic_name, item.brand_name, item.barcode, item.batch_number]
+    [item.product_name, item.generic_name, item.brand_name, item.strength, item.barcode, item.batch_number]
       .join(' ')
       .toLowerCase()
       .includes(search.toLowerCase()),
@@ -367,9 +369,16 @@ export default function InventoryPage() {
                   <tr><th className="p-3">المنتج</th><th className="p-3">التشغيلة</th><th className="p-3">الفرع</th><th className="p-3">الكمية</th><th className="p-3">الصلاحية</th><th className="p-3">الحالة</th><th className="p-3">الإجراءات</th></tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item) => (
+                  {filteredItems.map((item) => {
+                    // نفس قاعدة POS والفاتورة: التركيز يُلحق بجانب الاسم فقط لو الاسم نفسه ما يحملش جرعة
+                    const strengthLabel = extraStrengthLabel(item.product_name, item.strength)
+                    return (
                     <tr key={item.batch_id} className="border-b last:border-0">
-                      <td className="p-3"><Link href={`/inventory/${item.batch_id}`} className="font-semibold hover:text-primary">{item.product_name}</Link><span className="mt-1 block text-xs text-muted-foreground">{item.generic_name || item.brand_name || item.strength}</span></td>
+                      <td className="p-3">
+                        <Link href={`/inventory/${item.batch_id}`} className="font-semibold hover:text-primary">{item.product_name}</Link>
+                        {strengthLabel && <span className="ms-1 text-xs font-normal text-muted-foreground">{strengthLabel}</span>}
+                        <span className="mt-1 block text-xs text-muted-foreground">{item.generic_name || item.brand_name}</span>
+                      </td>
                       <td className="p-3">{item.batch_number}</td>
                       <td className="p-3">{item.branch_name || 'كل الفروع'}</td>
                       <td className="p-3 font-semibold">
@@ -394,7 +403,8 @@ export default function InventoryPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -149,6 +149,25 @@ def main():
         page.click('button:has-text("حفظ الإعدادات")')
         page.wait_for_selector('text=تم حفظ الإعدادات وتطبيقها على كل الأجهزة', timeout=8000)
 
+        # ---------- C3) صفحة المخزون: التركيز بجانب الاسم وتمييز تركيزات نفس العلاج ----------
+        # طلب المستخدم: نفس العلاج له تركيزات كثيرة — لازم تبان في المخزون للتمييز
+        page.goto(f"{APP}/inventory", wait_until="networkidle")
+        page.wait_for_selector('text=كل الأصناف', timeout=20000)
+        page.wait_for_selector('tbody tr', timeout=15000)
+        adv_row = page.locator('tbody tr', has_text='بانادول أدفانس').first
+        adv_text = adv_row.inner_text()
+        check("صف المخزون يعرض تركيز الدواء بجانب الاسم", 'بانادول أدفانس' in adv_text and '500mg' in adv_text, adv_text[:80])
+        carb_text = page.locator('tbody tr', has_text='كاربيمازول 200mg').first.inner_text()
+        check("حارس الجرعة يعمل في المخزون: لا تكرار 200mg 500mg", 'كاربيمازول 200mg' in carb_text and '200mg 500mg' not in carb_text, carb_text[:80])
+        check("الاسم الحامل لجرعة يُظهر الاسم العلمي في السطر الثاني", 'باراسيتامول' in page.locator('tbody tr', has_text='بانادول اكسترا').first.inner_text())
+        inv_search = page.locator('input[placeholder="بحث بالاسم أو الباركود"]')
+        inv_search.fill('1000mg')
+        page.wait_for_timeout(400)
+        rows_after = page.locator('tbody tr')
+        check("البحث بالتركيز يوصل للصنف المطلوب مباشرة", rows_after.count() == 1 and 'فيتامين سي' in rows_after.first.inner_text(), f"rows={rows_after.count()}")
+        inv_search.fill('')
+        page.wait_for_timeout(300)
+
         # ---------- D) POS manual mode: button after save ----------
         page.goto(f"{APP}/pos", wait_until="networkidle")
         search_input = page.locator('input[role="combobox"]')
