@@ -1,0 +1,162 @@
+'use client'
+
+import { formatPiastres } from '@/lib/money'
+import type { ReceiptSettings, POSSaleDetail } from '@/lib/api'
+
+export interface ReceiptPharmacy {
+  name: string
+  city?: string
+  address?: string
+  phone?: string
+}
+
+export interface ReceiptData {
+  sale: {
+    invoice_number: number
+    created_at: string
+    total_amount_piastres: number
+  }
+  items: Array<{
+    product_name: string
+    sale_unit: 'box' | 'strip'
+    units_per_box: number
+    quantity_base: number
+    unit_price_piastres: number
+    amount_piastres: number
+  }>
+}
+
+/** كمية مقروءة للعميل: بيع بالعلبة يُقسّم على وحدات العلبة، والشريط كما هو */
+function displayQuantity(item: ReceiptData['items'][number]) {
+  if (item.sale_unit === 'strip') return `${trim(item.quantity_base)} شريط`
+  const boxes = item.units_per_box > 0 ? item.quantity_base / item.units_per_box : item.quantity_base
+  return `${trim(boxes)} علبة`
+}
+
+function trim(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
+}
+
+function receiptDate(iso: string) {
+  return new Date(iso).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function Dashed() {
+  return <div className="my-1.5 border-t border-dashed border-neutral-500" aria-hidden="true" />
+}
+
+/**
+ * قالب إيصال حراري — نسخة واحدة. طباعة نسختين تتولد في ReceiptPrinter.
+ * الألوان ثابتة رمادية/سوداء (الحرارية أحادية) والأبعاد بالمليمتر حسب الإعدادات.
+ */
+export default function ReceiptTemplate({
+  data,
+  pharmacy,
+  cashierName,
+  settings,
+  showCopyLabel = false,
+  copyLabel = 'نسخة العميل',
+}: {
+  data: ReceiptData
+  pharmacy: ReceiptPharmacy
+  cashierName?: string
+  settings: ReceiptSettings
+  showCopyLabel?: boolean
+  copyLabel?: string
+}) {
+  const compact = settings.paper_width_mm < 70 // 58mm: الأعمدة تضيق فتتكدد السطور
+  const itemsCount = data.items.length
+
+  return (
+    <div className="bg-white px-[3mm] py-[4mm] text-[#111]" style={{ fontSize: compact ? '11px' : '12.5px', lineHeight: 1.55 }}>
+      {showCopyLabel && (
+        <p className="mb-2 text-center font-bold tracking-wide text-neutral-600">— {copyLabel} —</p>
+      )}
+
+      {/* الرأس */}
+      <p className="text-center font-extrabold" style={{ fontSize: compact ? '15px' : '17px' }}>{pharmacy.name || 'صيدلية'}</p>
+      {settings.show_address && (pharmacy.address || pharmacy.city) && (
+        <p className="mt-0.5 text-center text-neutral-700">{[pharmacy.address, pharmacy.city].filter(Boolean).join('، ')}</p>
+      )}
+      {settings.show_phone && pharmacy.phone && (
+        <p className="text-center text-neutral-700" dir="ltr">{pharmacy.phone}</p>
+      )}
+
+      <Dashed />
+
+      {/* بيانات الفاتورة */}
+      <Row label="فاتورة رقم" value={`INV-${data.sale.invoice_number}`} />
+      <Row label="التاريخ" value={<span suppressHydrationWarning>{receiptDate(data.sale.created_at)}</span>} />
+      {settings.show_cashier && cashierName && <Row label="الكاشير" value={cashierName} />}
+
+      <Dashed />
+
+      {/* الأصناف */}
+      <div className="space-y-1">
+        {data.items.map((item, index) => (
+          compact ? (
+            <div key={index}>
+              <p className="font-semibold leading-snug">{item.product_name}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-neutral-700">{displayQuantity(item)} × {formatPiastres(item.unit_price_piastres)}</span>
+                <span className="font-bold">{formatPiastres(item.amount_piastres)}</span>
+              </div>
+            </div>
+          ) : (
+            <div key={index} className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 shrink font-semibold leading-snug">{item.product_name}</span>
+              <span className="shrink-0 whitespace-nowrap text-neutral-700">{displayQuantity(item)}</span>
+              <span className="w-[22%] shrink-0 whitespace-nowrap text-left font-bold">{formatPiastres(item.amount_piastres)}</span>
+            </div>
+          )
+        ))}
+      </div>
+
+      <Dashed />
+
+      {/* الإجمالي */}
+      <div className="flex items-baseline justify-between">
+        <span className="font-bold">الإجمالي ({itemsCount === 1 ? 'صنف واحد' : `${itemsCount} أصناف`})</span>
+        <span className="font-extrabold" style={{ fontSize: compact ? '15px' : '16.5px' }}>{formatPiastres(data.sale.total_amount_piastres)}</span>
+      </div>
+
+      <Dashed />
+
+      {/* الذيل */}
+      {settings.show_thank_you && settings.thank_you_text && (
+        <p className="text-center font-semibold">{settings.thank_you_text}</p>
+      )}
+      {settings.show_return_policy && settings.return_policy_text && (
+        <p className="mt-0.5 text-center text-neutral-700">{settings.return_policy_text}</p>
+      )}
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-neutral-700">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  )
+}
+
+/** يحول تفاصيل الفاتورة القادمة من الخادم إلى بيانات الإيصال */
+export function saleDetailToReceipt(detail: POSSaleDetail): ReceiptData {
+  return {
+    sale: {
+      invoice_number: detail.sale.invoice_number,
+      created_at: detail.sale.created_at,
+      total_amount_piastres: detail.sale.total_amount_piastres,
+    },
+    items: detail.items.map((item) => ({
+      product_name: item.product_name,
+      sale_unit: item.sale_unit,
+      units_per_box: item.units_per_box,
+      quantity_base: item.quantity_base,
+      unit_price_piastres: item.unit_price_piastres,
+      amount_piastres: item.amount_piastres,
+    })),
+  }
+}

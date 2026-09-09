@@ -116,6 +116,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.GET("/employees", h.ListPharmacyEmployees)
                 pharmacy.GET("/branches", h.ListPharmacyBranches)
                 pharmacy.GET("/attendance", h.ListPharmacyAttendance)
+                // Pharmacy settings: receipt/print configuration. Reading is
+                // open to every pharmacy principal; writing follows the same
+                // mutation guard + CSRF as every other mutating endpoint.
+                pharmacy.GET("/settings", h.GetPharmacySettings)
+                pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacySettings)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.

@@ -246,3 +246,30 @@
     text-overflow: clip !important;
   }
 }
+
+/* ==========================================================================
+   طباعة الإيصال الحراري (مدير الطباعة ReceiptPrinter)
+   الإيصال يُركّب في بوابة #receipt-print-host خارج هيكل التطبيق، وعند فتح
+   نافذة الطباعة نخفي كل أبناء body ما عدا البوابة — فتخرج الورقة إيصالاً
+   نظيفاً بلا شريط جانبي أو رؤوس، بينما طباعة التقارير (.print-sheet) لا
+   تتأثر لأنها لا تضيف printing-receipt على body.
+   ========================================================================== */
+#receipt-print-host {
+  display: none;
+}
+
+@media print {
+  body.printing-receipt > *:not(#receipt-print-host) {
+    display: none !important;
+  }
+  body.printing-receipt #receipt-print-host {
+    display: block !important;
+  }
+  body.printing-receipt {
+    background: #fff !important;
+  }
+  /* إلغاء أي تباعد من الوسوم الافتراضية حتى يتكفل القالب بكل المسافات */
+  body.printing-receipt #receipt-print-host > div {
+    margin: 0;
+  }
+}

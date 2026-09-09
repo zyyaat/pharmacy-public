@@ -296,6 +296,15 @@ export const pharmacyApi = {
   getPOSSale(saleId: string) {
     return apiFetch<{ data: POSSaleDetail }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}`)
   },
+  getPharmacySettings() {
+    return apiFetch<{ data: { receipt: ReceiptSettings } }>('/pharmacy/settings')
+  },
+  updatePharmacySettings(receipt: Partial<ReceiptSettings>) {
+    return apiFetch<{ data: { receipt: ReceiptSettings } }>('/pharmacy/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ receipt }),
+    })
+  },
   createPOSSaleReturn(saleId: string, items: POSReturnItemInput[], reason: string, idempotencyKey?: string) {
     return apiFetch<{ data: POSReturnResult }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}/returns`, {
       method: 'POST',
@@ -466,6 +475,26 @@ export interface POSSaleDetail {
     returns: POSSaleReturnSummary[]
   }
   items: POSSaleItemRow[]
+}
+
+// ---------------------------------------------------------------------------
+// Pharmacy settings (receipt / printing)
+// ---------------------------------------------------------------------------
+
+export interface ReceiptSettings {
+  /** ورق الطابعة الحرارية: 58mm أو 80mm */
+  paper_width_mm: 58 | 80
+  /** تلقائي: نافذة الطباعة تفتح بعد الحفظ مباشرة — يدوي: زر طباعة بعد الحفظ */
+  print_mode: 'auto' | 'manual'
+  /** نسخة عميل أو نسختان (عميل + صيدلية) */
+  copies: 1 | 2
+  show_phone: boolean
+  show_address: boolean
+  show_cashier: boolean
+  show_thank_you: boolean
+  thank_you_text: string
+  show_return_policy: boolean
+  return_policy_text: string
 }
 
 export interface POSReturnItemInput {

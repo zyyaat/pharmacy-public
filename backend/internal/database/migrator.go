@@ -86,6 +86,9 @@ var migrationChain = []migration{
         {
                 name: "00000000000017_fuzzy_search_trgm.sql",
         },
+        {
+                name: "00000000000018_pharmacy_settings.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import { Search, Minus, Plus, ReceiptText, Trash2 } from 'lucide-react'
+import { Search, Minus, Plus, Printer, ReceiptText, Trash2 } from 'lucide-react'
 import {
   ApiError,
   pharmacyApi,
@@ -11,6 +11,10 @@ import {
 import { formatPiastres, stripPricePiastres } from '@/lib/money'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Select } from '@/components/ui'
 import ProductSearch, { type AddSource } from '@/components/pos/product-search'
+import { useReceiptSettings } from '@/hooks/useReceiptSettings'
+import { usePharmacyContext } from '@/hooks/usePharmacyContext'
+import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
+import { saleDetailToReceipt } from '@/components/pos/receipt-template'
 
 type CartLine = {
   product: POSProduct
@@ -42,6 +46,12 @@ export default function POSPage() {
   // One idempotency key per invoice attempt chain: retries of the same
   // checkout reuse it, so a network hiccup can never create a second sale.
   const idempotencyKey = useRef<string | null>(null)
+  // إعدادات الطباعة + بيانات الصيدلية لرأس الإيصال
+  const { settings: printSettings } = useReceiptSettings()
+  const { context } = usePharmacyContext()
+  const [printJob, setPrintJob] = useState<ReceiptPrintJob | null>(null)
+  const [printBusy, setPrintBusy] = useState(false)
+  const lastSaleId = useRef<string | null>(null)
 
   /** إضافة منتج للفاتورة — من القائمة أو من الباركود (التام أو المصحح) */
   function addProductToCart(product: POSProduct, _source: AddSource) {
@@ -88,13 +98,41 @@ export default function POSPage() {
     })
     try {
       const response = await pharmacyApi.createPOSSale(items, idempotencyKey.current || undefined)
+      lastSaleId.current = response.data.sale_id
       setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${formatPiastres(response.data.total_amount_piastres)}`)
       setCart([])
       resetIdempotency()
+      // الطباعة التلقائية: تُجهّز بعد نجاح الحفظ مباشرة — وأي فشل فيها لا يمس الفاتورة
+      if (printSettings.print_mode === 'auto') {
+        void prepareReceiptPrint(response.data.sale_id)
+      }
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
     } finally {
       setCheckoutLoading(false)
+    }
+  }
+
+  /** جلب تفاصيل الفاتورة وتركيب الإيصال ثم فتح نافذة الطباعة — كل شيء من المتصفح */
+  async function prepareReceiptPrint(saleId: string) {
+    setPrintBusy(true)
+    try {
+      const detail = await pharmacyApi.getPOSSale(saleId)
+      setPrintJob({
+        data: saleDetailToReceipt(detail.data),
+        pharmacy: {
+          name: context?.pharmacy.name ?? 'صيدلية',
+          city: context?.pharmacy.city,
+          address: context?.pharmacy.address,
+          phone: context?.pharmacy.phone,
+        },
+        cashierName: context?.user.display_name || [context?.user.first_name, context?.user.last_name].filter(Boolean).join(' '),
+        jobId: saleId,
+      })
+    } catch {
+      setError('تم حفظ الفاتورة لكن تعذر تجهيز الطباعة — اضغط «طباعة الفاتورة» لإعادة المحاولة')
+    } finally {
+      setPrintBusy(false)
     }
   }
 
@@ -187,9 +225,21 @@ export default function POSPage() {
             </div>
           )}
           {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-          {message && <p className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">{message}</p>}
+          {message && (
+            <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-3">
+              <p className="text-sm text-primary">{message}</p>
+              {lastSaleId.current && printSettings.print_mode === 'manual' && (
+                <Button variant="outline" size="sm" className="mt-2" loading={printBusy} onClick={() => lastSaleId.current && void prepareReceiptPrint(lastSaleId.current)}>
+                  <Printer className="h-4 w-4" /> طباعة الفاتورة
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* مدير طباعة الإيصال — يفتح نافذة الطباعة على الإعدادات المحفوظة */}
+      <ReceiptPrinter job={printJob} settings={printSettings} onDone={() => setPrintJob(null)} />
     </div>
   )
 }
