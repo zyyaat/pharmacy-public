@@ -28,9 +28,9 @@ const SAMPLE_RECEIPT = {
     total_amount_piastres: 14550,
   },
   items: [
-    { product_name: 'بانادول اكسترا 500mg', sale_unit: 'box' as const, units_per_box: 24, quantity_base: 48, unit_price_piastres: 3600, amount_piastres: 7200 },
-    { product_name: 'كاربيمازول 200mg', sale_unit: 'strip' as const, units_per_box: 10, quantity_base: 3, unit_price_piastres: 750, amount_piastres: 2250 },
-    { product_name: 'كونجستال أقراص', sale_unit: 'box' as const, units_per_box: 20, quantity_base: 40, unit_price_piastres: 2550, amount_piastres: 5100 },
+    { product_name: 'بانادول اكسترا', strength: '500mg', sale_unit: 'box' as const, units_per_box: 24, quantity_base: 48, unit_price_piastres: 3600, amount_piastres: 7200 },
+    { product_name: 'كاربيمازول 200mg', strength: '', sale_unit: 'strip' as const, units_per_box: 10, quantity_base: 3, unit_price_piastres: 750, amount_piastres: 2250 },
+    { product_name: 'كونجستال أقراص', strength: '500mg', sale_unit: 'box' as const, units_per_box: 20, quantity_base: 40, unit_price_piastres: 2550, amount_piastres: 5100 },
   ],
 }
 

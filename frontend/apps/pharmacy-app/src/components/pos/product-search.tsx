@@ -9,6 +9,7 @@ import {
   type POSProductSuggestion,
 } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
+import { extraStrengthLabel } from '@/lib/product'
 
 const SEARCH_DEBOUNCE_MS = 180
 const MIN_QUERY_RUNES = 2
@@ -273,7 +274,9 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
           aria-label="نتائج البحث عن المنتجات"
           className="absolute inset-x-0 top-full z-40 mt-2 max-h-80 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-2xl"
         >
-          {suggestions.map((item, index) => (
+          {suggestions.map((item, index) => {
+            const strengthLabel = extraStrengthLabel(item.name, item.strength)
+            return (
             <li
               key={item.id}
               role="option"
@@ -292,6 +295,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">
                   <HighlightName name={item.name} query={query} />
+                  {strengthLabel && <span className="font-normal text-muted-foreground"> {strengthLabel}</span>}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {[item.generic_name, item.barcode].filter(Boolean).join(' · ')}
@@ -313,7 +317,8 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
                 {matchLabels[item.match_type] ?? item.match_type}
               </span>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
 

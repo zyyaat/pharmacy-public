@@ -81,6 +81,8 @@ def main():
         check("الوضع التلقائي افتراضياً", page.locator('button[aria-pressed="true"]', has_text="تلقائي").count() == 1)
         preview_text = page.locator('div[style*="width: 80mm"]').inner_text()
         check("المعاينة تحوي بيانات الصيدلية والأصناف", "بانادول اكسترا" in preview_text and "الإجمالي" in preview_text)
+        check("المعاينة تعرض تركيز الدواء بجانب الاسم", "كونجستال أقراص 500mg" in preview_text and "بانادول اكسترا 500mg" in preview_text)
+        check("حارس الجرعة: اسم يحمل جرعة أصلاً لا يُكرر تركيزه", "200mg 500mg" not in preview_text)
 
         # ---------- B) test print (uses draft, print stubbed) ----------
         stub_window_print(page)
@@ -159,7 +161,10 @@ def main():
         deadline = time.time() + 8
         while time.time() < deadline and options.count() == 0:
             time.sleep(0.2)
+        check("اقتراحات البحث تعرض تركيز الدواء", "500mg" in page.locator('#pos-search-listbox').inner_text())
         options.first.click()
+        body_text = page.locator('body').inner_text()
+        check("سلة الفاتورة قبل البيع تعرض الاسم دون تكرار الجرعة", "كاربيمازول 200mg" in body_text and "200mg 500mg" not in body_text)
         page.click('button:has-text("إتمام البيع")')
         page.wait_for_selector('text=طباعة الفاتورة', timeout=10000)
         time.sleep(0.8)
@@ -187,12 +192,14 @@ def main():
         deadline = time.time() + 8
         while time.time() < deadline and options.count() == 0:
             time.sleep(0.2)
+        check("اقتراحات كونجست تعرض تركيز الدواء", "500mg" in page.locator('#pos-search-listbox').inner_text())
         options.first.click()
         page.click('button:has-text("إتمام البيع")')
         page.wait_for_timeout(1600)
         receipt_html = page.evaluate("window.__receiptHTML || ''")
         check("الوضع التلقائي يفتح الطباعة فوراً بعد الحفظ", page.evaluate("window.__prints") == 1)
         check("إيصال البيع التلقائي يحمل الفاتورة والإجمالي", "فاتورة رقم" in receipt_html and "INV-" in receipt_html)
+        check("إيصال البيع يعرض تركيز الدواء", "500mg" in receipt_html and "كونجستال" in receipt_html)
         check("إيصال البيع يحمل الاسم المركب بالبادئة", "صيدلية د.صيدلية الشفاء" in receipt_html)
 
         # screenshot of settings preview for the record (paper stays at the

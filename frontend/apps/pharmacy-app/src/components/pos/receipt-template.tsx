@@ -1,6 +1,7 @@
 'use client'
 
 import { formatPiastres } from '@/lib/money'
+import { extraStrengthLabel } from '@/lib/product'
 import type { ReceiptSettings, POSSaleDetail } from '@/lib/api'
 
 export interface ReceiptPharmacy {
@@ -18,6 +19,8 @@ export interface ReceiptData {
   }
   items: Array<{
     product_name: string
+    /** تركيز الدواء — يُعرض بجانب الاسم إن لم يكن الاسم يحمل جرعة أصلاً */
+    strength: string
     sale_unit: 'box' | 'strip'
     units_per_box: number
     quantity_base: number
@@ -107,10 +110,14 @@ export default function ReceiptTemplate({
 
       {/* الأصناف */}
       <div className="space-y-1">
-        {data.items.map((item, index) => (
-          compact ? (
+        {data.items.map((item, index) => {
+          const strengthLabel = extraStrengthLabel(item.product_name, item.strength)
+          return compact ? (
             <div key={index}>
-              <p className="font-semibold leading-snug">{item.product_name}</p>
+              <p className="font-semibold leading-snug">
+                {item.product_name}
+                {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
+              </p>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-neutral-700">{displayQuantity(item)} × {formatPiastres(item.unit_price_piastres)}</span>
                 <span className="font-bold">{formatPiastres(item.amount_piastres)}</span>
@@ -118,12 +125,15 @@ export default function ReceiptTemplate({
             </div>
           ) : (
             <div key={index} className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 shrink font-semibold leading-snug">{item.product_name}</span>
+              <span className="min-w-0 shrink font-semibold leading-snug">
+                {item.product_name}
+                {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
+              </span>
               <span className="shrink-0 whitespace-nowrap text-neutral-700">{displayQuantity(item)}</span>
               <span className="w-[22%] shrink-0 whitespace-nowrap text-left font-bold">{formatPiastres(item.amount_piastres)}</span>
             </div>
           )
-        ))}
+        })}
       </div>
 
       <Dashed />
@@ -166,6 +176,7 @@ export function saleDetailToReceipt(detail: POSSaleDetail): ReceiptData {
     },
     items: detail.items.map((item) => ({
       product_name: item.product_name,
+      strength: item.strength ?? '',
       sale_unit: item.sale_unit,
       units_per_box: item.units_per_box,
       quantity_base: item.quantity_base,

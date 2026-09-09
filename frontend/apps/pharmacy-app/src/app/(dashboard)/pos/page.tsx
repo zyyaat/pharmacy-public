@@ -13,6 +13,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Sele
 import ProductSearch, { type AddSource } from '@/components/pos/product-search'
 import { useReceiptSettings } from '@/hooks/useReceiptSettings'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
+import { extraStrengthLabel } from '@/lib/product'
 import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
 import { saleDetailToReceipt } from '@/components/pos/receipt-template'
 
@@ -175,10 +176,14 @@ export default function POSPage() {
                 const lineTotal = lineTotalPiastres(line)
                 const maxBase = line.product.stock
                 const requestedBase = line.quantity * (line.unitChoice === 'box' ? line.product.units_per_box : line.unitChoice)
+                const strengthLabel = extraStrengthLabel(line.product.name, line.product.strength)
                 return (
                   <div key={`${line.product.id}-${index}`} className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-[1fr_180px_130px_120px_40px] md:items-center">
                     <div>
-                      <p className="font-semibold">{line.product.name}</p>
+                      <p className="font-semibold">
+                        {line.product.name}
+                        {strengthLabel && <span className="ms-1 text-xs font-normal text-muted-foreground">{strengthLabel}</span>}
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">{line.product.barcode} · المتاح {line.product.packaging_type === 'BOX_STRIP' ? `${Math.floor(maxBase / line.product.units_per_box)} علبة و${maxBase % line.product.units_per_box} شريط` : `${maxBase} عبوة`}</p>
                     </div>
                     <div className="space-y-1">

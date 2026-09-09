@@ -326,6 +326,8 @@ export interface PharmacyProduct {
   id: string
   name: string
   generic_name: string
+  /** تركيز الدواء (500mg…) — يُعرض بجانب الاسم في الاقتراحات والسلة والإيصال */
+  strength: string
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
@@ -451,6 +453,7 @@ export interface POSSaleItemRow {
   pharmacy_product_id: string
   product_name: string
   generic_name: string
+  strength: string
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number

@@ -31,7 +31,7 @@ curl -s -o /dev/null --max-time 60 http://localhost:3000/pos
 curl -s -o /dev/null -w "app warm: %{http_code}\n" --max-time 30 http://localhost:3000/login
 
 echo "== E2E: إعدادات الفاتورة والطباعة =="
-python3 scripts/pos_receipt_e2e.py
+python3 "${1:-scripts/pos_receipt_e2e.py}"
 STATUS=$?
 kill $BACK_PID 2>/dev/null
 exit $STATUS

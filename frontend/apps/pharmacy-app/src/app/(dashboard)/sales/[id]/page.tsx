@@ -11,6 +11,7 @@ import {
   type POSSaleItemRow,
 } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
+import { extraStrengthLabel } from '@/lib/product'
 import {
   baseUnitLabel,
   boxConversionHint,
@@ -223,7 +224,12 @@ export default function SaleDetailPage() {
               {items.map((item) => (
                 <TableRow key={item.sale_item_id}>
                   <TableCell>
-                    <p className="font-medium">{item.product_name}</p>
+                    <p className="font-medium">
+                      {item.product_name}
+                      {extraStrengthLabel(item.product_name, item.strength) && (
+                        <span className="text-xs font-normal text-muted-foreground"> {extraStrengthLabel(item.product_name, item.strength)}</span>
+                      )}
+                    </p>
                     {item.generic_name && <p className="text-xs text-muted-foreground">{item.generic_name}</p>}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{item.batch_number || '—'}</TableCell>
@@ -300,7 +306,12 @@ export default function SaleDetailPage() {
                 <div key={item.sale_item_id} className="rounded-lg border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-sm font-semibold">{item.product_name}</p>
+                      <p className="text-sm font-semibold">
+                        {item.product_name}
+                        {extraStrengthLabel(item.product_name, item.strength) && (
+                          <span className="text-xs font-normal text-muted-foreground"> {extraStrengthLabel(item.product_name, item.strength)}</span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         مبيع: {formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base)}
                         {hint ? ` · ${hint}` : ''}
