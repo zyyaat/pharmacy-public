@@ -69,7 +69,6 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
   const [searching, setSearching] = useState(false)
   const [resolving, setResolving] = useState(false)
 
-  const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -121,14 +120,9 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
     abortRef.current?.abort()
   }, [])
 
-  // إغلاق عند الضغط خارج الحقل
-  useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [])
+  /* القائمة مرتبطة بالنص المكتوب لا بالتركيز: تبقى ظاهرة ما دام النص قائماً،
+     وتُغلق فقط عند الاختيار أو مسح النص أو Escape المقصود — الضغط خارجها لا يغلقها
+     حتى يستطيع الصيدلي التعامل مع الفاتورة والعودة لنفس النتائج. */
 
   function pick(product: POSProduct, source: AddSource) {
     onMessage?.(null)
@@ -189,7 +183,19 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
 
   async function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Escape') {
+      // إغلاق مقصود: نلغي المؤجّل والطلب الجاري حتى لا تفتح القائمة من تلقاء نفسها
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      abortRef.current?.abort()
+      requestSeq.current++
+      setSearching(false)
       setOpen(false)
+      return
+    }
+    // إعادة الفتح بالأسهم بعد الإغلاق المقصود (النتائج ما زالت مرتبطة بالنص)
+    if (!open && suggestions.length > 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault()
+      setOpen(true)
+      setActiveIndex(event.key === 'ArrowUp' ? suggestions.length - 1 : 0)
       return
     }
     if (open && suggestions.length > 0) {
@@ -229,7 +235,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
   const busy = resolving || (searching && !showList)
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div className="relative">
       <div className="flex gap-3">
         <div className="relative flex-1">
           <ScanLine className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />

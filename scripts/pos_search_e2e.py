@@ -66,7 +66,26 @@ def main():
         texts = [options.nth(i).inner_text() for i in range(options.count())]
         check("dropdown بالاسم (كاربيما)", options.count() >= 2 and any("كاربيمازول" in t for t in texts), f"{options.count()} خيارات")
 
+        # 1b) persistence: clicking outside does NOT close the list (linked to text)
+        page.click("h1")  # ضغط في مكان فارغ خارج الحقل
+        time.sleep(0.4)
+        options = page.locator('#pos-search-listbox [role="option"]')
+        check("الضغط خارج الحقل لا يغلق القائمة", options.count() >= 1, f"{options.count()} خيار بعد الضغط الخارج")
+
+        # 1c) Escape closes deliberately → ArrowDown reopens from cache → clearing text closes
+        search_input.click()
+        page.keyboard.press("Escape")
+        time.sleep(0.3)
+        check("Escape يغلق القائمة عمداً", page.locator('#pos-search-listbox').count() == 0)
+        page.keyboard.press("ArrowDown")
+        time.sleep(0.3)
+        check("السهم لأسفل يعيد فتح القائمة", page.locator('#pos-search-listbox [role="option"]').count() >= 1)
+        search_input.fill("")
+        time.sleep(0.3)
+        check("مسح النص يغلق القائمة (مرتبطة بالنص)", page.locator('#pos-search-listbox').count() == 0)
+
         # 2) keyboard: ArrowDown + Enter adds to cart
+        open_dropdown("كاربيما")
         page.keyboard.press("ArrowDown")
         page.keyboard.press("Enter")
         time.sleep(0.6)
