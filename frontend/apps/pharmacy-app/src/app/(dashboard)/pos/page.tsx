@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, useMemo, useRef, useState } from 'react'
-import { Barcode, Minus, Plus, ReceiptText, Trash2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { Search, Minus, Plus, ReceiptText, Trash2 } from 'lucide-react'
 import {
   ApiError,
   pharmacyApi,
@@ -9,7 +9,8 @@ import {
   type POSSaleItem,
 } from '@/lib/api'
 import { formatPiastres, stripPricePiastres } from '@/lib/money'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Select } from '@/components/ui'
+import ProductSearch, { type AddSource } from '@/components/pos/product-search'
 
 type CartLine = {
   product: POSProduct
@@ -34,40 +35,23 @@ function lineTotalPiastres(line: CartLine): number {
 }
 
 export default function POSPage() {
-  const [barcode, setBarcode] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
-  const [loading, setLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const barcodeInput = useRef<HTMLInputElement>(null)
   // One idempotency key per invoice attempt chain: retries of the same
   // checkout reuse it, so a network hiccup can never create a second sale.
   const idempotencyKey = useRef<string | null>(null)
 
-  async function addByBarcode(event?: FormEvent) {
-    event?.preventDefault()
-    const value = barcode.trim()
-    if (!value || loading) return
-    setLoading(true)
-    setError(null)
-    setMessage(null)
-    try {
-      const response = await pharmacyApi.lookupPOSProduct(value)
-      setCart((current) => {
-        const existing = current.find((line) => line.product.id === response.data.id && line.unitChoice === 'box')
-        if (existing) {
-          return current.map((line) => line === existing ? { ...line, quantity: line.quantity + 1 } : line)
-        }
-        return [...current, { product: response.data, unitChoice: 'box', quantity: 1 }]
-      })
-      setBarcode('')
-    } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر العثور على المنتج')
-    } finally {
-      setLoading(false)
-      barcodeInput.current?.focus()
-    }
+  /** إضافة منتج للفاتورة — من القائمة أو من الباركود (التام أو المصحح) */
+  function addProductToCart(product: POSProduct, _source: AddSource) {
+    setCart((current) => {
+      const existing = current.find((line) => line.product.id === product.id && line.unitChoice === 'box')
+      if (existing) {
+        return current.map((line) => line === existing ? { ...line, quantity: line.quantity + 1 } : line)
+      }
+      return [...current, { product, unitChoice: 'box', quantity: 1 }]
+    })
   }
 
   const total = useMemo(
@@ -118,19 +102,21 @@ export default function POSPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">نقطة البيع</h1>
-        <p className="mt-2 text-sm text-muted-foreground">افحص باركود العلاج، ثم اختر علبة كاملة أو عدد الشرائط.</p>
+        <p className="mt-2 text-sm text-muted-foreground">امسح الباركود أو اكتب اسم الدواء — البحث يصحح الأخطاء ويقترح المنتجات المشابهة.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Barcode className="h-5 w-5 text-primary" />إضافة منتج بالفحص</CardTitle>
-          <CardDescription>اضغط Enter بعد الفحص لإضافة المنتج إلى الفاتورة.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />إضافة منتج للفاتورة</CardTitle>
+          <CardDescription>القائمة المنسدلة تقترح المنتجات أثناء الكتابة، وEnter بعد الفحص يضيف المنتج مباشرة — وإن أخطأ الماسح يصححه تلقائياً.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={addByBarcode} className="flex gap-3">
-            <Input ref={barcodeInput} value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="امسح الباركود هنا" autoFocus />
-            <Button type="submit" loading={loading}>إضافة</Button>
-          </form>
+          <ProductSearch
+            onAddProduct={addProductToCart}
+            onMessage={setMessage}
+            onError={setError}
+            autoFocus
+          />
         </CardContent>
       </Card>
 
@@ -144,7 +130,7 @@ export default function POSPage() {
         </CardHeader>
         <CardContent>
           {cart.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border py-14 text-center text-muted-foreground">ابدأ بفحص باركود المنتج</div>
+            <div className="rounded-xl border border-dashed border-border py-14 text-center text-muted-foreground">ابدأ بالفحص أو بالبحث بالاسم</div>
           ) : (
             <div className="space-y-3">
               {cart.map((line, index) => {

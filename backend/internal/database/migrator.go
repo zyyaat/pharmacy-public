@@ -83,6 +83,9 @@ var migrationChain = []migration{
         {
                 name: "00000000000016_keep_out_of_stock_visible.sql",
         },
+        {
+                name: "00000000000017_fuzzy_search_trgm.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

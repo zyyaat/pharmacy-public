@@ -252,6 +252,10 @@ export const pharmacyApi = {
   lookupPOSProduct(barcode: string) {
     return apiFetch<{ data: POSProduct }>(`/pharmacy/pos/products?barcode=${encodeURIComponent(barcode)}`)
   },
+  searchPOSProducts(query: string, limit = 8, signal?: AbortSignal) {
+    const params = new URLSearchParams({ q: query, limit: String(limit) })
+    return apiFetch<{ data: POSProductSuggestion[] }>(`/pharmacy/pos/search?${params.toString()}`, { signal })
+  },
   createPOSSale(items: POSSaleItem[], idempotencyKey?: string) {
     return apiFetch<{ data: { sale_id: string; total_amount_piastres: number; replayed: boolean } }>('/pharmacy/pos/sales', {
       method: 'POST',
@@ -322,6 +326,20 @@ export interface PharmacyProduct {
 }
 
 export interface POSProduct extends PharmacyProduct {}
+
+export type POSMatchType =
+  | 'barcode_exact'
+  | 'barcode_prefix'
+  | 'barcode_fuzzy'
+  | 'name_prefix'
+  | 'name_substring'
+  | 'name_fuzzy'
+  | 'generic_fuzzy'
+
+export interface POSProductSuggestion extends POSProduct {
+  match_type: POSMatchType
+  score: number
+}
 
 export interface CreatePharmacyProductInput {
   name: string
