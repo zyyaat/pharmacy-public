@@ -111,6 +111,61 @@ def stock_full_boxes(product_name):
         conn.close()
 
 
+def stock_shape(product_name):
+    """(العلب الكاملة، الشرائط المتبقية) — الأساس يُقصّ عند الصفر مثل الـ API."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(ci.quantity), 0)::int, GREATEST(COALESCE(pp.units_per_box, 1), 1)::int
+                FROM pharmacy_products pp
+                JOIN global_products gp ON gp.id = pp.global_product_id
+                LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
+                WHERE gp.name = %s AND pp.is_active = true
+                GROUP BY pp.id, pp.units_per_box
+                ORDER BY pp.id
+                LIMIT 1
+                """,
+                (product_name,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return 0, 0
+            base, upb = max(row[0], 0), row[1]
+            return base // upb, base % upb
+    finally:
+        conn.close()
+
+
+def box_word_ar(n):
+    if n == 1:
+        return 'علبة واحدة'
+    if n == 2:
+        return 'علبتين'
+    if 3 <= n <= 10:
+        return f'{n} علب'
+    return f'{n} علبة'
+
+
+def strip_word_ar(n):
+    if n == 1:
+        return 'شريط واحد'
+    if n == 2:
+        return 'شريطين'
+    if 3 <= n <= 10:
+        return f'{n} شرائط'
+    return f'{n} شريط'
+
+
+def availability_ar(full, strips):
+    if full > 0 and strips > 0:
+        return f'{full} علبة و{strip_word_ar(strips)}'
+    if full > 0:
+        return box_word_ar(full)
+    return strip_word_ar(strips)
+
+
 def deactivate_old_reference_products():
     """التشغيلات السابقة تترك منتجات مرجعية (بعضها نفد مخزونه يظهر أول الاقتراحات)
     — تُخفى من نقطة البيع حتى لا تلوث الاختبار."""
@@ -307,6 +362,28 @@ def main():
               page.locator('text=مرهم جروح').count() == 0)
         bell.click()
         set_low_stock("مرهم جروح", 0)
+
+        # الرسالة تعلن الشرائط المتبقية بوضوح — «نفد» لا تظهر ما دام على الرف شريط
+        # (سيناريو المستخدم: الموجود شرائط والرسالة كانت تقول «نفذت الكمية»).
+        for product_name in ("بانادول أدفانس", "بانادول اكسترا"):
+            full, strips = stock_shape(product_name)
+            set_low_stock(product_name, full + 1)
+            check(f"API يُدخل {product_name} عندما الموجود أقل من الحد",
+                  wait_low_stock_api(page, product_name, True),
+                  f"full={full}, strips={strips}, min={full + 1}")
+            page.goto(f"{APP}/pos", wait_until="networkidle")
+            page.wait_for_selector('input[role="combobox"]', timeout=15000)
+            bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
+            bell.click()
+            page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
+            row_text = page.locator('a', has_text=product_name).first.inner_text()
+            expected = f"حد الطلب {box_word_ar(full + 1)} · الموجود {availability_ar(full, strips)}"
+            check(f"رسالة {product_name} تعلن الحد والموجود بوضوح", expected in row_text,
+                  f"expect={expected!r} got={row_text!r}")
+            check(f"{product_name} لا تظهر عليه «نفد» ما دامت هناك كمية",
+                  'نفد' not in row_text and 'منخفض' in row_text, row_text)
+            bell.click()
+            set_low_stock(product_name, 0)
 
         browser.close()
 

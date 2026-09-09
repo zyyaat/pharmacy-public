@@ -82,3 +82,21 @@ export function boxWordAr(n: number): string {
   if (n >= 3 && n <= 10) return `${n} علب`
   return `${n} علبة`
 }
+
+/** صياغة عدد الشرائط بالعربية: 1 → «شريط واحد» · 2 → «شريطين» · 3-10 → «N شرائط» */
+export function stripWordAr(n: number): string {
+  if (n === 1) return 'شريط واحد'
+  if (n === 2) return 'شريطين'
+  if (n >= 3 && n <= 10) return `${n} شرائط`
+  return `${n} شريط`
+}
+
+/**
+ * وصف الموجود على الرف كما يراه الصيدلي: «2 علبة و3 شرائط» أو
+ * «علبة واحدة» أو «شريطين» — الشرائط تُعرض للعلم فقط ولا تدخل في حد الطلب.
+ */
+export function availabilityAr(fullBoxes: number, strips: number): string {
+  if (fullBoxes > 0 && strips > 0) return `${fullBoxes} علبة و${stripWordAr(strips)}`
+  if (fullBoxes > 0) return boxWordAr(fullBoxes)
+  return stripWordAr(strips)
+}

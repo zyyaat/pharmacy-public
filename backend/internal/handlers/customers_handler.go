@@ -486,6 +486,7 @@ func (h *Handler) GetPharmacyLowStock(c *gin.Context) {
                        COALESCE(pp.packaging_type::text, ''),
                        COALESCE(pp.units_per_box::int8, 1),
                        GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0) / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0)::int8,
+                       GREATEST(COALESCE(SUM(ci.quantity), 0), 0)::int8 % GREATEST(COALESCE(pp.units_per_box, 1), 1)::int8,
                        pp.min_stock_level::int8
                 FROM pharmacy_products pp
                 JOIN global_products gp ON gp.id = pp.global_product_id
@@ -508,8 +509,8 @@ func (h *Handler) GetPharmacyLowStock(c *gin.Context) {
         items := make([]gin.H, 0)
         for rows.Next() {
                 var id, name, strength, barcode, packagingType string
-                var unitsPerBox, fullBoxes, minStock int64
-                if err := rows.Scan(&id, &name, &strength, &barcode, &packagingType, &unitsPerBox, &fullBoxes, &minStock); err != nil {
+                var unitsPerBox, fullBoxes, strips, minStock int64
+                if err := rows.Scan(&id, &name, &strength, &barcode, &packagingType, &unitsPerBox, &fullBoxes, &strips, &minStock); err != nil {
                         log.Printf("[LOWSTOCK] scan failed: %v", err)
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
                         return
@@ -522,6 +523,7 @@ func (h *Handler) GetPharmacyLowStock(c *gin.Context) {
                         "packaging_type":      packagingType,
                         "units_per_box":       unitsPerBox,
                         "full_boxes":          fullBoxes,
+                        "strips":              strips,
                         "min_stock_level":     minStock,
                 })
         }

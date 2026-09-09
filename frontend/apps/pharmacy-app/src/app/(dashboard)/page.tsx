@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { AlertTriangle, BarChart3, CalendarCheck, Package, Pill, Plus, TrendingUp, Users } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { usePharmacyDashboard } from '@/hooks/usePharmacyDashboard'
-import { boxWordAr } from '@/lib/product'
+import { availabilityAr, boxWordAr } from '@/lib/product'
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG').format(value)
 
@@ -65,7 +65,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600"><Pill className="h-5 w-5" /></div>
                       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{product.name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{product.generic_name}</p></div>
-                      <Badge variant="warning">{boxWordAr(product.quantity)}</Badge>
+                      <Badge variant="warning">{availabilityAr(product.quantity, product.strips)}</Badge>
                     </div>
                     <p className="mt-2 text-[11px] text-muted-foreground">حد الطلب: {boxWordAr(product.min_stock_level)} — الشرائط المفردة لا تُحسب</p>
                   </div>

@@ -327,6 +327,7 @@ func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string
                 SELECT COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''),
                        GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0)
                              / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0)::int8,
+                       GREATEST(COALESCE(SUM(ci.quantity), 0), 0)::int8 % GREATEST(COALESCE(pp.units_per_box, 1), 1)::int8,
                        pp.min_stock_level::int8,
                        CASE WHEN COALESCE(SUM(ci.quantity), 0) <= 0 THEN 'out_of_stock' ELSE 'low_stock' END
                 FROM current_inventory ci
@@ -348,12 +349,12 @@ func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string
         items := make([]map[string]interface{}, 0)
         for rows.Next() {
                 var name, genericName, status string
-                var fullBoxes, minStockLevel int64
-                if err := rows.Scan(&name, &genericName, &fullBoxes, &minStockLevel, &status); err != nil {
+                var fullBoxes, strips, minStockLevel int64
+                if err := rows.Scan(&name, &genericName, &fullBoxes, &strips, &minStockLevel, &status); err != nil {
                         return nil, err
                 }
                 items = append(items, map[string]interface{}{
-                        "name": name, "generic_name": genericName, "quantity": fullBoxes,
+                        "name": name, "generic_name": genericName, "quantity": fullBoxes, "strips": strips,
                         "min_stock_level": minStockLevel, "status": status,
                 })
         }

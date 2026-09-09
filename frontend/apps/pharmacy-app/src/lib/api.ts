@@ -115,6 +115,7 @@ export interface PharmacyDashboardStats {
     name: string
     generic_name: string
     quantity: number
+    strips: number
     min_stock_level: number
     status: string
   }>
@@ -482,6 +483,8 @@ export interface LowStockItem {
   units_per_box: number
   /** عدد العلب الكاملة المتاحة — الشرائط المفردة لا تدخل في حساب حد الطلب */
   full_boxes: number
+  /** الشرائط المتبقية في العلبة المفتوحة (تُعرض في الرسالة ولا تُحسب في الحد) */
+  strips: number
   min_stock_level: number
 }
 
