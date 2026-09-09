@@ -23,6 +23,7 @@ import {
   CardContent,
   Input,
   LoadingSpinner,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -45,6 +46,14 @@ const movementTypeOptions: Array<{ value: StockMovementType | 'all'; label: stri
   { value: 'expiry_writeoff', label: 'إعدام منتهي الصلاحية' },
   { value: 'damage_writeoff', label: 'إعدام تالف' },
   { value: 'theft_loss', label: 'فقد/سرقة' },
+  { value: 'production_input', label: 'استهلاك تصنيع' },
+  { value: 'production_output', label: 'إنتاج' },
+]
+
+const directionOptions = [
+  { value: 'all', label: 'داخل وخارج' },
+  { value: 'in', label: 'داخل فقط (+)' },
+  { value: 'out', label: 'خارج فقط (−)' },
 ]
 
 export default function InventoryMovementsPage() {
@@ -143,26 +152,22 @@ export default function InventoryMovementsPage() {
               aria-label="بحث في سجل المخزون"
             />
           </div>
-          <select
-            value={typeInput}
-            onChange={(event) => setTypeInput(event.target.value as StockMovementType | 'all')}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="نوع الحركة"
-          >
-            {movementTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select
-            value={directionInput}
-            onChange={(event) => setDirectionInput(event.target.value as 'all' | 'in' | 'out')}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="اتجاه الحركة"
-          >
-            <option value="all">داخل وخارج</option>
-            <option value="in">داخل فقط (+)</option>
-            <option value="out">خارج فقط (−)</option>
-          </select>
+          <div className="w-[200px]">
+            <Select
+              value={typeInput}
+              onValueChange={(value) => setTypeInput(value as StockMovementType | 'all')}
+              options={movementTypeOptions}
+              aria-label="نوع الحركة"
+            />
+          </div>
+          <div className="w-[170px]">
+            <Select
+              value={directionInput}
+              onValueChange={(value) => setDirectionInput(value as 'all' | 'in' | 'out')}
+              options={directionOptions}
+              aria-label="اتجاه الحركة"
+            />
+          </div>
           <Button type="submit" variant="secondary" size="sm">تطبيق</Button>
           {hasFilters && (
             <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
@@ -217,12 +222,12 @@ export default function InventoryMovementsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>التاريخ</TableHead>
+                    <TableHead className="w-[110px]">التاريخ</TableHead>
                     <TableHead>الدواء</TableHead>
                     <TableHead>التشغيلة</TableHead>
                     <TableHead>النوع</TableHead>
-                    <TableHead>الكمية</TableHead>
-                    <TableHead>الرصيد بعدها</TableHead>
+                    <TableHead className="w-[120px]">الكمية</TableHead>
+                    <TableHead className="w-[100px]">الرصيد بعدها</TableHead>
                     <TableHead>بواسطة</TableHead>
                     <TableHead>الفرع</TableHead>
                   </TableRow>
@@ -232,24 +237,27 @@ export default function InventoryMovementsPage() {
                     const incoming = movement.quantity >= 0
                     return (
                       <TableRow key={movement.id}>
-                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                          {formatMovementDate(movement.created_at)}
-                          <br />
-                          {formatMovementTime(movement.created_at)}
+                        <TableCell className="whitespace-nowrap">
+                          <span className="flex flex-col leading-tight">
+                            <span className="text-xs text-foreground/80">{formatMovementDate(movement.created_at)}</span>
+                            <span className="text-[11px] tabular-nums text-muted-foreground">{formatMovementTime(movement.created_at)}</span>
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          <p className="font-medium">{movement.product_name}</p>
+                        <TableCell className="max-w-[280px]">
+                          <p className="truncate font-medium" title={movement.product_name}>{movement.product_name}</p>
                           {movement.generic_name && (
-                            <p className="text-xs text-muted-foreground">{movement.generic_name}</p>
+                            <p className="truncate text-xs text-muted-foreground" title={movement.generic_name}>{movement.generic_name}</p>
                           )}
                           {(movement.reason || movement.notes) && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground" title={movement.reason || movement.notes || ''}>
                               {movement.reason || movement.notes}
                             </p>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {movement.batch_number || '—'}
+                          {movement.batch_number ? (
+                            <span dir="ltr" className="inline-block text-start">{movement.batch_number}</span>
+                          ) : '—'}
                         </TableCell>
                         <TableCell>
                           <Badge variant={movementTypeVariant(movement.movement_type)}>
@@ -258,7 +266,7 @@ export default function InventoryMovementsPage() {
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center gap-1 font-bold ${
+                            className={`inline-flex items-center gap-1 font-bold tabular-nums ${
                               incoming ? 'text-emerald-600' : 'text-destructive'
                             }`}
                           >
@@ -271,7 +279,7 @@ export default function InventoryMovementsPage() {
                             {formatMovementQuantity(movement.quantity, movement.unit)}
                           </span>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-xs tabular-nums">
                           {movement.quantity_after != null
                             ? formatMovementQuantity(movement.quantity_after, movement.unit)
                             : '—'}

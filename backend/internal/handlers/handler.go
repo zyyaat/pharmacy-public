@@ -107,6 +107,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.GET("/pos/sales/:sale_id", h.GetPOSSale)
                 pharmacy.POST("/pos/sales/:sale_id/returns", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePOSSaleReturn)
                 pharmacy.POST("/inventory/:batch_id/adjust", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.AdjustPharmacyInventory)
+                // Reports are read-only aggregates scoped by the session
+                // principal — no mutation guard needed.
+                pharmacy.GET("/reports/sales", h.GetPharmacySalesReport)
+                pharmacy.GET("/reports/inventory", h.GetPharmacyInventoryReport)
+                pharmacy.GET("/reports/movements", h.GetPharmacyMovementsReport)
                 pharmacy.GET("/employees", h.ListPharmacyEmployees)
                 pharmacy.GET("/branches", h.ListPharmacyBranches)
                 pharmacy.GET("/attendance", h.ListPharmacyAttendance)

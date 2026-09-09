@@ -112,6 +112,9 @@ func parseIntInRange(raw string, min, max int) int {
 // ListPOSSales returns the pharmacy's invoices, newest first, each with its
 // returns (credit notes) attached so the history tab can render the reverse
 // invoice directly under the invoice it reverses.
+//
+// Optional from/to (YYYY-MM-DD, inclusive) restrict the invoice creation date
+// — used by the reports module and available to the history tab.
 func (h *Handler) ListPOSSales(c *gin.Context) {
         pharmacyID, ok := pharmacyScope(c)
         if !ok {
@@ -119,6 +122,25 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
         }
         limit, offset := parseLimitOffset(c)
         search := strings.TrimSpace(c.Query("search"))
+        fromRaw := strings.TrimSpace(c.Query("from"))
+        toRaw := strings.TrimSpace(c.Query("to"))
+        var fromDay, toDay string
+        if fromRaw != "" {
+                parsed, err := time.Parse("2006-01-02", fromRaw)
+                if err != nil {
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_from_date", "message": "تاريخ البداية غير صحيح (المتوقع YYYY-MM-DD)"})
+                        return
+                }
+                fromDay = parsed.Format("2006-01-02")
+        }
+        if toRaw != "" {
+                parsed, err := time.Parse("2006-01-02", toRaw)
+                if err != nil {
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_to_date", "message": "تاريخ النهاية غير صحيح (المتوقع YYYY-MM-DD)"})
+                        return
+                }
+                toDay = parsed.Format("2006-01-02")
+        }
 
         total := 0
         countErr := h.db.QueryRow(c.Request.Context(), `
@@ -135,7 +157,9 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
                           WHERE si.sale_id = s.id AND gp.name ILIKE '%' || $2 || '%'
                       )
                   )
-        `, pharmacyID, search).Scan(&total)
+                  AND ($3 = '' OR s.created_at::date >= $3::date)
+                  AND ($4 = '' OR s.created_at::date <= $4::date)
+        `, pharmacyID, search, fromDay, toDay).Scan(&total)
         if countErr != nil {
                 log.Printf("[SALES] count failed: %v", countErr)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
@@ -164,9 +188,11 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
                           WHERE si.sale_id = s.id AND gp.name ILIKE '%' || $2 || '%'
                       )
                   )
+                  AND ($5 = '' OR s.created_at::date >= $5::date)
+                  AND ($6 = '' OR s.created_at::date <= $6::date)
                 ORDER BY s.created_at DESC, s.invoice_number DESC
                 LIMIT $3 OFFSET $4
-        `, pharmacyID, search, limit, offset)
+        `, pharmacyID, search, limit, offset, fromDay, toDay)
         if err != nil {
                 log.Printf("[SALES] list failed: %v", err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})

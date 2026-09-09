@@ -9,7 +9,7 @@ import {
   type POSSaleItem,
 } from '@/lib/api'
 import { formatPiastres, stripPricePiastres } from '@/lib/money'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
 
 type CartLine = {
   product: POSProduct
@@ -159,13 +159,20 @@ export default function POSPage() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">وحدة البيع</label>
-                      <select value={String(line.unitChoice)} onChange={(event) => updateLine(index, { unitChoice: event.target.value === 'box' ? 'box' : Number(event.target.value), quantity: 1 })} className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm">
-                        <option value="box">علبة كاملة</option>
-                        {line.product.packaging_type === 'BOX_STRIP' && Array.from({ length: Math.max(1, line.product.units_per_box - 1) }, (_, stripIndex) => {
-                          const strips = stripIndex + 1
-                          return <option key={strips} value={strips}>{strips === 1 ? 'شريط واحد' : strips === 2 ? 'شريطان' : `${strips} شرائط`}</option>
-                        })}
-                      </select>
+                      <Select
+                        value={String(line.unitChoice)}
+                        onValueChange={(value) => updateLine(index, { unitChoice: value === 'box' ? 'box' : Number(value), quantity: 1 })}
+                        aria-label="وحدة البيع"
+                        options={[
+                          { value: 'box', label: 'علبة كاملة' },
+                          ...(line.product.packaging_type === 'BOX_STRIP'
+                            ? Array.from({ length: Math.max(1, line.product.units_per_box - 1) }, (_, stripIndex) => {
+                                const strips = stripIndex + 1
+                                return { value: String(strips), label: strips === 1 ? 'شريط واحد' : strips === 2 ? 'شريطان' : `${strips} شرائط` }
+                              })
+                            : []),
+                        ]}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">الكمية</label>

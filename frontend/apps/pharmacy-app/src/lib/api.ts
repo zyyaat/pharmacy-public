@@ -258,10 +258,27 @@ export const pharmacyApi = {
       body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
     })
   },
-  listPOSSales(limit = 20, offset = 0, search = '') {
+  listPOSSales(limit = 20, offset = 0, search = '', dateRange?: { from?: string; to?: string }) {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
     if (search) params.set('search', search)
+    if (dateRange?.from) params.set('from', dateRange.from)
+    if (dateRange?.to) params.set('to', dateRange.to)
     return apiFetch<{ data: POSSalesPage }>(`/pharmacy/pos/sales?${params.toString()}`)
+  },
+  getSalesReport(from?: string, to?: string) {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    return apiFetch<{ data: SalesReport }>(`/pharmacy/reports/sales?${params.toString()}`)
+  },
+  getInventoryReport() {
+    return apiFetch<{ data: InventoryReport }>('/pharmacy/reports/inventory')
+  },
+  getMovementsReport(from?: string, to?: string) {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    return apiFetch<{ data: MovementsReport }>(`/pharmacy/reports/movements?${params.toString()}`)
   },
   listStockMovements(filters: StockMovementFilters, limit = 50, offset = 0) {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
@@ -489,4 +506,97 @@ export interface StockMovementRow {
 export interface StockMovementsPage {
   movements: StockMovementRow[]
   total: number
+}
+
+// ---------------------------------------------------------------------------
+// Reports (التقارير)
+// ---------------------------------------------------------------------------
+
+export interface ReportPeriod {
+  from: string
+  to: string
+}
+
+export interface SalesReportPoint {
+  day: string
+  invoices_count: number
+  gross_piastres: number
+  returned_piastres: number
+  net_piastres: number
+}
+
+export interface SalesReportTopProduct {
+  product_id: string
+  name: string
+  generic_name: string
+  quantity_base: number
+  amount_piastres: number
+}
+
+export interface SalesReport {
+  period: ReportPeriod
+  sales: {
+    invoices_count: number
+    gross_piastres: number
+    units_base: number
+    returns_count: number
+    returned_piastres: number
+    net_piastres: number
+    avg_invoice_piastres: number
+  }
+  daily: SalesReportPoint[]
+  top_products: SalesReportTopProduct[]
+}
+
+export interface InventoryAlertItem {
+  name: string
+  generic_name: string
+  batch_number: string
+  branch_name: string
+  quantity: number
+  /** النواقص: الحد الأدنى — الصلاحيات: الأيام المتبقية */
+  threshold: number
+  selling_price_piastres: number
+  status: string
+  /** الصلاحيات: تاريخ انتهاء التشغيلة — النواقص: null */
+  extra_date?: string | null
+}
+
+export interface InventoryReport {
+  totals: {
+    batches_count: number
+    products_count: number
+    units_base: number
+    cost_value_piastres: number
+    retail_value_piastres: number
+    low_stock_count: number
+    out_of_stock_count: number
+  }
+  expiry: {
+    expired_count: number
+    expiring_30_count: number
+    expiring_60_count: number
+    expiring_90_count: number
+    expired_value_piastres: number
+    expiring_value_piastres: number
+  }
+  low_stock_items: InventoryAlertItem[]
+  expiring_items: InventoryAlertItem[]
+}
+
+export interface MovementsReportByType {
+  movement_type: StockMovementType
+  transactions: number
+  quantity_in: number
+  quantity_out: number
+}
+
+export interface MovementsReport {
+  period: ReportPeriod
+  by_type: MovementsReportByType[]
+  totals: {
+    transactions: number
+    quantity_in: number
+    quantity_out: number
+  }
 }

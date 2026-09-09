@@ -25,11 +25,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       {/* شاشة الافتتاحية أثناء التحقق من الجلسة — بتختفي بنعومة فوق الواجهة */}
       <BrandSplash show={loading || !user} />
       {user && (
-    <div className="flex min-h-screen overflow-hidden bg-background" dir="rtl">
+    <div className="flex min-h-screen overflow-hidden bg-background print:block print:overflow-visible" dir="rtl">
       <Sidebar mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col print:block">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-7">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-7 print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
       )}

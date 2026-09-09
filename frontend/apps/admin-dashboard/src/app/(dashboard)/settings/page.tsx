@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Badge } from "@/components/ui";
+import { Select } from "@/components/ui";
 import { platformSettingsApi } from "@/lib/api";
 
 type SettingsTab = "profile" | "notifications" | "security" | "appearance" | "system";
@@ -303,10 +304,16 @@ export default function SettingsPage() {
 
                 <div>
                   <h3 className="font-medium mb-3">اللغة</h3>
-                  <select className="w-full max-w-xs h-10 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    <option value="ar">العربية</option>
-                    <option value="en">English</option>
-                  </select>
+                  <div className="w-full max-w-xs">
+                    <Select
+                      defaultValue="ar"
+                      aria-label="اللغة"
+                      options={[
+                        { value: "ar", label: "العربية" },
+                        { value: "en", label: "English" },
+                      ]}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

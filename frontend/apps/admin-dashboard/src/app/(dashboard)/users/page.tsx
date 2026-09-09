@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, ShieldCheck, Users as UsersIcon } from "lucide-react";
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Badge, Card, CardContent, CardHeader, CardTitle, Select } from "@/components/ui";
 import { ROLE_LABELS, type Role } from "@/lib/utils";
 import { usersApi } from "@/lib/api";
 import type { PlatformUser } from "@/types";
@@ -66,14 +66,21 @@ export default function UsersPage() {
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو البريد أو الشركة..." className="h-10 w-full rounded-lg border border-input bg-background pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" dir="rtl" />
             </div>
-            <select value={role} onChange={(event) => setRole(event.target.value)} className="h-10 rounded-lg border border-input bg-background px-4 text-sm">
-              <option value="all">كل الأدوار</option>
-              <option value="super_admin">مدير النظام</option>
-              <option value="company_admin">مدير الشركة</option>
-              <option value="company_manager">مدير العمليات</option>
-              <option value="company_viewer">مشاهد الشركة</option>
-              <option value="employee">موظف صيدلية</option>
-            </select>
+            <div className="w-[190px]">
+              <Select
+                value={role}
+                onValueChange={(value) => setRole(value)}
+                aria-label="تصفية بالدور"
+                options={[
+                  { value: "all", label: "كل الأدوار" },
+                  { value: "super_admin", label: "مدير النظام" },
+                  { value: "company_admin", label: "مدير الشركة" },
+                  { value: "company_manager", label: "مدير العمليات" },
+                  { value: "company_viewer", label: "مشاهد الشركة" },
+                  { value: "employee", label: "موظف صيدلية" },
+                ]}
+              />
+            </div>
           </div>
           {loading && <p className="py-8 text-center text-muted-foreground">جاري تحميل المستخدمين...</p>}
           {error && !loading && <p className="py-8 text-center text-destructive">{error}</p>}

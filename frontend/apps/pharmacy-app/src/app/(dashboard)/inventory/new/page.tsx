@@ -6,7 +6,7 @@ import { FormEvent, useState } from 'react'
 import { ArrowRight, PackagePlus } from 'lucide-react'
 import { ApiError, pharmacyApi, type CreatePharmacyProductInput } from '@/lib/api'
 import { parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
 
 const dosageForms = [
   ['tablet', 'أقراص'],
@@ -115,9 +115,11 @@ export default function NewProductPage() {
             <Input name="generic_name" label="المادة الفعالة / الاسم العلمي" placeholder="اختياري" />
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground/80">الشكل الدوائي</label>
-              <select name="dosage_form" defaultValue="tablet" className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm">
-                {dosageForms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
+              <Select
+                name="dosage_form"
+                defaultValue="tablet"
+                options={dosageForms.map(([value, label]) => ({ value, label }))}
+              />
             </div>
             <Input name="strength" label="التركيز" placeholder="مثال: 500mg" />
             <Input name="barcode" label="الباركود" required placeholder="امسح أو اكتب الباركود" />

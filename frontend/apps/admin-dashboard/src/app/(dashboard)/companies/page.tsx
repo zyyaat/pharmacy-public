@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
-  Filter,
   MoreHorizontal,
   Eye,
   Edit,
@@ -21,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Badge } from "@/components/ui";
+import { Select } from "@/components/ui";
 import { COMPANY_STATUS_LABELS, COMPANY_PLAN_LABELS, type CompanyStatus, type CompanyPlan } from "@/lib/utils";
 import { companiesApi } from "@/lib/api";
 
@@ -204,21 +204,19 @@ export default function CompaniesPage() {
                 dir="ltr"
               />
             </div>
-            <div className="flex gap-2">
-              <select
+            <div className="w-[160px]">
+              <Select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-10 px-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">كل الحالات</option>
-                <option value="active">نشط</option>
-                <option value="trial">تجريبي</option>
-                <option value="suspended">موقوف</option>
-                <option value="cancelled">ملغي</option>
-              </select>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+                onValueChange={(value) => setStatusFilter(value)}
+                aria-label="تصفية بالحالة"
+                options={[
+                  { value: "all", label: "كل الحالات" },
+                  { value: "active", label: "نشط" },
+                  { value: "trial", label: "تجريبي" },
+                  { value: "suspended", label: "موقوف" },
+                  { value: "cancelled", label: "ملغي" },
+                ]}
+              />
             </div>
           </div>
         </CardContent>

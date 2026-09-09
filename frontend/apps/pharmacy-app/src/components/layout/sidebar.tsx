@@ -158,8 +158,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
 
   return (
     <>
-      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onMobileClose} />}
-      <aside className={cn('fixed bottom-0 right-0 top-0 z-50 transition-transform duration-300 lg:sticky lg:block lg:h-screen', mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0')}>{content}</aside>
+      {mobileOpen && <div className="print-hidden fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onMobileClose} />}
+      <aside className={cn('print-hidden fixed bottom-0 right-0 top-0 z-50 transition-transform duration-300 lg:sticky lg:block lg:h-screen', mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0')}>{content}</aside>
     </>
   )
 }
