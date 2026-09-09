@@ -263,6 +263,15 @@ export const pharmacyApi = {
     if (search) params.set('search', search)
     return apiFetch<{ data: POSSalesPage }>(`/pharmacy/pos/sales?${params.toString()}`)
   },
+  listStockMovements(filters: StockMovementFilters, limit = 50, offset = 0) {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    if (filters.type) params.set('type', filters.type)
+    if (filters.search) params.set('search', filters.search)
+    if (filters.from) params.set('from', filters.from)
+    if (filters.to) params.set('to', filters.to)
+    if (filters.direction) params.set('direction', filters.direction)
+    return apiFetch<{ data: StockMovementsPage }>(`/pharmacy/inventory/movements?${params.toString()}`)
+  },
   getPOSSale(saleId: string) {
     return apiFetch<{ data: POSSaleDetail }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}`)
   },
@@ -436,4 +445,48 @@ export interface POSReturnResult {
   sale_status: POSSaleStatus
   replayed: boolean
   items?: Array<{ sale_item_id: string; quantity: number; amount_piastres: number }>
+}
+
+export type StockMovementType =
+  | 'purchase'
+  | 'sale'
+  | 'return_to_supplier'
+  | 'return_from_customer'
+  | 'adjustment'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'expiry_writeoff'
+  | 'damage_writeoff'
+  | 'theft_loss'
+  | 'production_input'
+  | 'production_output'
+
+export interface StockMovementFilters {
+  type?: StockMovementType | ''
+  search?: string
+  from?: string
+  to?: string
+  direction?: 'in' | 'out' | ''
+}
+
+export interface StockMovementRow {
+  id: string
+  created_at: string
+  movement_type: StockMovementType
+  quantity: number
+  unit: string
+  product_name: string
+  generic_name: string | null
+  batch_number: string | null
+  branch_name: string | null
+  actor_name: string | null
+  reference_type: string | null
+  reason: string | null
+  notes: string | null
+  quantity_after: number | null
+}
+
+export interface StockMovementsPage {
+  movements: StockMovementRow[]
+  total: number
 }

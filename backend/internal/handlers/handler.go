@@ -96,6 +96,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
                 pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
                 pharmacy.GET("/inventory", h.GetPharmacyInventory)
+                pharmacy.GET("/inventory/movements", h.ListPharmacyStockMovements)
                 pharmacy.GET("/products", h.ListPharmacyProducts)
                 pharmacy.POST("/products", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyProduct)
                 pharmacy.GET("/products/:id", h.GetPharmacyProduct)
