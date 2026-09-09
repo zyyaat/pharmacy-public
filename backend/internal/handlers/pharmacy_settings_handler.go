@@ -14,16 +14,21 @@ import (
 // content. It is stored under the "receipt" key of pharmacies.settings so
 // every cashier device of the same pharmacy shares one configuration.
 type receiptSettings struct {
-	PaperWidthMM      int    `json:"paper_width_mm"`
-	PrintMode         string `json:"print_mode"` // "auto" | "manual"
-	Copies            int    `json:"copies"`
-	ShowPhone         bool   `json:"show_phone"`
-	ShowAddress       bool   `json:"show_address"`
-	ShowCashier       bool   `json:"show_cashier"`
-	ShowThankYou      bool   `json:"show_thank_you"`
-	ThankYouText      string `json:"thank_you_text"`
-	ShowReturnPolicy  bool   `json:"show_return_policy"`
-	ReturnPolicyText  string `json:"return_policy_text"`
+	PaperWidthMM int    `json:"paper_width_mm"`
+	PrintMode    string `json:"print_mode"` // "auto" | "manual"
+	Copies       int    `json:"copies"`
+	// NamePrefix renders before the pharmacy name on the receipt header
+	// (e.g. "صيدلية د." + "محمد" => "صيدلية د.محمد"). Empty means the
+	// registered name is used as-is; otherwise it is a preset chosen in
+	// the settings tab or free custom text — validated by length only.
+	NamePrefix       string `json:"name_prefix"`
+	ShowPhone        bool   `json:"show_phone"`
+	ShowAddress      bool   `json:"show_address"`
+	ShowCashier      bool   `json:"show_cashier"`
+	ShowThankYou     bool   `json:"show_thank_you"`
+	ThankYouText     string `json:"thank_you_text"`
+	ShowReturnPolicy bool   `json:"show_return_policy"`
+	ReturnPolicyText string `json:"return_policy_text"`
 }
 
 func defaultReceiptSettings() receiptSettings {
@@ -76,6 +81,12 @@ func (r receiptSettings) normalize(base receiptSettings) (receiptSettings, strin
 
 	// Booleans: the zero value of a missing field is false, which is also a
 	// legitimate choice, so they are taken as-is from the payload.
+
+	const maxNamePrefix = 40
+	if runeLen(r.NamePrefix) > maxNamePrefix {
+		return out, "بادئة اسم الصيدلية أطول من الحد المسموح (40 حرفاً)"
+	}
+	out.NamePrefix = trimSpaceArabic(r.NamePrefix)
 
 	const maxThankYou = 120
 	const maxPolicy = 160

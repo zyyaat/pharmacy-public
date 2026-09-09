@@ -41,6 +41,20 @@ function receiptDate(iso: string) {
   return new Date(iso).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+/**
+ * يركّب الاسم الظاهر في رأس الفاتورة من البادئة والاسم المسجّل:
+ * بادئة تنتهي بنقطة تُلصق بالاسم مباشرة (صيدلية د. + محمد => صيدلية د.محمد)،
+ * وغير ذلك تفصل بمسافة (صيدلية + محمد => صيدلية محمد). ولو الاسم المسجّل
+ * يبدأ أصلاً بالبادئة فتُترك كما هو بلا تكرار (صيدلية + صيدلية النور).
+ */
+export function composePharmacyDisplayName(prefix: string, name: string): string {
+  const cleanName = name.trim()
+  const cleanPrefix = prefix.trim()
+  if (!cleanPrefix) return cleanName
+  if (cleanName.startsWith(cleanPrefix)) return cleanName
+  return cleanPrefix.endsWith('.') ? `${cleanPrefix}${cleanName}` : `${cleanPrefix} ${cleanName}`
+}
+
 function Dashed() {
   return <div className="my-1.5 border-t border-dashed border-neutral-500" aria-hidden="true" />
 }
@@ -73,8 +87,8 @@ export default function ReceiptTemplate({
         <p className="mb-2 text-center font-bold tracking-wide text-neutral-600">— {copyLabel} —</p>
       )}
 
-      {/* الرأس */}
-      <p className="text-center font-extrabold" style={{ fontSize: compact ? '15px' : '17px' }}>{pharmacy.name || 'صيدلية'}</p>
+      {/* الرأس — الاسم المركب من البادئة والاسم المسجّل */}
+      <p className="text-center font-extrabold" style={{ fontSize: compact ? '15px' : '17px' }}>{composePharmacyDisplayName(settings.name_prefix, pharmacy.name) || 'صيدلية'}</p>
       {settings.show_address && (pharmacy.address || pharmacy.city) && (
         <p className="mt-0.5 text-center text-neutral-700">{[pharmacy.address, pharmacy.city].filter(Boolean).join('، ')}</p>
       )}

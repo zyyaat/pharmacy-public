@@ -8,6 +8,7 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   paper_width_mm: 80,
   print_mode: 'auto',
   copies: 1,
+  name_prefix: '',
   show_phone: true,
   show_address: true,
   show_cashier: true,

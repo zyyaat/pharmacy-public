@@ -488,6 +488,8 @@ export interface ReceiptSettings {
   print_mode: 'auto' | 'manual'
   /** نسخة عميل أو نسختان (عميل + صيدلية) */
   copies: 1 | 2
+  /** بادئة تظهر قبل اسم الصيدلية في رأس الفاتورة — '' = الاسم كما هو مسجّل */
+  name_prefix: string
   show_phone: boolean
   show_address: boolean
   show_cashier: boolean

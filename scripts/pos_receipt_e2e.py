@@ -117,6 +117,36 @@ def main():
         check("نسختان مع خط قص في الطباعة", "نسخة الصيدلية" in receipt_html and "قص هنا" in receipt_html)
         check("قاعدة @page تحدثت لـ 58mm", "58mm" in receipt_html)
 
+        # ---------- C2) بادئة اسم الصيدلية: chips + تركيب ذكي + نص مخصص + ثبات ----------
+        # الاسم المسجل لصيدلية الاختبار: «صيدلية الشفاء»
+        prefix_row = page.locator('p:has-text("يظهر على الفاتورة")')
+        page.wait_for_timeout(300)
+        check("بدون بادئة مختارة افتراضياً", page.get_by_role("button", name="بدون بادئة", exact=True).get_attribute("aria-pressed") == "true")
+        check("بلا بادئة: الاسم كما هو مسجّل", "صيدلية الشفاء" in prefix_row.inner_text())
+        # حارس التكرار: بادئة «صيدلية» على اسم يبدأ بـ«صيدلية» لا تكررها
+        page.get_by_role("button", name="صيدلية", exact=True).click()
+        page.wait_for_timeout(200)
+        check("حارس التكرار: صيدلية + صيدلية الشفاء بلا تكرار", "صيدلية صيدلية" not in prefix_row.inner_text() and "صيدلية الشفاء" in prefix_row.inner_text())
+        # بادئة تنتهي بنقطة تُلصق بالاسم بلا مسافة (نفس مثال المستخدم)
+        page.get_by_role("button", name="صيدلية د.", exact=True).click()
+        page.wait_for_timeout(200)
+        check("صيدلية د. تُلصق بالاسم مباشرة", "صيدلية د.صيدلية الشفاء" in prefix_row.inner_text())
+        # نص مخصص: غير البادئات الجاهزة يُركّب بمسافة
+        page.locator('input[maxlength="40"]').fill("الفارما")
+        page.wait_for_timeout(200)
+        check("البادئة المخصصة تُركّب بمسافة", "الفارما صيدلية الشفاء" in prefix_row.inner_text())
+        page.click('button:has-text("حفظ الإعدادات")')
+        page.wait_for_selector('text=تم حفظ الإعدادات وتطبيقها على كل الأجهزة', timeout=8000)
+        page.reload(wait_until="networkidle")
+        page.wait_for_selector('text=اسم الصيدلية على الفاتورة', timeout=15000)
+        page.wait_for_timeout(600)
+        check("البادئة المخصصة محفوظة بعد إعادة التحميل", page.locator('input[maxlength="40"]').input_value() == "الفارما")
+        check("المعاينة بعد التحميل بالتركيب المحفوظ", "الفارما صيدلية الشفاء" in page.locator('p:has-text("يظهر على الفاتورة")').inner_text())
+        # نعتّد ببادئة «صيدلية د.» حتى تصل للطباعة الفعلية في قسمي POS التاليين
+        page.get_by_role("button", name="صيدلية د.", exact=True).click()
+        page.click('button:has-text("حفظ الإعدادات")')
+        page.wait_for_selector('text=تم حفظ الإعدادات وتطبيقها على كل الأجهزة', timeout=8000)
+
         # ---------- D) POS manual mode: button after save ----------
         page.goto(f"{APP}/pos", wait_until="networkidle")
         search_input = page.locator('input[role="combobox"]')
@@ -163,6 +193,7 @@ def main():
         receipt_html = page.evaluate("window.__receiptHTML || ''")
         check("الوضع التلقائي يفتح الطباعة فوراً بعد الحفظ", page.evaluate("window.__prints") == 1)
         check("إيصال البيع التلقائي يحمل الفاتورة والإجمالي", "فاتورة رقم" in receipt_html and "INV-" in receipt_html)
+        check("إيصال البيع يحمل الاسم المركب بالبادئة", "صيدلية د.صيدلية الشفاء" in receipt_html)
 
         # screenshot of settings preview for the record (paper stays at the
         # persisted 58mm from the persistence test — that's correct behavior)

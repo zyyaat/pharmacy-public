@@ -6,10 +6,19 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 import { useReceiptSettings } from '@/hooks/useReceiptSettings'
 import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
-import ReceiptTemplate from '@/components/pos/receipt-template'
+import ReceiptTemplate, { composePharmacyDisplayName } from '@/components/pos/receipt-template'
 import type { ReceiptSettings } from '@/lib/api'
 
 const TABS = [{ id: 'invoices', label: 'الفواتير والطباعة' }] as const
+
+/** بادئات جاهزة تظهر قبل اسم الصيدلية في رأس الفاتورة — '' = بدون بادئة */
+const NAME_PREFIX_PRESETS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'بدون بادئة' },
+  { value: 'صيدلية', label: 'صيدلية' },
+  { value: 'صيدلية د.', label: 'صيدلية د.' },
+  { value: 'صيدلية دكتور', label: 'صيدلية دكتور' },
+  { value: 'صيدليات', label: 'صيدليات' },
+]
 
 /** بيانات فاتورة تجريبية ثابتة للمعاينة والطباعة الاختبارية */
 const SAMPLE_RECEIPT = {
@@ -124,6 +133,41 @@ export default function SettingsPage() {
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
           {/* ------------------------------- النموذج ------------------------------- */}
           <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>اسم الصيدلية على الفاتورة</CardTitle>
+                <CardDescription>لو الصيدلية مسجّلة باسمك الشخصي، اختار بادئة تظهر قبل الاسم في رأس الفاتورة — أو اكتبها بنفسك.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {NAME_PREFIX_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      aria-pressed={current.name_prefix === preset.value}
+                      onClick={() => update({ name_prefix: preset.value })}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+                        current.name_prefix === preset.value
+                          ? 'border-primary bg-primary/5 text-primary ring-4 ring-primary/10'
+                          : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <TextField
+                  value={current.name_prefix}
+                  maxLength={40}
+                  onChange={(value) => update({ name_prefix: value })}
+                  placeholder="أو اكتب بادئة خاصة — مثال: صيدليات النور"
+                />
+                <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+                  يظهر على الفاتورة: <span className="font-extrabold">{composePharmacyDisplayName(current.name_prefix, pharmacy.name) || pharmacy.name || 'صيدلية'}</span>
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>مقاس الورقة</CardTitle>
