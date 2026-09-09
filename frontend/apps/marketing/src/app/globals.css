@@ -138,14 +138,14 @@ a {
 }
 
 .hero {
-  align-items: center;
+  align-items: start;
   display: grid;
   gap: 2rem;
   grid-template-columns: 1fr 1.1fr;
   margin: 0 auto;
   max-width: 1180px;
   min-height: calc(100vh - 5rem);
-  padding: 3rem 2rem 6rem;
+  padding: 2rem 2rem 6rem;
   position: relative;
   z-index: 1;
 }
@@ -292,6 +292,7 @@ a {
 
 .hero-art {
   align-items: center;
+  align-self: center;
   display: flex;
   height: min(76vh, 700px);
   justify-content: center;
