@@ -70,3 +70,15 @@ export function composeStrength(value: string, unit: string): string {
   if (!unit || unit === 'other') return clean
   return `${clean.replace(/\s+/g, '').replace(',', '.')}${unit}`
 }
+
+/**
+ * صياغة عدد العلب بالعربية للإشعارات الواضحة:
+ * 1 → «علبة واحدة» · 2 → «علبتين» · 3-10 → «N علب» · غير ذلك → «N علبة».
+ * حد الطلب يُحسب بالعلبة الكاملة دائماً — الشرائط المفردة لا تُحتسب.
+ */
+export function boxWordAr(n: number): string {
+  if (n === 1) return 'علبة واحدة'
+  if (n === 2) return 'علبتين'
+  if (n >= 3 && n <= 10) return `${n} علب`
+  return `${n} علبة`
+}

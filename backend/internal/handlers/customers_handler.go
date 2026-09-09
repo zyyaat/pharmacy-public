@@ -466,66 +466,69 @@ func customerBalance(ctx context.Context, tx pgx.Tx, pharmacyID, customerID stri
 
 // ---------------------------------------------------------------------------
 // Low-stock alerts: GET /pharmacy/inventory/low-stock
-// Active products whose min_stock_level > 0 and total base quantity (across
-// batches) dropped to/below that level — the header bell fetches this so the
-// pharmacist can reorder in time. Sorted by urgency (closest to zero first).
+// Business rule (pharmacist's definition): حد الطلب is counted in FULL BOXES
+// only — leftover strips of an opened box never count toward the threshold.
+// A product alerts when floor(total base quantity / units_per_box) is strictly
+// below its min_stock_level. The header bell fetches this so the pharmacist
+// can reorder in time. Sorted by urgency (closest to zero first).
 // ---------------------------------------------------------------------------
 
 func (h *Handler) GetPharmacyLowStock(c *gin.Context) {
-	pharmacyID, ok := pharmacyScope(c)
-	if !ok {
-		return
-	}
-	rows, err := h.db.Query(c.Request.Context(), `
-		SELECT pp.id::text,
-		       COALESCE(gp.name::text, ''),
-		       COALESCE(gp.strength::text, ''),
-		       COALESCE(gp.barcode::text, ''),
-		       COALESCE(pp.packaging_type::text, ''),
-		       COALESCE(pp.units_per_box::int8, 1),
-		       ROUND(COALESCE(SUM(ci.quantity), 0))::int8,
-		       pp.min_stock_level::int8
-		FROM pharmacy_products pp
-		JOIN global_products gp ON gp.id = pp.global_product_id
-		LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
-		WHERE pp.pharmacy_id = $1 AND pp.is_active = true AND pp.min_stock_level > 0
-		GROUP BY pp.id, gp.name, gp.strength, gp.barcode, pp.packaging_type, pp.units_per_box, pp.min_stock_level
-		HAVING ROUND(COALESCE(SUM(ci.quantity), 0)) <= pp.min_stock_level
-		ORDER BY (COALESCE(SUM(ci.quantity), 0)::numeric / GREATEST(pp.min_stock_level, 1)) ASC,
-		         gp.name ASC
-		LIMIT 50
-	`, pharmacyID)
-	if err != nil {
-		log.Printf("[LOWSTOCK] query failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
-		return
-	}
-	defer rows.Close()
+        pharmacyID, ok := pharmacyScope(c)
+        if !ok {
+                return
+        }
+        rows, err := h.db.Query(c.Request.Context(), `
+                SELECT pp.id::text,
+                       COALESCE(gp.name::text, ''),
+                       COALESCE(gp.strength::text, ''),
+                       COALESCE(gp.barcode::text, ''),
+                       COALESCE(pp.packaging_type::text, ''),
+                       COALESCE(pp.units_per_box::int8, 1),
+                       GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0) / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0)::int8,
+                       pp.min_stock_level::int8
+                FROM pharmacy_products pp
+                JOIN global_products gp ON gp.id = pp.global_product_id
+                LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
+                WHERE pp.pharmacy_id = $1 AND pp.is_active = true AND pp.min_stock_level > 0
+                GROUP BY pp.id, gp.name, gp.strength, gp.barcode, pp.packaging_type, pp.units_per_box, pp.min_stock_level
+                HAVING GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0) / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0) < pp.min_stock_level
+                ORDER BY (GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0) / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0)::numeric
+                          / GREATEST(pp.min_stock_level, 1)) ASC,
+                         gp.name ASC
+                LIMIT 50
+        `, pharmacyID)
+        if err != nil {
+                log.Printf("[LOWSTOCK] query failed: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
+                return
+        }
+        defer rows.Close()
 
-	items := make([]gin.H, 0)
-	for rows.Next() {
-		var id, name, strength, barcode, packagingType string
-		var unitsPerBox, quantity, minStock int64
-		if err := rows.Scan(&id, &name, &strength, &barcode, &packagingType, &unitsPerBox, &quantity, &minStock); err != nil {
-			log.Printf("[LOWSTOCK] scan failed: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
-			return
-		}
-		items = append(items, gin.H{
-			"pharmacy_product_id": id,
-			"product_name":        name,
-			"strength":            strength,
-			"barcode":             barcode,
-			"packaging_type":      packagingType,
-			"units_per_box":       unitsPerBox,
-			"quantity_base":       quantity,
-			"min_stock_level":     minStock,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		log.Printf("[LOWSTOCK] rows failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"data": gin.H{"items": items, "total": len(items)}})
+        items := make([]gin.H, 0)
+        for rows.Next() {
+                var id, name, strength, barcode, packagingType string
+                var unitsPerBox, fullBoxes, minStock int64
+                if err := rows.Scan(&id, &name, &strength, &barcode, &packagingType, &unitsPerBox, &fullBoxes, &minStock); err != nil {
+                        log.Printf("[LOWSTOCK] scan failed: %v", err)
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
+                        return
+                }
+                items = append(items, gin.H{
+                        "pharmacy_product_id": id,
+                        "product_name":        name,
+                        "strength":            strength,
+                        "barcode":             barcode,
+                        "packaging_type":      packagingType,
+                        "units_per_box":       unitsPerBox,
+                        "full_boxes":          fullBoxes,
+                        "min_stock_level":     minStock,
+                })
+        }
+        if err := rows.Err(); err != nil {
+                log.Printf("[LOWSTOCK] rows failed: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "low_stock_query_failed", "message": "تعذر قراءة أصناف المخزون المنخفض"})
+                return
+        }
+        c.JSON(http.StatusOK, gin.H{"data": gin.H{"items": items, "total": len(items)}})
 }

@@ -24,8 +24,11 @@ func (h *Handler) GetPharmacyDashboardStats(c *gin.Context) {
                 SELECT
                         (SELECT COUNT(*)::int FROM pharmacy_products WHERE pharmacy_id = $1 AND is_active),
                         (SELECT COUNT(*)::int
-                         FROM current_inventory
-                         WHERE pharmacy_id = $1 AND quantity <= min_stock_level),
+                         FROM pharmacy_products pp
+                         WHERE pp.pharmacy_id = $1 AND pp.is_active AND pp.min_stock_level > 0
+                           AND GREATEST(FLOOR(COALESCE((SELECT SUM(ci.quantity) FROM current_inventory ci
+                                               WHERE ci.pharmacy_product_id = pp.id), 0)
+                                     / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0) < pp.min_stock_level),
                         (SELECT COUNT(*)::int FROM employees WHERE pharmacy_id = $1 AND status = 'active'),
                         (SELECT COUNT(*)::int
                          FROM attendance_records
@@ -315,13 +318,25 @@ func idFromParam(c *gin.Context, name string) string {
         return strings.TrimSpace(c.Param(name))
 }
 
+// lowStockItems feeds the dashboard "حالة المخزون" card. Same business rule as
+// the header bell: حد الطلب is counted in FULL BOXES only (leftover strips of
+// an opened box never count) — a product lists when
+// floor(total base quantity / units_per_box) is below its min_stock_level.
 func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string]interface{}, error) {
         const query = `
-                SELECT COALESCE(product_name::text, ''), COALESCE(generic_name::text, ''), ROUND(quantity)::int8,
-                       ROUND(min_stock_level)::int8, COALESCE(status::text, 'normal')
-                FROM current_inventory
-                WHERE pharmacy_id = $1 AND quantity <= min_stock_level
-                ORDER BY quantity ASC, product_name
+                SELECT COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''),
+                       GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0)
+                             / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0)::int8,
+                       pp.min_stock_level::int8,
+                       CASE WHEN COALESCE(SUM(ci.quantity), 0) <= 0 THEN 'out_of_stock' ELSE 'low_stock' END
+                FROM current_inventory ci
+                JOIN pharmacy_products pp ON pp.id = ci.pharmacy_product_id
+                JOIN global_products gp ON gp.id = pp.global_product_id
+                WHERE ci.pharmacy_id = $1 AND pp.is_active = true AND pp.min_stock_level > 0
+                GROUP BY pp.id, gp.name, gp.generic_name, pp.units_per_box, pp.min_stock_level
+                HAVING GREATEST(FLOOR(COALESCE(SUM(ci.quantity), 0)
+                             / GREATEST(COALESCE(pp.units_per_box, 1), 1)), 0) < pp.min_stock_level
+                ORDER BY 3 ASC, gp.name
                 LIMIT 10
         `
         rows, err := h.db.Query(c.Request.Context(), query, pharmacyID)
@@ -333,12 +348,12 @@ func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string
         items := make([]map[string]interface{}, 0)
         for rows.Next() {
                 var name, genericName, status string
-                var quantity, minStockLevel int64
-                if err := rows.Scan(&name, &genericName, &quantity, &minStockLevel, &status); err != nil {
+                var fullBoxes, minStockLevel int64
+                if err := rows.Scan(&name, &genericName, &fullBoxes, &minStockLevel, &status); err != nil {
                         return nil, err
                 }
                 items = append(items, map[string]interface{}{
-                        "name": name, "generic_name": genericName, "quantity": quantity,
+                        "name": name, "generic_name": genericName, "quantity": fullBoxes,
                         "min_stock_level": minStockLevel, "status": status,
                 })
         }

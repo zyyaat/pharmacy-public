@@ -191,7 +191,7 @@ export function ProductFormFields({
             placeholder="مثال: 105.50"
             onBlur={(event) => suggestStripPrice(event.currentTarget.form as HTMLFormElement)}
           />
-          <Input name="min_stock_level" label="حد إعادة الطلب (بالوحدة الأساسية)" type="number" min="0" step="1" defaultValue={defaults.min_stock_level} />
+          <Input name="min_stock_level" label="حد إعادة الطلب (بالعلبة الكاملة)" type="number" min="0" step="1" defaultValue={defaults.min_stock_level} />
           {showInitialStock && (
             <>
               <Input name="initial_boxes" label={packagingType === 'BOX_STRIP' ? 'عدد العلب المستلمة' : 'الكمية الافتتاحية'} type="number" min="0" step="1" defaultValue={defaults.initial_boxes} />

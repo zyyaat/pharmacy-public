@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { Bell, Globe, Menu, Moon, Search, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { pharmacyApi, type LowStockItem } from '@/lib/api'
-import { extraStrengthLabel } from '@/lib/product'
+import { boxWordAr, extraStrengthLabel } from '@/lib/product'
 import { Button } from '@/components/ui'
 
 /**
- * جرس الإشعارات الحقيقي: أصناف المخزون المنخفض (الكمية بلغت حد إعادة الطلب
- * أو أقل) — تُجلب عند التحميل وتُحدّث كل دقيقة حتى يتخذ الصيدلي إجراء الشراء.
+ * جرس الإشعارات الحقيقي: أصناف المخزون المنخفض — حد الطلب يُحسب بالعلبة
+ * الكاملة فقط (الشرائط المفردة لا تُحتسب)، والرسالة صريحة: باقي كام علب،
+ * وحد الطلب كام. تُجلب عند التحميل وتُحدّث كل دقيقة حتى يتخذ الصيدلي إجراء الشراء.
  */
 function useLowStock() {
   const [items, setItems] = useState<LowStockItem[]>([])
@@ -123,11 +124,13 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                           )}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          المتاح {item.quantity_base} · حد الطلب {item.min_stock_level}
+                          {item.full_boxes === 0
+                            ? `نفدت الكمية — حد الطلب ${boxWordAr(item.min_stock_level)}`
+                            : `المتبقي ${boxWordAr(item.full_boxes)} فقط · حد الطلب ${boxWordAr(item.min_stock_level)}`}
                         </span>
                       </span>
                       <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-bold text-destructive">
-                        {item.quantity_base === 0 ? 'نفد' : 'منخفض'}
+                        {item.full_boxes === 0 ? 'نفد' : 'منخفض'}
                       </span>
                     </Link>
                   ))

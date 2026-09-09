@@ -3,7 +3,8 @@
 A) invoice discount (fixed amount, reflected in cart, message, API, and sales list)
 B) deferred (آجل) sale for a named customer + customer account statement + payment
 C) parked invoice (إيقاف مؤقت) with localStorage persistence across reload + resume
-D) low-stock notification bell fed by real min_stock_level data"""
+D) low-stock notification bell driven by the FULL-BOX rule:
+   حد الطلب counts complete boxes only — leftover strips never count"""
 import os
 import sys
 import time
@@ -82,6 +83,30 @@ def set_low_stock(product_name, level):
                 (level, product_name),
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def stock_full_boxes(product_name):
+    """عدد العلب الكاملة المتاحة (تُهمل الشرائط المفردة) — نفس قاعدة الـ API."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(ci.quantity), 0)::int, GREATEST(COALESCE(pp.units_per_box, 1), 1)::int
+                FROM pharmacy_products pp
+                JOIN global_products gp ON gp.id = pp.global_product_id
+                LEFT JOIN current_inventory ci ON ci.pharmacy_product_id = pp.id
+                WHERE gp.name = %s AND pp.is_active = true
+                GROUP BY pp.id, pp.units_per_box
+                ORDER BY pp.id
+                LIMIT 1
+                """,
+                (product_name,),
+            )
+            row = cur.fetchone()
+            return (row[0] // row[1]) if row else 0
     finally:
         conn.close()
 
@@ -223,9 +248,23 @@ def main():
         check("الاستئناف أعاد أصناف الفاتورة للسلة", line_visible)
         check("الاستئناف حذف الوسم من المعلّقة", page.locator('text=فواتير معلّقة:').count() == 0)
 
-        # ---------- D) low-stock bell ----------
-        set_low_stock("مرهم جروح", 5000)
+        # ---------- D) low-stock bell — FULL-BOX rule (حد الطلب بالعلبة الكاملة) ----------
+        def wait_low_stock_api(page, product_name, present):
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                items = api_get(page, "/api/v1/pharmacy/inventory/low-stock")["data"]["items"]
+                names = [i["product_name"] for i in items]
+                if (product_name in names) == present:
+                    return True
+                time.sleep(0.3)
+            return False
+
+        full = stock_full_boxes("مرهم جروح")
+        set_low_stock("مرهم جروح", full + 1)
         page.goto(f"{APP}/pos", wait_until="networkidle")
+        page.wait_for_selector('input[role="combobox"]', timeout=15000)
+        check("API يُدخل الصنف عندما العلب الكاملة < حد الطلب",
+              wait_low_stock_api(page, "مرهم جروح", True), f"full_boxes={full}, min={full + 1}")
         bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
         deadline = time.time() + 15
         badge_text = ""
@@ -241,8 +280,31 @@ def main():
         bell.click()
         page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
         check("لوحة الجرس تعرض الصنف المنخفض", page.locator('text=مرهم جروح').count() >= 1)
-        check("اللوحة تُظهر حالة «منخفض» ورابط المخزون",
-              page.locator('text=منخفض').count() >= 1 and page.locator('text=فتح صفحة المخزون لاتخاذ الإجراء').count() == 1)
+        body_text = page.locator('body').inner_text()
+        expected_qty = 'علبة واحدة' if full == 1 else ('علبتين' if full == 2 else str(full))
+        check("الرسالة صريحة: تذكر المتبقي بالعلب الكاملة", expected_qty in body_text,
+              f"expect {expected_qty!r}")
+        check("الرسالة صريحة: تذكر حد الطلب", 'حد الطلب' in body_text)
+        if full == 0:
+            check("الشارة تُظهر «نفد» عند صفر علب كاملة", 'نفد' in body_text)
+        else:
+            check("الشارة تُظهر «منخفض»", 'منخفض' in body_text)
+        check("اللوحة توفر رابط المخزون لاتخاذ الإجراء",
+              page.locator('text=فتح صفحة المخزون لاتخاذ الإجراء').count() == 1)
+        bell.click()
+
+        # القاعدة الجوهرية: الشريط المفرد لا يُحسب — عند تساوي العلب الكاملة مع
+        # حد الطلب يختفي التنبيه حتى لو تبقّت شرائط متناثرة في العلبة المفتوحة.
+        set_low_stock("مرهم جروح", full)
+        check("API يستبعد الصنف عندما العلب الكاملة = حد الطلب (الشرائط لا تُحسب)",
+              wait_low_stock_api(page, "مرهم جروح", False), f"full_boxes={full}, min={full}")
+        page.goto(f"{APP}/pos", wait_until="networkidle")
+        page.wait_for_selector('input[role="combobox"]', timeout=15000)
+        bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
+        bell.click()
+        page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
+        check("اللوحة لم تعد تعرض الصنف بعد مساواة الحد بالعلب الكاملة",
+              page.locator('text=مرهم جروح').count() == 0)
         bell.click()
         set_low_stock("مرهم جروح", 0)
 

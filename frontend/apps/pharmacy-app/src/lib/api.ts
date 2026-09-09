@@ -480,7 +480,8 @@ export interface LowStockItem {
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
-  quantity_base: number
+  /** عدد العلب الكاملة المتاحة — الشرائط المفردة لا تدخل في حساب حد الطلب */
+  full_boxes: number
   min_stock_level: number
 }
 
