@@ -256,10 +256,10 @@ export const pharmacyApi = {
     const params = new URLSearchParams({ q: query, limit: String(limit) })
     return apiFetch<{ data: POSProductSuggestion[] }>(`/pharmacy/pos/search?${params.toString()}`, { signal })
   },
-  createPOSSale(items: POSSaleItem[], idempotencyKey?: string) {
-    return apiFetch<{ data: { sale_id: string; total_amount_piastres: number; replayed: boolean } }>('/pharmacy/pos/sales', {
+  createPOSSale(items: POSSaleItem[], idempotencyKey?: string, options?: POSSaleOptions) {
+    return apiFetch<{ data: { sale_id: string; total_amount_piastres: number; discount_amount_piastres: number; replayed: boolean } }>('/pharmacy/pos/sales', {
       method: 'POST',
-      body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
+      body: JSON.stringify({ items, idempotency_key: idempotencyKey, ...options }),
     })
   },
   listPOSSales(limit = 20, offset = 0, search = '', dateRange?: { from?: string; to?: string }) {
@@ -295,6 +295,32 @@ export const pharmacyApi = {
   },
   getPOSSale(saleId: string) {
     return apiFetch<{ data: POSSaleDetail }>(`/pharmacy/pos/sales/${encodeURIComponent(saleId)}`)
+  },
+  // ---------------------------------------------------------------------------
+  // حسابات العملاء (البيع الآجل) + إشعارات المخزون المنخفض
+  // ---------------------------------------------------------------------------
+  listCustomers(search = '', signal?: AbortSignal) {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    return apiFetch<{ data: { customers: PharmacyCustomer[] } }>(`/pharmacy/customers?${params.toString()}`, { signal })
+  },
+  createCustomer(name: string, phone: string) {
+    return apiFetch<{ data: { customer: PharmacyCustomer } }>('/pharmacy/customers', {
+      method: 'POST',
+      body: JSON.stringify({ name, phone }),
+    })
+  },
+  getCustomerStatement(customerId: string) {
+    return apiFetch<{ data: CustomerStatement }>(`/pharmacy/customers/${encodeURIComponent(customerId)}/statement`)
+  },
+  createCustomerPayment(customerId: string, amountPiastres: number, note: string) {
+    return apiFetch<{ data: { payment_id: string; balance_piastres: number } }>(
+      `/pharmacy/customers/${encodeURIComponent(customerId)}/payments`,
+      { method: 'POST', body: JSON.stringify({ amount_piastres: amountPiastres, note }) },
+    )
+  },
+  listLowStockItems(signal?: AbortSignal) {
+    return apiFetch<{ data: { items: LowStockItem[]; total: number } }>('/pharmacy/inventory/low-stock', { signal })
   },
   getPharmacySettings() {
     return apiFetch<{ data: { receipt: ReceiptSettings } }>('/pharmacy/settings')
@@ -410,6 +436,54 @@ export interface POSSaleItem {
   expected_line_total_piastres?: number
 }
 
+/** خيارات إتمام البيع: خصم على الفاتورة + الدفع نقدي أو آجل لعميل */
+export interface POSSaleOptions {
+  discount?: { kind: 'percent' | 'amount'; value: number }
+  payment_type?: 'cash' | 'credit'
+  customer_id?: string
+}
+
+export interface PharmacyCustomer {
+  id: string
+  name: string
+  phone: string
+  balance_piastres: number
+  created_at?: string
+}
+
+export interface CustomerStatementEntry {
+  kind: 'credit_sale' | 'payment'
+  id: string
+  /** فواتير الآجل */
+  invoice_number?: number
+  status?: string
+  amount_piastres?: number
+  returned_amount_piastres?: number
+  due_amount_piastres?: number
+  /** الدفعات */
+  note?: string
+  created_at: string
+  /** الرصيد الجاري بعد القيد */
+  balance_piastres: number
+}
+
+export interface CustomerStatement {
+  customer: { id: string; name: string; phone: string }
+  entries: CustomerStatementEntry[]
+  balance_piastres: number
+}
+
+export interface LowStockItem {
+  pharmacy_product_id: string
+  product_name: string
+  strength: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  quantity_base: number
+  min_stock_level: number
+}
+
 export interface PriceChangedItem {
   index: number
   pharmacy_product_id: string
@@ -439,6 +513,9 @@ export interface POSSaleSummary {
   invoice_number: number
   status: POSSaleStatus
   total_amount_piastres: number
+  discount_amount_piastres: number
+  payment_type: 'cash' | 'credit'
+  customer_name: string
   created_at: string
   products_count: number
   total_quantity_base: number
@@ -478,6 +555,9 @@ export interface POSSaleDetail {
     invoice_number: number
     status: POSSaleStatus
     total_amount_piastres: number
+    discount_amount_piastres: number
+    payment_type: 'cash' | 'credit'
+    customer_name: string
     created_at: string
     returned_amount_piastres: number
     returns: POSSaleReturnSummary[]

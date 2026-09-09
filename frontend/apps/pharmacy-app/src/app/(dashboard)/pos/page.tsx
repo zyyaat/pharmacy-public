@@ -1,15 +1,17 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { Search, Minus, Plus, Printer, ReceiptText, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Search, Minus, Plus, Printer, ReceiptText, Trash2, PauseCircle, UserRound } from 'lucide-react'
 import {
   ApiError,
   pharmacyApi,
   type POSProduct,
   type POSSaleItem,
+  type POSSaleOptions,
+  type PharmacyCustomer,
 } from '@/lib/api'
-import { formatPiastres, stripPricePiastres } from '@/lib/money'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Select } from '@/components/ui'
+import { formatPiastres, parseEGPToPiastres, stripPricePiastres } from '@/lib/money'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
 import ProductSearch, { type AddSource } from '@/components/pos/product-search'
 import { useReceiptSettings } from '@/hooks/useReceiptSettings'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
@@ -21,6 +23,34 @@ type CartLine = {
   product: POSProduct
   unitChoice: 'box' | number
   quantity: number
+}
+
+/** فاتورة معلّقة (Task 39 رقم 7): تُحفظ في المتصفح وتُستأنف لاحقاً بنفس الأصناف */
+type ParkedInvoice = {
+  id: string
+  label: string
+  savedAt: string
+  cart: CartLine[]
+}
+
+const PARKED_KEY = 'pos_parked_invoices_v1'
+
+function loadParkedInvoices(): ParkedInvoice[] {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(PARKED_KEY) : null
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? (parsed as ParkedInvoice[]) : []
+  } catch {
+    return []
+  }
+}
+
+function persistParkedInvoices(list: ParkedInvoice[]) {
+  try {
+    window.localStorage.setItem(PARKED_KEY, JSON.stringify(list))
+  } catch {
+    // وضع التصفح الخاص قد يمنع التخزين — الإيقاف المؤقت ميزة إضافية لا يفشل معها البيع
+  }
 }
 
 function unitLabel(line: CartLine) {
@@ -54,6 +84,26 @@ export default function POSPage() {
   const [printBusy, setPrintBusy] = useState(false)
   const lastSaleId = useRef<string | null>(null)
 
+  // ---- الخصم على مستوى الفاتورة (Task 39 رقم 4) ----
+  const [discountKind, setDiscountKind] = useState<'amount' | 'percent'>('amount')
+  const [discountInput, setDiscountInput] = useState('')
+
+  // ---- البيع الآجل لحساب عميل (Task 39 رقم 5) ----
+  const [paymentType, setPaymentType] = useState<'cash' | 'credit'>('cash')
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerResults, setCustomerResults] = useState<PharmacyCustomer[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<PharmacyCustomer | null>(null)
+  const [creatingCustomer, setCreatingCustomer] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
+  const [addingCustomer, setAddingCustomer] = useState(false)
+
+  // ---- الفواتير المعلّقة (Task 39 رقم 7) ----
+  const [parked, setParked] = useState<ParkedInvoice[]>([])
+  useEffect(() => {
+    setParked(loadParkedInvoices())
+  }, [])
+
   /** إضافة منتج للفاتورة — من القائمة أو من الباركود (التام أو المصحح) */
   function addProductToCart(product: POSProduct, _source: AddSource) {
     setCart((current) => {
@@ -65,10 +115,27 @@ export default function POSPage() {
     })
   }
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => cart.reduce((sum, line) => sum + lineTotalPiastres(line), 0),
     [cart],
   )
+
+  /** الخصم كما سيرسله الباكند: نسبة من الإجمالي أو مبلغ بالجنيه */
+  const discountPiastres = useMemo(() => {
+    const raw = discountInput.trim()
+    if (!raw || cart.length === 0) return 0
+    if (discountKind === 'percent') {
+      const value = Number(raw)
+      if (!Number.isFinite(value) || value <= 0 || value > 100) return 0
+      return Math.min(Math.round((subtotal * value) / 100), subtotal)
+    }
+    const piastres = parseEGPToPiastres(raw)
+    if (piastres === null || piastres <= 0) return 0
+    return Math.min(piastres, subtotal)
+  }, [discountInput, discountKind, subtotal, cart.length])
+
+  const discountInvalid = discountInput.trim() !== '' && discountPiastres === 0
+  const finalTotal = Math.max(0, subtotal - discountPiastres)
 
   function updateLine(index: number, change: Partial<CartLine>) {
     setCart((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...change } : line))
@@ -78,8 +145,94 @@ export default function POSPage() {
     idempotencyKey.current = null
   }
 
+  // بحث العملاء عند تفعيل البيع الآجل (مع تهدئة بسيطة للكتابة)
+  useEffect(() => {
+    if (paymentType !== 'credit' || selectedCustomer || creatingCustomer) {
+      setCustomerResults([])
+      return
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      pharmacyApi.listCustomers(customerSearch.trim(), controller.signal)
+        .then((response) => setCustomerResults(response.data.customers.slice(0, 6)))
+        .catch(() => {})
+    }, 200)
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [paymentType, customerSearch, selectedCustomer, creatingCustomer])
+
+  async function addNewCustomer() {
+    const name = newCustomerName.trim()
+    if (!name) {
+      setError('اكتب اسم العميل الجديد أولاً')
+      return
+    }
+    setAddingCustomer(true)
+    setError(null)
+    try {
+      const response = await pharmacyApi.createCustomer(name, newCustomerPhone.trim())
+      setSelectedCustomer(response.data.customer)
+      setCreatingCustomer(false)
+      setNewCustomerName('')
+      setNewCustomerPhone('')
+      setMessage(null)
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'تعذر إضافة العميل')
+    } finally {
+      setAddingCustomer(false)
+    }
+  }
+
+  // ---- إيقاف مؤقت / استئناف ----
+  function parkInvoice() {
+    if (cart.length === 0) return
+    const invoice: ParkedInvoice = {
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()),
+      label: `${cart.length} ${cart.length === 1 ? 'صنف' : 'أصناف'} · ${formatPiastres(subtotal)}`,
+      savedAt: new Date().toISOString(),
+      cart,
+    }
+    const next = [...parked, invoice]
+    setParked(next)
+    persistParkedInvoices(next)
+    setCart([])
+    setDiscountInput('')
+    setPaymentType('cash')
+    setSelectedCustomer(null)
+    resetIdempotency()
+    setMessage(null)
+    setError(null)
+  }
+
+  function resumeParked(id: string) {
+    const invoice = parked.find((item) => item.id === id)
+    if (!invoice) return
+    if (cart.length > 0 && !window.confirm('الفاتورة الحالية بها أصناف — سيتم استبدالها بالفاتورة المعلّقة. متابعة؟')) return
+    setCart(invoice.cart)
+    const next = parked.filter((item) => item.id !== id)
+    setParked(next)
+    persistParkedInvoices(next)
+    resetIdempotency()
+  }
+
+  function deleteParked(id: string) {
+    const next = parked.filter((item) => item.id !== id)
+    setParked(next)
+    persistParkedInvoices(next)
+  }
+
   async function checkout() {
     if (cart.length === 0 || checkoutLoading) return
+    if (discountInvalid) {
+      setError(discountKind === 'percent' ? 'اكتب نسبة خصم بين 0 و 100' : 'اكتب مبلغ خصم صحيحاً بالجنيه')
+      return
+    }
+    if (paymentType === 'credit' && !selectedCustomer) {
+      setError('البيع الآجل يتطلب اختيار عميل من القائمة أو إضافة عميل جديد')
+      return
+    }
     setCheckoutLoading(true)
     setError(null)
     setMessage(null)
@@ -97,11 +250,28 @@ export default function POSPage() {
         quantity: isBox ? line.quantity : line.quantity * (line.unitChoice as number),
       }
     })
+    const options: POSSaleOptions = {}
+    if (discountPiastres > 0) {
+      options.discount = discountKind === 'percent'
+        ? { kind: 'percent', value: Number(discountInput.trim()) }
+        : { kind: 'amount', value: discountPiastres }
+    }
+    if (paymentType === 'credit' && selectedCustomer) {
+      options.payment_type = 'credit'
+      options.customer_id = selectedCustomer.id
+    }
     try {
-      const response = await pharmacyApi.createPOSSale(items, idempotencyKey.current || undefined)
+      const response = await pharmacyApi.createPOSSale(items, idempotencyKey.current || undefined, options)
       lastSaleId.current = response.data.sale_id
-      setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${formatPiastres(response.data.total_amount_piastres)}`)
+      if (paymentType === 'credit' && selectedCustomer) {
+        setMessage(`تم تسجيل فاتورة آجل على حساب «${selectedCustomer.name}» بمبلغ ${formatPiastres(response.data.total_amount_piastres)} — تابعها من صفحة حسابات العملاء.`)
+      } else {
+        setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${formatPiastres(response.data.total_amount_piastres)}`)
+      }
       setCart([])
+      setDiscountInput('')
+      setPaymentType('cash')
+      setSelectedCustomer(null)
       resetIdempotency()
       // الطباعة التلقائية: تُجهّز بعد نجاح الحفظ مباشرة — وأي فشل فيها لا يمس الفاتورة
       if (printSettings.print_mode === 'auto') {
@@ -165,9 +335,30 @@ export default function POSPage() {
             <CardTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />الفاتورة الحالية</CardTitle>
             <CardDescription>{cart.length ? `${cart.length} أصناف` : 'لم تتم إضافة أصناف بعد'}</CardDescription>
           </div>
-          {cart.length > 0 && <Button variant="ghost" onClick={() => { setCart([]); resetIdempotency() }}>تفريغ الفاتورة</Button>}
+          {cart.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={parkInvoice}><PauseCircle className="h-4 w-4" /> إيقاف مؤقت</Button>
+              <Button variant="ghost" onClick={() => { setCart([]); setDiscountInput(''); resetIdempotency() }}>تفريغ الفاتورة</Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
+          {/* الفواتير المعلّقة — استئناف أو حذف */}
+          {parked.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3">
+              <span className="text-xs font-semibold text-muted-foreground">فواتير معلّقة:</span>
+              {parked.map((invoice) => (
+                <span key={invoice.id} className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs">
+                  <button type="button" className="font-semibold hover:text-primary" onClick={() => resumeParked(invoice.id)}>
+                    {invoice.label}
+                  </button>
+                  <button type="button" aria-label="حذف الفاتورة المعلقة" onClick={() => deleteParked(invoice.id)}>
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           {cart.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border py-14 text-center text-muted-foreground">ابدأ بالفحص أو بالبحث بالاسم</div>
           ) : (
@@ -220,11 +411,120 @@ export default function POSPage() {
                   </div>
                 )
               })}
-              <div className="flex flex-col items-end gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+
+              {/* الخصم + طريقة الدفع */}
+              <div className="grid gap-4 rounded-xl border border-border p-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">خصم على الفاتورة</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={discountInput}
+                      onChange={(event) => setDiscountInput(event.target.value)}
+                      placeholder={discountKind === 'percent' ? 'نسبة مثل 10' : 'مبلغ مثل 5.00'}
+                      inputMode="decimal"
+                      aria-label="قيمة الخصم"
+                      className={discountInvalid ? 'border-destructive' : ''}
+                    />
+                    <div className="w-28 shrink-0">
+                      <Select
+                        value={discountKind}
+                        onValueChange={(value) => { setDiscountKind(value as 'amount' | 'percent'); setDiscountInput('') }}
+                        aria-label="نوع الخصم"
+                        options={[{ value: 'amount', label: 'جنيه' }, { value: 'percent', label: 'نسبة %' }]}
+                      />
+                    </div>
+                  </div>
+                  {discountInvalid && <p className="text-xs text-destructive">اكتب قيمة صحيحة {discountKind === 'percent' ? 'بين 0 و 100' : 'بالجنيه'}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">طريقة الدفع</label>
+                  <Select
+                    value={paymentType}
+                    onValueChange={(value) => setPaymentType(value as 'cash' | 'credit')}
+                    aria-label="طريقة الدفع"
+                    options={[{ value: 'cash', label: 'نقدي' }, { value: 'credit', label: 'آجل (على الحساب)' }]}
+                  />
+                </div>
+              </div>
+
+              {/* اختيار العميل للبيع الآجل */}
+              {paymentType === 'credit' && (
+                <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                  {selectedCustomer ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <UserRound className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-semibold">{selectedCustomer.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedCustomer.phone || 'بدون رقم هاتف'}
+                            {selectedCustomer.balance_piastres !== 0 && ` · رصيد سابق ${formatPiastres(selectedCustomer.balance_piastres)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>تغيير العميل</Button>
+                    </div>
+                  ) : creatingCustomer ? (
+                    <div className="space-y-2">
+                      <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto_auto]">
+                        <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} placeholder="اسم العميل" aria-label="اسم العميل الجديد" />
+                        <Input value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} placeholder="الهاتف (اختياري)" inputMode="tel" aria-label="هاتف العميل الجديد" />
+                        <Button type="button" size="sm" loading={addingCustomer} onClick={addNewCustomer}>إضافة</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingCustomer(false)}>إلغاء</Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">سيُضاف العميل إلى حسابات العملاء تلقائياً وتُقيّد عليه الفاتورة آجلاً.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value={customerSearch}
+                        onChange={(event) => setCustomerSearch(event.target.value)}
+                        placeholder="ابحث عن العميل بالاسم أو الهاتف…"
+                        aria-label="بحث عن العميل"
+                      />
+                      {customerResults.length > 0 && (
+                        <div className="max-h-44 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background">
+                          {customerResults.map((customer) => (
+                            <button
+                              key={customer.id}
+                              type="button"
+                              className="flex w-full items-center justify-between gap-3 p-2.5 text-sm hover:bg-accent"
+                              onClick={() => { setSelectedCustomer(customer); setCustomerResults([]); setCustomerSearch('') }}
+                            >
+                              <span className="font-semibold">{customer.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {customer.phone || 'بدون رقم'}
+                                {customer.balance_piastres !== 0 && ` · رصيد ${formatPiastres(customer.balance_piastres)}`}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {customerResults.length === 0 && customerSearch.trim() && (
+                        <p className="text-xs text-muted-foreground">لا نتائج مطابقة — يمكنك إضافة عميل جديد.</p>
+                      )}
+                      <button type="button" className="text-xs font-bold text-primary hover:underline" onClick={() => setCreatingCustomer(true)}>
+                        + إضافة عميل جديد
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-muted-foreground">الحساب هنا فوري للعرض، والباك إند يعيد التحقق من الأسعار والمخزون عند الاعتماد.</div>
                 <div className="flex items-center gap-5">
-                  <div><span className="text-sm text-muted-foreground">الإجمالي</span><p className="text-2xl font-bold text-primary">{formatPiastres(total)}</p></div>
-                  <Button onClick={checkout} loading={checkoutLoading}>إتمام البيع</Button>
+                  <div className="text-end">
+                    {discountPiastres > 0 && (
+                      <>
+                        <p className="text-xs text-muted-foreground">قبل الخصم {formatPiastres(subtotal)}</p>
+                        <p className="text-xs font-semibold text-destructive">الخصم −{formatPiastres(discountPiastres)}</p>
+                      </>
+                    )}
+                    <span className="text-sm text-muted-foreground">الإجمالي</span>
+                    <p className="text-2xl font-bold text-primary">{formatPiastres(finalTotal)}</p>
+                  </div>
+                  <Button onClick={checkout} loading={checkoutLoading}>{paymentType === 'credit' ? 'إتمام البيع الآجل' : 'إتمام البيع'}</Button>
                 </div>
               </div>
             </div>

@@ -16,6 +16,11 @@ export interface ReceiptData {
     invoice_number: number
     created_at: string
     total_amount_piastres: number
+    /** خصم الفاتورة بالقروش — يظهر سطراً مستقلاً فوق الإجمالي عند وجوده */
+    discount_amount_piastres?: number
+    /** فاتورة آجل على حساب عميل مسجل */
+    payment_type?: 'cash' | 'credit'
+    customer_name?: string
   }
   items: Array<{
     product_name: string
@@ -138,13 +143,24 @@ export default function ReceiptTemplate({
 
       <Dashed />
 
-      {/* الإجمالي */}
+      {/* الخصم ثم الإجمالي — الإجمالي هو الصافي بعد الخصم دائماً */}
+      {!!data.sale.discount_amount_piastres && data.sale.discount_amount_piastres > 0 && (
+        <div className="flex items-baseline justify-between">
+          <span className="font-semibold text-neutral-700">الخصم</span>
+          <span className="font-bold">-{formatPiastres(data.sale.discount_amount_piastres)}</span>
+        </div>
+      )}
       <div className="flex items-baseline justify-between">
         <span className="font-bold">الإجمالي ({itemsCount === 1 ? 'صنف واحد' : `${itemsCount} أصناف`})</span>
         <span className="font-extrabold" style={{ fontSize: compact ? '15px' : '16.5px' }}>{formatPiastres(data.sale.total_amount_piastres)}</span>
       </div>
 
       <Dashed />
+
+      {/* فاتورة آجل — تُقيد على حساب العميل في صفحة حسابات العملاء */}
+      {data.sale.payment_type === 'credit' && (
+        <p className="mt-1 text-center font-semibold">فاتورة آجل{data.sale.customer_name ? ` — على حساب: ${data.sale.customer_name}` : ''}</p>
+      )}
 
       {/* الذيل */}
       {settings.show_thank_you && settings.thank_you_text && (
@@ -173,6 +189,9 @@ export function saleDetailToReceipt(detail: POSSaleDetail): ReceiptData {
       invoice_number: detail.sale.invoice_number,
       created_at: detail.sale.created_at,
       total_amount_piastres: detail.sale.total_amount_piastres,
+      discount_amount_piastres: detail.sale.discount_amount_piastres,
+      payment_type: detail.sale.payment_type,
+      customer_name: detail.sale.customer_name,
     },
     items: detail.items.map((item) => ({
       product_name: item.product_name,

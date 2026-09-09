@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight } from 'lucide-react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight, NotebookPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
@@ -14,6 +14,7 @@ const items = [
   { title: 'المخزون والأدوية', href: '/inventory', icon: Package },
   { title: 'نقطة البيع', href: '/pos', icon: ReceiptText },
   { title: 'سجل البيع', href: '/sales', icon: History },
+  { title: 'حسابات العملاء', href: '/customers', icon: NotebookPen },
   { title: 'سجل المخزون', href: '/inventory/movements', icon: ArrowLeftRight },
   { title: 'الموظفون', href: '/employees', icon: Users },
   { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck },

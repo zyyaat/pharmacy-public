@@ -31,6 +31,7 @@ curl -s -o /dev/null --max-time 60 http://localhost:3000/pos
 curl -s -o /dev/null --max-time 60 http://localhost:3000/inventory
 curl -s -o /dev/null --max-time 60 "http://localhost:3000/inventory/edit/warmup"
 curl -s -o /dev/null --max-time 60 http://localhost:3000/inventory/new
+curl -s -o /dev/null --max-time 60 http://localhost:3000/customers
 curl -s -o /dev/null -w "app warm: %{http_code}\n" --max-time 30 http://localhost:3000/login
 
 echo "== E2E: إعدادات الفاتورة والطباعة =="

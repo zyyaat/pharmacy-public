@@ -110,6 +110,12 @@ export default function SalesHistoryPage() {
                       {sale.products_count > 0 ? `${sale.products_count} أصناف · ${sale.total_quantity_base} وحدات` : 'بدون أصناف'}
                     </div>
                     <Badge variant={saleStatusVariant(sale.status)}>{saleStatusLabel(sale.status)}</Badge>
+                    {sale.payment_type === 'credit' && (
+                      <Badge variant="warning">آجل{sale.customer_name ? ` · ${sale.customer_name}` : ''}</Badge>
+                    )}
+                    {sale.discount_amount_piastres > 0 && (
+                      <span className="text-xs font-semibold text-destructive">خصم {formatPiastres(sale.discount_amount_piastres)}</span>
+                    )}
                     <div className="ms-auto text-end">
                       <p className="font-bold">{formatPiastres(sale.total_amount_piastres)}</p>
                       {sale.returned_amount_piastres > 0 && (
