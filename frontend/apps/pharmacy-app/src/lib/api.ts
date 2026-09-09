@@ -374,6 +374,9 @@ export interface PharmacyProductDetail {
   id: string
   name: string
   generic_name: string
+  dosage_form: string
+  /** تركيز الدواء (500mg…) — حقول الإضافة نفسها في صفحة التعديل */
+  strength: string
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
@@ -387,6 +390,8 @@ export interface PharmacyProductDetail {
 export interface UpdatePharmacyProductInput {
   name: string
   generic_name: string
+  dosage_form: string
+  strength: string
   barcode: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number

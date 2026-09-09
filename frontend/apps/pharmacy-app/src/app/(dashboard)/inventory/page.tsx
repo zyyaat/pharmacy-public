@@ -3,13 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { Package, PackagePlus, Pencil, Plus, Search, ShoppingCart } from 'lucide-react'
-import {
-  pharmacyApi,
-  type PharmacyInventoryItem,
-  type PharmacyProductDetail,
-  type UpdatePharmacyProductInput,
-} from '@/lib/api'
-import { formatPiastres, parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
+import { pharmacyApi, type PharmacyInventoryItem } from '@/lib/api'
 import { extraStrengthLabel } from '@/lib/product'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Modal } from '@/components/ui'
 
@@ -38,181 +32,6 @@ function formatQuantity(item: PharmacyInventoryItem): string {
 // GET /pharmacy/products/:id) and saves through PUT. Money edits go through
 // parseEGPToPiastres so only exact integer piastres ever reach the backend.
 // ---------------------------------------------------------------------------
-function EditProductModal({
-  productId,
-  onClose,
-  onSaved,
-}: {
-  productId: string
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [detail, setDetail] = useState<PharmacyProductDetail | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [genericName, setGenericName] = useState('')
-  const [barcode, setBarcode] = useState('')
-  const [packagingType, setPackagingType] = useState<'WHOLE_ONLY' | 'BOX_STRIP'>('WHOLE_ONLY')
-  const [unitsPerBox, setUnitsPerBox] = useState('2')
-  const [costPrice, setCostPrice] = useState('')
-  const [sellingPrice, setSellingPrice] = useState('')
-  const [partialPrice, setPartialPrice] = useState('')
-  const [minStock, setMinStock] = useState('0')
-  const [isActive, setIsActive] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoadError(null)
-    setDetail(null)
-    pharmacyApi
-      .getProduct(productId)
-      .then((response) => {
-        if (cancelled) return
-        const d = response.data
-        setDetail(d)
-        setName(d.name)
-        setGenericName(d.generic_name)
-        setBarcode(d.barcode)
-        setPackagingType(d.packaging_type)
-        setUnitsPerBox(String(d.units_per_box))
-        setCostPrice(piastresToEGPInput(d.cost_price_piastres))
-        setSellingPrice(piastresToEGPInput(d.selling_price_piastres))
-        setPartialPrice(d.partial_selling_price_piastres != null ? piastresToEGPInput(d.partial_selling_price_piastres) : '')
-        setMinStock(String(d.min_stock_level))
-        setIsActive(d.is_active)
-      })
-      .catch((err) => !cancelled && setLoadError(err instanceof Error ? err.message : 'تعذر تحميل بيانات المنتج'))
-    return () => {
-      cancelled = true
-    }
-  }, [productId])
-
-  const save = async () => {
-    setFormError(null)
-    const selling = parseEGPToPiastres(sellingPrice)
-    const cost = parseEGPToPiastres(costPrice)
-    if (!name.trim() || !barcode.trim()) {
-      setFormError('اسم المنتج والباركود مطلوبان')
-      return
-    }
-    if (selling == null || cost == null) {
-      setFormError('الأسعار يجب أن تكون أرقامًا صحيحة غير سالبة')
-      return
-    }
-    let upb = 1
-    let partial: number | null = null
-    if (packagingType === 'BOX_STRIP') {
-      upb = Number.parseInt(unitsPerBox, 10)
-      if (!Number.isInteger(upb) || upb < 2) {
-        setFormError('عدد الشرائط داخل العلبة يجب أن يكون 2 على الأقل')
-        return
-      }
-      partial = parseEGPToPiastres(partialPrice)
-      if (partial == null) {
-        setFormError('سعر بيع الشريط مطلوب بالجنيه')
-        return
-      }
-    }
-    const minStockValue = Number.parseInt(minStock, 10)
-    if (!Number.isInteger(minStockValue) || minStockValue < 0) {
-      setFormError('الحد الأدنى للمخزون يجب أن يكون رقمًا غير سالب')
-      return
-    }
-    const payload: UpdatePharmacyProductInput = {
-      name: name.trim(),
-      generic_name: genericName.trim(),
-      barcode: barcode.trim(),
-      packaging_type: packagingType,
-      units_per_box: upb,
-      cost_price_piastres: cost,
-      selling_price_piastres: selling,
-      partial_selling_price_piastres: partial,
-      min_stock_level: minStockValue,
-      is_active: isActive,
-    }
-    setSaving(true)
-    try {
-      await pharmacyApi.updateProduct(productId, payload)
-      onSaved()
-      onClose()
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'تعذر حفظ التعديلات')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Modal isOpen onClose={onClose}>
-      <div className="max-h-[80vh] space-y-4 overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">تعديل المنتج</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>إغلاق</Button>
-        </div>
-
-        {loadError && <p className="py-6 text-center text-sm text-destructive">{loadError}</p>}
-        {!loadError && !detail && <p className="py-6 text-center text-sm text-muted-foreground">جاري تحميل البيانات...</p>}
-
-        {detail && (
-          <div className="space-y-3">
-            <Input label="اسم المنتج *" value={name} onChange={(e) => setName(e.target.value)} placeholder="بانادول" />
-            <Input label="الاسم العلمي" value={genericName} onChange={(e) => setGenericName(e.target.value)} placeholder="Paracetamol" />
-            <Input label="الباركود *" value={barcode} onChange={(e) => setBarcode(e.target.value)} inputMode="numeric" />
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">نوع البيع</label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" variant={packagingType === 'BOX_STRIP' ? 'default' : 'outline'} size="sm" onClick={() => setPackagingType('BOX_STRIP')}>علبة / شريط</Button>
-                <Button type="button" variant={packagingType === 'WHOLE_ONLY' ? 'default' : 'outline'} size="sm" onClick={() => setPackagingType('WHOLE_ONLY')}>عبوة كاملة</Button>
-              </div>
-            </div>
-
-            {packagingType === 'BOX_STRIP' && (
-              <Input
-                label="عدد الشرائط في العلبة *"
-                type="number"
-                min={2}
-                value={unitsPerBox}
-                onChange={(e) => setUnitsPerBox(e.target.value)}
-                inputMode="numeric"
-              />
-            )}
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input label="سعر بيع العلبة (ج.م) *" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} inputMode="decimal" placeholder="100.00" />
-              {packagingType === 'BOX_STRIP' && (
-                <Input label="سعر بيع الشريط (ج.م) *" value={partialPrice} onChange={(e) => setPartialPrice(e.target.value)} inputMode="decimal" placeholder="22.00" />
-              )}
-              <Input label="تكلفة العلبة (ج.م)" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} inputMode="decimal" placeholder="80.00" />
-              <Input label="الحد الأدنى للمخزون" type="number" min={0} value={minStock} onChange={(e) => setMinStock(e.target.value)} inputMode="numeric" />
-            </div>
-
-            {packagingType === 'BOX_STRIP' && (
-              <p className="rounded-lg bg-muted p-2.5 text-xs text-muted-foreground">
-                العرض الحالي: علبة {formatPiastres(parseEGPToPiastres(sellingPrice) ?? 0)} — شريط {formatPiastres(parseEGPToPiastres(partialPrice) ?? 0)}
-              </p>
-            )}
-
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-              المنتج مُفعّل ويظهر في نقطة البيع
-            </label>
-
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-            <div className="flex gap-2 pt-1">
-              <Button className="flex-1" loading={saving} onClick={save}>حفظ التعديلات</Button>
-              <Button variant="outline" onClick={onClose}>إلغاء</Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </Modal>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Stock control modal: every submit goes through the adjust endpoint, which
 // writes a stock_movements row first - the movement ledger stays the single
@@ -313,7 +132,6 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [editProductId, setEditProductId] = useState<string | null>(null)
   const [adjustTarget, setAdjustTarget] = useState<PharmacyInventoryItem | null>(null)
 
   const load = useCallback(() => {
@@ -394,8 +212,10 @@ export default function InventoryPage() {
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1.5">
-                          <Button variant="outline" size="sm" onClick={() => setEditProductId(item.pharmacy_product_id)} title="تعديل بيانات المنتج">
-                            <Pencil className="h-3.5 w-3.5" />تعديل
+                          <Button asChild variant="outline" size="sm" title="تعديل بيانات المنتج">
+                            <Link href={`/inventory/edit/${item.pharmacy_product_id}`}>
+                              <Pencil className="h-3.5 w-3.5" />تعديل
+                            </Link>
                           </Button>
                           <Button variant={item.quantity <= 0 ? 'default' : 'ghost'} size="sm" onClick={() => setAdjustTarget(item)} title="التحكم في مخزون التشغيلة">
                             <PackagePlus className="h-3.5 w-3.5" />مخزون
@@ -412,9 +232,6 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {editProductId && (
-        <EditProductModal productId={editProductId} onClose={() => setEditProductId(null)} onSaved={load} />
-      )}
       {adjustTarget && (
         <AdjustStockModal item={adjustTarget} onClose={() => setAdjustTarget(null)} onSaved={load} />
       )}
