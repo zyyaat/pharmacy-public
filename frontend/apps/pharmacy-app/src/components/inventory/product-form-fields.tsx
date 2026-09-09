@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 import { parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
+import { composeStrength, splitStrength, strengthUnits } from '@/lib/product'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
 
 export const dosageForms = [
@@ -80,6 +82,12 @@ export function ProductFormFields({
   defaults?: ProductFormDefaults
   showInitialStock?: boolean
 }) {
+  // التركيز حقلان: رقم + وحدة من القائمة (طلب المستخدم: الدكتور يكتب رقم فقط
+  // مثل 50 ويختار mg) — القيم المحفوظة القديمة تُفكّك تلقائياً عند التعديل،
+  // وما لا يُفكّك يبقى كاملاً تحت وحدة «أخرى».
+  const strengthSplit = splitStrength(defaults.strength)
+  const [strengthUnit, setStrengthUnit] = useState(strengthSplit.unit)
+
   return (
     <>
       <Card>
@@ -98,7 +106,29 @@ export function ProductFormFields({
               options={dosageForms.map(([value, label]) => ({ value, label }))}
             />
           </div>
-          <Input name="strength" label="التركيز" defaultValue={defaults.strength} placeholder="مثال: 500mg" />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">التركيز</label>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  name="strength_value"
+                  placeholder={strengthUnit === 'other' ? 'مثال: 120mg/5ml' : 'مثال: 500'}
+                  inputMode={strengthUnit === 'other' ? 'text' : 'decimal'}
+                  defaultValue={strengthSplit.value}
+                  aria-label="قيمة التركيز"
+                />
+              </div>
+              <div className="w-40 shrink-0">
+                <Select
+                  name="strength_unit"
+                  value={strengthUnit}
+                  onValueChange={setStrengthUnit}
+                  options={[...strengthUnits]}
+                  aria-label="وحدة التركيز"
+                />
+              </div>
+            </div>
+          </div>
           <Input name="barcode" label="الباركود" required defaultValue={defaults.barcode} placeholder="امسح أو اكتب الباركود" />
         </CardContent>
       </Card>
@@ -212,13 +242,20 @@ export function readProductFormCommon(
   if (costPiastres === null || sellingPiastres === null) {
     return { error: 'أسعار الشراء والبيع مطلوبة بالجنيه مثل 105.50', values: null }
   }
+  // تركيب التركيز من الرقم + الوحدة («أخرى» تُحفظ النص كما كُتب)
+  const strengthValue = String(data.get('strength_value') || '').trim()
+  const strengthUnit = String(data.get('strength_unit') || 'mg')
+  const strength = composeStrength(strengthValue, strengthUnit)
+  if (strength && strengthUnit !== 'other' && !/^\d+(?:[.,]\d+)?$/.test(strengthValue)) {
+    return { error: 'اكتب التركيز رقماً فقط مثل 50 واختر الوحدة، أو اختر «أخرى» لكتابته نصاً كاملاً.', values: null }
+  }
   return {
     error: null,
     values: {
       name: String(data.get('name') || '').trim(),
       generic_name: String(data.get('generic_name') || '').trim(),
       dosage_form: String(data.get('dosage_form') || 'tablet'),
-      strength: String(data.get('strength') || '').trim(),
+      strength,
       barcode: String(data.get('barcode') || '').trim(),
       packaging_type: packagingType,
       units_per_box: packagingType === 'BOX_STRIP' ? Number(data.get('units_per_box') || 0) : 1,
