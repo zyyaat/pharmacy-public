@@ -22,8 +22,9 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
-    if (!authLoading && user && redirectPath) {
-      router.replace(redirectPath)
+    // جلسة صالحة؟ التحويل للوحة فوراً — سواء مع ?next= أو بدون
+    if (!authLoading && user) {
+      router.replace(redirectPath || '/')
     }
   }, [authLoading, redirectPath, router, user])
 
@@ -45,7 +46,7 @@ export default function LoginPage() {
     }
   }
 
-  if (authLoading || (user && redirectPath)) {
+  if (authLoading || user) {
     return <BrandSplash />
   }
 

@@ -5,7 +5,8 @@ import { getPharmacyAppUrl } from '@/lib/app-links'
 
 export default function RegisterRedirectPage() {
   useEffect(() => {
-    window.location.replace(`${getPharmacyAppUrl()}/register`)
+    // /start بوابة ذكية: جلسة صالحة → لوحة التحكم، وإلا → صفحة التسجيل
+    window.location.replace(`${getPharmacyAppUrl()}/start`)
   }, [])
 
   return (
@@ -14,7 +15,7 @@ export default function RegisterRedirectPage() {
         <div className="status-icon">→</div>
         <p className="eyebrow">Pharmacy OS</p>
         <h1>جاري فتح تطبيق الصيدلية</h1>
-        <p>سيتم تنفيذ التسجيل وتسجيل الدخول من داخل التطبيق.</p>
+        <p>جلسة صالحة؟ ستدخل لوحة التحكم مباشرة، وإلا سنوجّهك لإنشاء الحساب.</p>
       </section>
     </main>
   )

@@ -9,14 +9,15 @@ export default function PharmacyAppLink({ children, className }: { children: Rea
   function handleClick(event: React.MouseEvent<HTMLAnchorElement>) {
     if (!configuredPharmacyAppUrl) {
       event.preventDefault()
-      window.location.assign(`${getPharmacyAppUrl()}/register`)
+      // /start بوابة ذكية داخل التطبيق: مسجل دخوله → اللوحة، زائر → التسجيل
+      window.location.assign(`${getPharmacyAppUrl()}/start`)
     }
   }
 
   return (
     <a
       className={className}
-      href={configuredPharmacyAppUrl ? `${configuredPharmacyAppUrl}/register` : '/register'}
+      href={configuredPharmacyAppUrl ? `${configuredPharmacyAppUrl}/start` : '/register'}
       onClick={handleClick}
     >
       {children}

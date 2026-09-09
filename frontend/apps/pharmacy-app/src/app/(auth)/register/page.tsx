@@ -1,8 +1,10 @@
 "use client"
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import BrandSplash from '@/components/brand-splash'
 import { apiFetch } from '@/lib/api'
 
 type RegisterForm = {
@@ -27,9 +29,21 @@ const initialForm: RegisterForm = {
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // مسجل دخوله بالفعل؟ لا داعي لصفحة التسجيل — نحوّله للوحة
+    if (!authLoading && user) {
+      router.replace('/')
+    }
+  }, [authLoading, user, router])
+
+  if (authLoading || user) {
+    return <BrandSplash />
+  }
 
   function update(field: keyof RegisterForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
