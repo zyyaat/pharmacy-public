@@ -31,7 +31,8 @@ const maxCustomerPhoneLen = 20
 const maxPaymentNoteLen = 200
 
 // ---------------------------------------------------------------------------
-// List customers: GET /pharmacy/customers?search=
+// List customers: GET /pharmacy/customers?search=[&debts=1]
+// debts=1 → العملاء الذين عليهم رصيد مستحق فقط (الأكثر مديونية أولاً) — يغذي جرس الإشعارات.
 // ---------------------------------------------------------------------------
 
 func (h *Handler) ListPharmacyCustomers(c *gin.Context) {
@@ -40,9 +41,11 @@ func (h *Handler) ListPharmacyCustomers(c *gin.Context) {
                 return
         }
         search := strings.TrimSpace(c.Query("search"))
+        debtsOnly := c.Query("debts") == "1"
 
         rows, err := h.db.Query(c.Request.Context(), `
-                SELECT c.id::text, c.name::text, COALESCE(c.phone::text, ''), c.created_at,
+                SELECT t.id, t.name, t.phone, t.created_at, t.balance FROM (
+                SELECT c.id::text AS id, c.name::text AS name, COALESCE(c.phone::text, '') AS phone, c.created_at AS created_at,
                        COALESCE((
                            SELECT SUM(s.total_amount - COALESCE(r.total, 0))::int8
                            FROM sales s
@@ -57,13 +60,15 @@ func (h *Handler) ListPharmacyCustomers(c *gin.Context) {
                            SELECT SUM(p.amount)::int8
                            FROM customer_payments p
                            WHERE p.customer_id = c.id
-                       ), 0)
+                       ), 0) AS balance
                 FROM customers c
                 WHERE c.pharmacy_id = $1
                   AND ($2 = '' OR c.name ILIKE '%' || $2 || '%' OR c.phone LIKE '%' || $2 || '%')
-                ORDER BY c.created_at DESC
-                LIMIT 200
-        `, pharmacyID, search)
+                ) t
+                WHERE $3 = false OR t.balance > 0
+                ORDER BY (CASE WHEN $3 THEN t.balance ELSE NULL::int8 END) DESC NULLS LAST, t.created_at DESC
+                LIMIT (CASE WHEN $3 THEN 20 ELSE 200 END)
+        `, pharmacyID, search, debtsOnly)
         if err != nil {
                 log.Printf("[CUSTOMERS] list failed: %v", err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "customers_query_failed", "message": "تعذر قراءة حسابات العملاء"})

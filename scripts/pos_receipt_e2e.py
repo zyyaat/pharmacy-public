@@ -71,10 +71,26 @@ def main():
             time.sleep(0.2)
         check("تسجيل الدخول", "/login" not in current_url(page), current_url(page))
 
-        # ---------- A) settings page: defaults + live preview ----------
+        # ---------- A) settings area: independent layout + receipts defaults ----------
         page.goto(f"{APP}/settings", wait_until="networkidle")
         page.wait_for_selector('text=مقاس الورقة', timeout=15000)
-        check("صفحة الإعدادات بتبويب الفواتير", page.locator('[role="tab"][aria-selected="true"]', has_text="الفواتير والطباعة").count() == 1)
+        check("الإعدادات منطقة مستقلة بشريط «العودة للرئيسية»",
+              page.locator('a', has_text="العودة للرئيسية").count() == 1)
+        check("الإعدادات بقائمة جانبية خاصة بالأقسام",
+              page.locator('nav[aria-label="أقسام الإعدادات"] a', has_text="الفواتير والطباعة").count() == 1
+              and page.locator('nav[aria-label="أقسام الإعدادات"] a', has_text="قاعدة البيانات").count() == 1)
+        check("التحويل التلقائي أتى على قسم الفواتير", "/settings/receipts" in current_url(page), current_url(page))
+
+        # قسم قاعدة البيانات: سجل الترحيلات المطبقة
+        page.click('nav[aria-label="أقسام الإعدادات"] a:has-text("قاعدة البيانات")')
+        page.wait_for_selector('text=سجل الترحيلات المطبقة', timeout=15000)
+        check("قسم قاعدة البيانات يفتح بمساره الخاص", current_url(page).rstrip('/').endswith('/settings/database'), current_url(page))
+        check("حالة المخطط «محدّثة»", page.locator('text=محدّثة').count() >= 1)
+        check("سجل الترحيلات يعرض صفوفاً مطبقة", page.locator('table tbody tr').count() >= 1,
+              f"rows={page.locator('table tbody tr').count()}")
+        page.click('nav[aria-label="أقسام الإعدادات"] a:has-text("الفواتير والطباعة")')
+        page.wait_for_selector('text=مقاس الورقة', timeout=15000)
+        check("العودة لقسم الفواتير من القائمة الجانبية", "/settings/receipts" in current_url(page))
         page.wait_for_selector('div[style*="width: 80mm"]', timeout=8000)
         check("معاينة حية بعرض 80mm افتراضياً", page.locator('div[style*="width: 80mm"]').count() >= 1)
         check("80mm مختار افتراضياً", page.locator('button[aria-pressed="true"]', has_text="80 ملم").count() == 1)

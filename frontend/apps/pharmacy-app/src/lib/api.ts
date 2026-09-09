@@ -305,6 +305,14 @@ export const pharmacyApi = {
     if (search) params.set('search', search)
     return apiFetch<{ data: { customers: PharmacyCustomer[] } }>(`/pharmacy/customers?${params.toString()}`, { signal })
   },
+  /** العملاء الذين عليهم رصيد مستحق (الأكثر مديونية أولاً) — يغذي جرس الإشعارات */
+  listCustomerDebts(signal?: AbortSignal) {
+    return apiFetch<{ data: { customers: CustomerDebtItem[] } }>('/pharmacy/customers?debts=1', { signal })
+  },
+  /** سجل ترحيلات قاعدة البيانات المطبقة (من دفتر schema_migrations) */
+  getSystemMigrations(signal?: AbortSignal) {
+    return apiFetch<{ data: { items: SystemMigrationItem[]; total: number } }>('/pharmacy/system/migrations', { signal })
+  },
   createCustomer(name: string, phone: string) {
     return apiFetch<{ data: { customer: PharmacyCustomer } }>('/pharmacy/customers', {
       method: 'POST',
@@ -486,6 +494,18 @@ export interface LowStockItem {
   /** الشرائط المتبقية في العلبة المفتوحة (تُعرض في الرسالة ولا تُحسب في الحد) */
   strips: number
   min_stock_level: number
+}
+
+export interface CustomerDebtItem {
+  id: string
+  name: string
+  phone: string
+  balance_piastres: number
+}
+
+export interface SystemMigrationItem {
+  version: string
+  applied_at: string
 }
 
 export interface PriceChangedItem {

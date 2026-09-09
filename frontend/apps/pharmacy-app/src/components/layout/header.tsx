@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Globe, Menu, Moon, Search, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { pharmacyApi, type LowStockItem } from '@/lib/api'
+import { pharmacyApi, type CustomerDebtItem, type LowStockItem } from '@/lib/api'
+import { formatPiastres } from '@/lib/money'
 import { availabilityAr, boxWordAr, extraStrengthLabel } from '@/lib/product'
 import { Button } from '@/components/ui'
 
@@ -35,9 +36,34 @@ function useLowStock() {
   return items
 }
 
+/** ديون العملاء (البيع الآجل): من عليهم رصيد مستحق — تُجلب مع الجرس كل دقيقة للتحصيل */
+function useCustomerDebts() {
+  const [items, setItems] = useState<CustomerDebtItem[]>([])
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const response = await pharmacyApi.listCustomerDebts()
+        if (!cancelled) setItems(response.data.customers)
+      } catch {
+        // الإشعارات ميزة غير حرجة — أي فشل يترك القسم صامتاً
+      }
+    }
+    void load()
+    const timer = setInterval(load, 60_000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+  return items
+}
+
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme()
   const lowStock = useLowStock()
+  const debts = useCustomerDebts()
+  const alertCount = lowStock.length + debts.length
   const [panelOpen, setPanelOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -86,30 +112,53 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             variant="ghost"
             size="icon"
             className="relative"
-            title="إشعارات المخزون المنخفض"
-            aria-label={`إشعارات المخزون المنخفض${lowStock.length ? ` (${lowStock.length} أصناف)` : ''}`}
+            title="الإشعارات"
+            aria-label={`الإشعارات${alertCount ? ` (${alertCount} تنبيه)` : ''}`}
             onClick={() => setPanelOpen((open) => !open)}
           >
             <Bell className="h-5 w-5" />
-            {lowStock.length > 0 && (
+            {alertCount > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                {lowStock.length}
+                {alertCount}
               </span>
             )}
           </Button>
           {panelOpen && (
             <div className="absolute end-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-card shadow-lg animate-in fade-in-0 zoom-in-95">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <p className="text-sm font-bold">المخزون المنخفض</p>
-                <span className="text-xs text-muted-foreground">{lowStock.length ? `${lowStock.length} صنف يحتاج تزويد` : 'لا تنبيهات'}</span>
+                <p className="text-sm font-bold">الإشعارات</p>
+                <span className="text-xs text-muted-foreground">{alertCount ? `${alertCount} تنبيه` : 'لا تنبيهات'}</span>
               </div>
-              <div className="max-h-72 overflow-y-auto">
-                {lowStock.length === 0 ? (
+              <div className="max-h-96 overflow-y-auto">
+                {alertCount === 0 ? (
                   <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    كل الأصناف فوق حد إعادة الطلب — لا يوجد ما يستدعي الإجراء.
+                    كل شيء تحت السيطرة — لا ديون على العملاء ولا أصناف تحت حد الطلب.
                   </p>
                 ) : (
-                  lowStock.map((item) => (
+                  <>
+                    {debts.length > 0 && (
+                      <div>
+                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">ديون العملاء (البيع الآجل)</p>
+                        {debts.map((debt) => (
+                          <Link
+                            key={debt.id}
+                            href="/customers"
+                            className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5 text-sm last:border-0 hover:bg-accent"
+                            onClick={() => setPanelOpen(false)}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-semibold">{debt.name}</span>
+                              <span className="text-xs text-muted-foreground">مستحق عليه {formatPiastres(debt.balance_piastres)}</span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-600">مدين</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    {lowStock.length > 0 && (
+                      <div>
+                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">المخزون المنخفض</p>
+                        {lowStock.map((item) => (
                     <Link
                       key={item.pharmacy_product_id}
                       href="/inventory"
@@ -133,9 +182,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                         {item.full_boxes === 0 && item.strips === 0 ? 'نفد' : 'منخفض'}
                       </span>
                     </Link>
-                  ))
+                      ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
+              {debts.length > 0 && (
+                <Link href="/customers" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
+                  فتح حسابات العملاء للتحصيل
+                </Link>
+              )}
               <Link href="/inventory" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
                 فتح صفحة المخزون لاتخاذ الإجراء
               </Link>

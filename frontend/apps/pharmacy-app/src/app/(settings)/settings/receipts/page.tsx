@@ -1,15 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Copy, Loader2, Printer, ReceiptText, RotateCcw, Save, ShieldCheck } from 'lucide-react'
+import { Check, Copy, Loader2, Printer, RotateCcw, Save, ShieldCheck } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 import { useReceiptSettings } from '@/hooks/useReceiptSettings'
 import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
 import ReceiptTemplate, { composePharmacyDisplayName } from '@/components/pos/receipt-template'
 import type { ReceiptSettings } from '@/lib/api'
-
-const TABS = [{ id: 'invoices', label: 'الفواتير والطباعة' }] as const
 
 /** بادئات جاهزة تظهر قبل اسم الصيدلية في رأس الفاتورة — '' = بدون بادئة */
 const NAME_PREFIX_PRESETS: Array<{ value: string; label: string }> = [
@@ -35,7 +33,6 @@ const SAMPLE_RECEIPT = {
 }
 
 export default function SettingsPage() {
-  const [tab] = useState<(typeof TABS)[number]['id']>('invoices')
   const { settings, loading, save } = useReceiptSettings()
   const { context } = usePharmacyContext()
   const [draft, setDraft] = useState<ReceiptSettings | null>(null)
@@ -104,25 +101,8 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">الإعدادات</h1>
+        <h1 className="text-2xl font-bold">الفواتير والطباعة</h1>
         <p className="mt-2 text-sm text-muted-foreground">تحكم كامل في شكل الفاتورة وسلوك الطباعة — الإعدادات تُحفظ على مستوى الصيدلية وتعمل على كل الأجهزة.</p>
-      </div>
-
-      {/* شريط التبويبات — أول تبويب يُبنى الآن والقادمة تضاف هنا */}
-      <div role="tablist" aria-label="تبويبات الإعدادات" className="flex gap-1 border-b border-border">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            role="tab"
-            aria-selected={tab === item.id}
-            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
-              tab === item.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <ReceiptText className="h-4 w-4" aria-hidden="true" />
-            {item.label}
-          </button>
-        ))}
       </div>
 
       {loading ? (

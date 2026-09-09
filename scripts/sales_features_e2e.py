@@ -285,6 +285,20 @@ def main():
               f"balance={statement_data and statement_data[0]['balance_piastres']}")
         check("الكشف يعرض سطر الدفعة", page.locator('text=دفعة أولى').count() >= 1)
 
+        # ---------- B2) جرس الإشعارات يعرض ديون العملاء ----------
+        page.goto(f"{APP}/pos", wait_until="networkidle")
+        page.wait_for_selector('input[role="combobox"]', timeout=15000)
+        bell = page.locator('button[title="الإشعارات"]')
+        bell.click()
+        page.wait_for_selector('text=ديون العملاء', timeout=10000)
+        check("الجرس يعرض قسم «ديون العملاء»", page.locator('text=ديون العملاء').count() >= 1)
+        check("الجرس يعرض العميل المدين باسمه", page.locator('a', has_text=CUSTOMER_NAME).count() >= 1,
+              CUSTOMER_NAME)
+        check("سطر الدين يعرض شارة «مدين» ورابط التحصيل",
+              page.locator('text=مدين').count() >= 1 and page.locator('text=فتح حسابات العملاء للتحصيل').count() == 1)
+        check("سطر الدين يذكر المبلغ المستحق", page.locator('text=مستحق عليه').count() >= 1)
+        bell.click()
+
         # ---------- C) parked invoice: park → persist across reload → resume ----------
         page.goto(f"{APP}/pos", wait_until="networkidle")
         page.wait_for_selector('input[role="combobox"]', timeout=15000)
@@ -320,7 +334,7 @@ def main():
         page.wait_for_selector('input[role="combobox"]', timeout=15000)
         check("API يُدخل الصنف عندما العلب الكاملة < حد الطلب",
               wait_low_stock_api(page, "مرهم جروح", True), f"full_boxes={full}, min={full + 1}")
-        bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
+        bell = page.locator('button[title="الإشعارات"]')
         deadline = time.time() + 15
         badge_text = ""
         while time.time() < deadline:
@@ -330,7 +344,7 @@ def main():
                 if badge_text:
                     break
             time.sleep(0.3)
-        check("الجرس يعرض عدّاد أصناف المخزون المنخفض", badge_text.isdigit() and int(badge_text) >= 1,
+        check("الجرس يعرض عدّاد التنبيهات (ديون + نواقص)", badge_text.isdigit() and int(badge_text) >= 1,
               f"badge={badge_text!r}")
         bell.click()
         page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
@@ -355,7 +369,7 @@ def main():
               wait_low_stock_api(page, "مرهم جروح", False), f"full_boxes={full}, min={full}")
         page.goto(f"{APP}/pos", wait_until="networkidle")
         page.wait_for_selector('input[role="combobox"]', timeout=15000)
-        bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
+        bell = page.locator('button[title="الإشعارات"]')
         bell.click()
         page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
         check("اللوحة لم تعد تعرض الصنف بعد مساواة الحد بالعلب الكاملة",
@@ -373,7 +387,7 @@ def main():
                   f"full={full}, strips={strips}, min={full + 1}")
             page.goto(f"{APP}/pos", wait_until="networkidle")
             page.wait_for_selector('input[role="combobox"]', timeout=15000)
-            bell = page.locator('button[title="إشعارات المخزون المنخفض"]')
+            bell = page.locator('button[title="الإشعارات"]')
             bell.click()
             page.wait_for_selector('text=المخزون المنخفض', timeout=10000)
             row_text = page.locator('a', has_text=product_name).first.inner_text()
