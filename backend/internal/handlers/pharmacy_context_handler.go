@@ -134,13 +134,15 @@ func (h *Handler) ListPharmacyBranches(c *gin.Context) {
         // بيانات التواصل في سجل pharmacies الذي يعرضه الشريط الجانبي والفواتير —
         // فكانت بطاقة الفرع الرئيسي تعرض «—» و«بدون عنوان» مهما كانت البيانات
         // الحقيقية في الداتابيز. لذلك بيانات التواصل للفرع الرئيسي تُقرأ حيًّا من
-        // pharmacies مع احترام قيمة الفرع إن وُجدت؛ الفروع الأخرى بياناتها منها.
+        // pharmacies مع احترام قيمة الفرع إن وُجدت (سجل الصيدلية هو المصدر الرسمي
+        // لمقرها — يقرأ منه الشريط الجانبي والفواتير، وتعديل الفرع الرئيسي يزامنه)؛
+        // الفروع الأخرى بياناتها منها.
         rows, err := h.db.Query(c.Request.Context(), `
                 SELECT b.id::text, b.name, COALESCE(b.code, ''),
-                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.phone, p.phone, '') ELSE COALESCE(b.phone, '') END,
-                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.email, p.email, '') ELSE COALESCE(b.email, '') END,
-                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.address_line1, p.address_line1, '') ELSE COALESCE(b.address_line1, '') END,
-                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.city, p.city, '') ELSE COALESCE(b.city, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(p.phone, b.phone, '') ELSE COALESCE(b.phone, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(p.email, b.email, '') ELSE COALESCE(b.email, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(p.address_line1, b.address_line1, '') ELSE COALESCE(b.address_line1, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(p.city, b.city, '') ELSE COALESCE(b.city, '') END,
                        b.is_active, COALESCE(e.display_name, e.first_name || ' ' || e.last_name, ''),
                        COALESCE(p.default_branch_id = b.id, false), p.name
                 FROM branches b

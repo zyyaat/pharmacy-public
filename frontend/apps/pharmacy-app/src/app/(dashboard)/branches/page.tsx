@@ -94,7 +94,10 @@ export default function BranchesPage() {
                     </div>
                     <div className="mt-4 space-y-1 text-xs text-muted-foreground">
                       <p>{t('branchCodeLabel')} {item.code || '—'}</p>
-                      <p>{t('branchManagerLabel')} {item.manager_name || t('unspecified')}</p>
+                      {/* Task 52c: صف المدير يظهر فقط عند وجود مدير فعلي — لا توجد أي
+                          واجهة اليوم لتعيين مدير فرع (manager_employee_id بلا كاتب)،
+                          و«غير محدد» الدائم قرأها المستخدم على أنها بيانات مفقودة */}
+                      {item.manager_name ? <p>{t('branchManagerLabel')} {item.manager_name}</p> : null}
                       <p>{t('branchPhoneLabel')} {item.phone || '—'}</p>
                       <p>{t('branchEmailCardLabel')} {item.email || '—'}</p>
                     </div>
