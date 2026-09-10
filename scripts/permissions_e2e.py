@@ -214,6 +214,13 @@ def main():
         me = r.json()
         check("4e. me للمرتجعات صحيح", me.get("full_access") is False and len(me.get("permissions", [])) == 9, str(me)[:150])
 
+        # سجل الترحيلات (Task 44): بيانات بنية تحتية — للمالك فقط حتى في الـ API
+        r = es.get(f"{BASE}/pharmacy/system/migrations", timeout=10)
+        check("4f. سجل الترحيلات ممنوع على الموظف (403 OWNER_ONLY)",
+              r.status_code == 403 and r.json().get("code") == "OWNER_ONLY", f"{r.status_code} {r.text[:80]}")
+        check("4g. سجل الترحيلات متاح للمالك (200)",
+              s.get(f"{BASE}/pharmacy/system/migrations", timeout=10).status_code == 200)
+
         # ============ 5-ج) المالك يمنح reports.sales ثم يُسمح بالتقرير ============
         r = s.put(f"{BASE}/pharmacy/employees/{eid}/permissions", headers=csrf_header(s),
                   json={"permissions": [

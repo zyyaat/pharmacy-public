@@ -102,6 +102,33 @@ func (h *Handler) requirePharmacyPermission(permissionKey string) gin.HandlerFun
         }
 }
 
+// requirePharmacyOwner restricts a route to pharmacy owners only
+// (company_admin / company_manager principals). Used for system-level
+// observability endpoints (e.g. the schema-migrations ledger) that the
+// frontend exposes to the owner alone — even a pharmacy.admin employee
+// must not read infrastructure metadata through the API.
+func (h *Handler) requirePharmacyOwner() gin.HandlerFunc {
+        return func(c *gin.Context) {
+                principal, ok := auth.PrincipalFromContext(c)
+                if !ok || principal.ID == "" {
+                        c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+                                "error": "authentication_required", "message": "Authentication required",
+                        })
+                        return
+                }
+                if principal.Type == auth.CompanyUserPrincipal &&
+                        (principal.Role == "company_admin" || principal.Role == "company_manager") {
+                        c.Next()
+                        return
+                }
+                c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+                        "error":   "permission_denied",
+                        "message": "هذه الصفحة متاحة لصاحب الصيدلية فقط",
+                        "code":    "OWNER_ONLY",
+                })
+        }
+}
+
 // employeePermissionKeys returns the active permission keys for an employee.
 func (h *Handler) employeePermissionKeys(c *gin.Context, employeeID string) ([]string, error) {
         rows, err := h.db.Query(c.Request.Context(), `
@@ -780,8 +807,8 @@ func (h *Handler) SetPharmacyEmployeeStatus(c *gin.Context) {
 
         tag, err := h.db.Exec(c.Request.Context(), `
                 UPDATE employees SET status = $2::employee_status, is_active = ($2 = 'active'),
-		updated_at = NOW()
-		WHERE id = $1 AND pharmacy_id = $3
+                updated_at = NOW()
+                WHERE id = $1 AND pharmacy_id = $3
         `, employeeID, status, pharmacyID)
         if err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "status_update_failed", "message": "تعذر تحديث حالة الموظف"})
