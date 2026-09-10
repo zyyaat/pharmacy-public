@@ -128,10 +128,20 @@ func (h *Handler) ListPharmacyBranches(c *gin.Context) {
         // — مصدر تعبية حقل «اسم الصيدلية» في نموذج التعديل يجب أن يكون قيمة قاعدة
         // البيانات نفسها لا احتياط اسم الفرع، وإلا ظهر «الفرع الرئيسي» دائمًا مهما
         // تغيّر الاسم الفعلي في الداتابيز.
+        //
+        // Task 52 — شكوى «بطاقة الفرع مفيش فيها البيانات الحقيقية»: عند التسجيل
+        // يُزرع الفرع الرئيسي باسمه وكوده فقط (service.go/bootstrap.go) وتُحفظ
+        // بيانات التواصل في سجل pharmacies الذي يعرضه الشريط الجانبي والفواتير —
+        // فكانت بطاقة الفرع الرئيسي تعرض «—» و«بدون عنوان» مهما كانت البيانات
+        // الحقيقية في الداتابيز. لذلك بيانات التواصل للفرع الرئيسي تُقرأ حيًّا من
+        // pharmacies مع احترام قيمة الفرع إن وُجدت؛ الفروع الأخرى بياناتها منها.
         rows, err := h.db.Query(c.Request.Context(), `
-                SELECT b.id::text, b.name, COALESCE(b.code, ''), COALESCE(b.phone, ''),
-                       COALESCE(b.email, ''), COALESCE(b.address_line1, ''),
-                       COALESCE(b.city, ''), b.is_active, COALESCE(e.display_name, e.first_name || ' ' || e.last_name, ''),
+                SELECT b.id::text, b.name, COALESCE(b.code, ''),
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.phone, p.phone, '') ELSE COALESCE(b.phone, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.email, p.email, '') ELSE COALESCE(b.email, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.address_line1, p.address_line1, '') ELSE COALESCE(b.address_line1, '') END,
+                       CASE WHEN COALESCE(p.default_branch_id = b.id, false) THEN COALESCE(b.city, p.city, '') ELSE COALESCE(b.city, '') END,
+                       b.is_active, COALESCE(e.display_name, e.first_name || ' ' || e.last_name, ''),
                        COALESCE(p.default_branch_id = b.id, false), p.name
                 FROM branches b
                 LEFT JOIN employees e ON e.id = b.manager_employee_id AND e.pharmacy_id = b.pharmacy_id

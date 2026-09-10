@@ -374,25 +374,70 @@ def main():
         ps = ls
         ctx0 = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
         real_pharmacy_name = ctx0.get("pharmacy", {}).get("name")
-        blist = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        blist_resp = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        blist = blist_resp.json().get("data", []) if blist_resp.status_code == 200 else []
         main_branch = next((b for b in blist if b.get("is_main")), None)
         check("10a. قائمة الفروع تعيد الفرع الرئيسي بعلامة is_main",
               main_branch is not None and main_branch.get("name") == "الفرع الرئيسي",
-              str([b.get("name") for b in blist]))
+              f"status={blist_resp.status_code} names={[b.get('name') for b in blist]}")
         # Task 51 — شكوى «الاسم دائمًا الفرع الرئيسي في الحقل»: مصدر تعبية نموذج
         # التعديل (القائمة) يجب أن يحمل اسم الصيدلية الحقيقي من قاعدة البيانات.
         check("10a2. مصدر تعبية النموذج يحمل pharmacy_name الحقيقي من قاعدة البيانات",
               main_branch is not None and main_branch.get("pharmacy_name") == real_pharmacy_name,
               f"list={main_branch and main_branch.get('pharmacy_name')!r} context={real_pharmacy_name!r}")
 
+        # Task 52 — شكوى «بطاقة الفرع مفيش فيها البيانات الحقيقية في صفحة الفروع»:
+        # عند التسجيل يُزرع الفرع الرئيسي باسمه وكوده فقط وتُحفظ بيانات التواصل في
+        # pharmacies — فكانت البطاقة تعرض «—» و«بدون عنوان» حتى بعد تعديل المستخدم
+        # للبيانات مباشرة في قاعدة البيانات. المحاكاة الحرفية: UPDATE مباشر على
+        # pharmacies ثم يجب أن تعرض القائمة (وبطاقة /branches) القيم فورًا.
+        import psycopg2
+        _pid = ctx0.get("pharmacy", {}).get("id")
+        dbconn = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        dbconn.autocommit = True
+        dbcur = dbconn.cursor()
+        dbcur.execute("SELECT COALESCE(phone,''), COALESCE(email,''), COALESCE(address_line1,''), COALESCE(city,'') FROM pharmacies WHERE id=%s", (_pid,))
+        _orig_contact = dbcur.fetchone()
+        T52_PHONE, T52_ADDR, T52_CITY = "01000000099", "15 شارع الجمهورية", "المنصورة"
+        dbcur.execute("UPDATE pharmacies SET phone=%s, address_line1=%s, city=%s WHERE id=%s",
+                      (T52_PHONE, T52_ADDR, T52_CITY, _pid))
+        main_db52_resp = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        if main_db52_resp.status_code != 200:
+            raise AssertionError(f"branches GET {main_db52_resp.status_code}")
+        main_db52 = next((b for b in main_db52_resp.json().get("data", []) if b.get("is_main")), {})
+        check("10a3. بطاقة الفرع الرئيسي تعرض بيانات التواصل الحقيقية من pharmacies (تعديل مباشر في DB كما يفعل المستخدم)",
+              main_db52.get("phone") == T52_PHONE and main_db52.get("address") == T52_ADDR and main_db52.get("city") == T52_CITY,
+              str({k: main_db52.get(k) for k in ("phone", "address", "city")}))
+        # إثبات واجهة حقيقي: بطاقة /branches نفسها يجب أن تطبع القيم
+        mpage = browser.new_page()
+        mpage.goto(f"{MAIN_APP}/login", wait_until="networkidle")
+        mpage.fill('input[type="email"]', OWNER[0])
+        mpage.fill('input[type="password"]', OWNER[1])
+        mpage.click('button[type="submit"]')
+        deadline = time.time() + 25
+        while time.time() < deadline and "/login" in current_url(mpage):
+            time.sleep(0.25)
+        mpage.goto(f"{MAIN_APP}/branches", wait_until="networkidle")
+        card_text = mpage.locator("body").inner_text()
+        check("10a4. بطاقة الفرع في صفحة /branches تطبع الهاتف والعنوان والمدينة الحقيقية",
+              T52_PHONE in card_text and T52_ADDR in card_text and T52_CITY in card_text,
+              f"phone={T52_PHONE in card_text} addr={T52_ADDR in card_text} city={T52_CITY in card_text}")
+        mpage.close()
+        dbcur.execute("UPDATE pharmacies SET phone=NULLIF(%s,''), email=NULLIF(%s,''), address_line1=NULLIF(%s,''), city=NULLIF(%s,'') WHERE id=%s",
+                      (*_orig_contact, _pid))
+        dbcur.close()
+        dbconn.close()
+
         create = ps.post(f"{BASE}/pharmacy/branches", json={
             "name": "فرع التجارب E2E", "city": "الجيزة", "phone": "01111111112",
         }, headers=csrf_header(ps), timeout=10)
         new_id = create.json().get("data", {}).get("id") if create.status_code == 201 else None
         check("10b. POST يضيف فرعاً جديداً كلياً (201)", new_id is not None, str(create.status_code))
-        blist2 = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        blist2_resp = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        blist2 = blist2_resp.json().get("data", []) if blist2_resp.status_code == 200 else []
         check("10c. الفرع الجديد يظهر في القائمة (غير رئيسي)",
-              any(b.get("id") == new_id and b.get("is_main") is False for b in blist2))
+              blist2_resp.status_code == 200 and any(b.get("id") == new_id and b.get("is_main") is False for b in blist2),
+              f"status={blist2_resp.status_code}")
 
         put_new = ps.put(f"{BASE}/pharmacy/branches/{new_id}", json={
             "name": "فرع التجارب E2E", "city": "الإسكندرية",
@@ -432,10 +477,11 @@ def main():
         del_main = ps.delete(f"{BASE}/pharmacy/branches/{main_branch['id']}", headers=csrf_header(ps), timeout=10)
         check("10i. حذف الفرع الرئيسي محمي (400)", del_main.status_code == 400, str(del_main.status_code))
         del_new = ps.delete(f"{BASE}/pharmacy/branches/{new_id}", headers=csrf_header(ps), timeout=10)
-        blist3 = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        blist3_resp = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        blist3 = blist3_resp.json().get("data", []) if blist3_resp.status_code == 200 else []
         check("10j. إيقاف الفرع الجديد يخفيه من القائمة",
-              del_new.status_code == 200 and all(b.get("id") != new_id or not b.get("is_active") for b in blist3),
-              str(del_new.status_code))
+              del_new.status_code == 200 and blist3_resp.status_code == 200 and all(b.get("id") != new_id or not b.get("is_active") for b in blist3),
+              f"del={del_new.status_code} list={blist3_resp.status_code}")
 
         # استعادة اسم الصيدلية الأصلي عبر تعديل الفرع الرئيسي
         restore = ps.put(f"{BASE}/pharmacy/branches/{main_branch['id']}", json={

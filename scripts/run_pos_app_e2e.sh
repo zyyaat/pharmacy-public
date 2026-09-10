@@ -49,4 +49,4 @@ python3 scripts/seed_search_fixtures.py >/dev/null 2>&1
 
 echo ""
 echo "======== pos_app_e2e ========"
-timeout 420 python3 scripts/pos_app_e2e.py
+timeout 900 python3 scripts/pos_app_e2e.py

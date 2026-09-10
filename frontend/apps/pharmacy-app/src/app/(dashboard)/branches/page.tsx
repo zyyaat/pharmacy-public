@@ -83,7 +83,10 @@ export default function BranchesPage() {
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.city || item.address || t('noAddress')}</p>
+                        {/* Task 52: العنوان والمدينة كلاهما بيانات حقيقية — لا نُخفي أحدهما كما كان يفعل city || address */}
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {[item.address, item.city].filter(Boolean).join('، ') || t('noAddress')}
+                        </p>
                       </div>
                       <span className={`rounded-full px-2 py-1 text-xs ${item.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                         {item.is_active ? t('branchActive') : t('branchStopped')}
@@ -93,6 +96,7 @@ export default function BranchesPage() {
                       <p>{t('branchCodeLabel')} {item.code || '—'}</p>
                       <p>{t('branchManagerLabel')} {item.manager_name || t('unspecified')}</p>
                       <p>{t('branchPhoneLabel')} {item.phone || '—'}</p>
+                      <p>{t('branchEmailCardLabel')} {item.email || '—'}</p>
                     </div>
                     <div className="mt-4 border-t border-border pt-3">
                       <Link href={`/branches/${item.id}`}>
