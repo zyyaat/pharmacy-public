@@ -7,7 +7,7 @@
   3) بيع كامل: بحث → سلة → إتمام → إيصال يطبع من التطبيق الجديد
   4) سجل البيع يعرض الفاتورة للمالك
   5) إدارة مخزون كاملة من نفس التطبيق: قائمة التشغيلات → إضافة منتج بمخزون افتتاحي
-     → التحكم في الكمية (+٢ بسبب) → سجل الحركات يظهر تسوية مخزون بالسبب
+     → التحكم في الكمية (+2 بسبب) → سجل الحركات يظهر تسوية مخزون بالسبب
   6) موظف مقيّد (pos.access + customers.create فقط): يرى نقطة البيع فقط،
      /inventory و /sales بالرابط المباشر بطاقة «غير متاحة» والـ API يمنع (403)
   7) /sales بالرابط المباشر → بطاقة «غير متاحة» + الـ API يمنع (403) ويسمح للبيع
@@ -184,10 +184,10 @@ def main():
         while time.time() < deadline and PROD not in page.content():
             time.sleep(0.3)
         row_text = page.locator("tbody tr", has_text=PROD).first.inner_text()
-        check("5b. منتج جديد بمخزون افتتاحي ٣ عبوات ظهر في القائمة",
-              "عبوة" in row_text and "٣" in row_text, row_text[:120])
+        check("5b. منتج جديد بمخزون افتتاحي 3 عبوات ظهر في القائمة",
+              "3 عبوة" in row_text, row_text[:120])
 
-        # 5c) التحكم في المخزون: +٢ عبوة بسبب «جرد دوري»
+        # 5c) التحكم في المخزون: +2 عبوة بسبب «جرد دوري»
         page.locator("tbody tr", has_text=PROD).first.locator('button:has-text("مخزون")').click()
         page.wait_for_selector("text=التحكم في المخزون", timeout=8000)
         page.fill('input[type="number"]', "2")
@@ -197,11 +197,11 @@ def main():
         saved = False
         while time.time() < deadline:
             body = page.locator("tbody tr", has_text=PROD).first.inner_text()
-            if "التحكم في المخزون" not in page.content() and "٥" in body:
+            if "التحكم في المخزون" not in page.content() and "5 عبوة" in body:
                 saved = True
                 break
             time.sleep(0.4)
-        check("5c. إضافة ٢ عبوة نجحت — القائمة تعرض ٥ عبوات", saved)
+        check("5c. إضافة 2 عبوة نجحت — القائمة تعرض 5 عبوات", saved)
 
         # 5d) سجل حركات المخزون: شراء افتتاحي + تسوية مخزون بالسبب
         page.goto(f"{POS_APP}/inventory/movements", wait_until="networkidle")

@@ -44,7 +44,7 @@ export function BarChart({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span className="tabular-nums">الأعلى: {maxValue.toLocaleString('ar-EG')}</span>
+        <span className="tabular-nums">الأعلى: {maxValue.toLocaleString('ar-EG-u-nu-latn')}</span>
         {summary && <span>{summary}</span>}
       </div>
       <div
@@ -60,7 +60,7 @@ export function BarChart({
             <div
               key={`${point.label}-${index}`}
               className="flex h-full flex-1 flex-col justify-end"
-              title={point.title ?? `${point.label}: ${point.value.toLocaleString('ar-EG')}`}
+              title={point.title ?? `${point.label}: ${point.value.toLocaleString('ar-EG-u-nu-latn')}`}
             >
               <div
                 className={cn(

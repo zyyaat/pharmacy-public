@@ -50,7 +50,7 @@ export default function SettingsPage() {
     () => ({
       name: context?.pharmacy.name ?? 'صيدلية النور',
       city: context?.pharmacy.city ?? 'القاهرة',
-      address: context?.pharmacy.address ?? '١٥ شارع الجمهورية',
+      address: context?.pharmacy.address ?? '15 شارع الجمهورية',
       phone: context?.pharmacy.phone ?? '01000000000',
     }),
     [context],

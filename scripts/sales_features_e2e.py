@@ -256,7 +256,7 @@ def main():
         check("سجل البيع يعرض شارة آجل مع اسم العميل",
               page.locator('text=آجل · ' + CUSTOMER_NAME).count() >= 1)
         sales_body = page.locator('body').inner_text()
-        check("سجل البيع يعرض شارة الخصم", 'خصم' in sales_body and '١٠٫٠٠' in sales_body)
+        check("سجل البيع يعرض شارة الخصم", 'خصم' in sales_body and '10.00' in sales_body)
 
         # customers page: balance = invoice total (100 EGP = 10000 piastres)
         page.goto(f"{APP}/customers", wait_until="networkidle")

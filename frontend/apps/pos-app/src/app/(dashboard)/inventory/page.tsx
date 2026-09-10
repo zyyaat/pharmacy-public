@@ -21,11 +21,11 @@ function formatQuantity(item: PharmacyInventoryItem): string {
     const boxes = Math.floor(item.quantity / item.units_per_box)
     const strips = item.quantity % item.units_per_box
     if (boxes === 0 && strips === 0) return 'نفذ من المخزون'
-    if (boxes === 0) return `${new Intl.NumberFormat('ar-EG').format(strips)} شريط`
-    if (strips === 0) return `${new Intl.NumberFormat('ar-EG').format(boxes)} علبة`
-    return `${new Intl.NumberFormat('ar-EG').format(boxes)} علبة و${new Intl.NumberFormat('ar-EG').format(strips)} شريط`
+    if (boxes === 0) return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(strips)} شريط`
+    if (strips === 0) return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(boxes)} علبة`
+    return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(boxes)} علبة و${new Intl.NumberFormat('ar-EG-u-nu-latn').format(strips)} شريط`
   }
-  return `${new Intl.NumberFormat('ar-EG').format(item.quantity)} عبوة`
+  return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(item.quantity)} عبوة`
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ function AdjustStockModal({
 
         {amount > 0 && (
           <p className={`rounded-lg p-2.5 text-xs ${projected < 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
-            الكمية بعد الحركة: {new Intl.NumberFormat('ar-EG').format(projected)}
+            الكمية بعد الحركة: {new Intl.NumberFormat('ar-EG-u-nu-latn').format(projected)}
             {projected < 0 && ' — لا يمكن أن يصبح المخزون سالبًا'}
           </p>
         )}

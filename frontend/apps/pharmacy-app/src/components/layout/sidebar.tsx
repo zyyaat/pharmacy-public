@@ -145,7 +145,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
                   <span className="flex-1">{item.title}</span>
                   {item.href === '/inventory' && context && (
                     <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
-                      {new Intl.NumberFormat('ar-EG').format(context.pharmacy.product_count)}
+                      {new Intl.NumberFormat('ar-EG-u-nu-latn').format(context.pharmacy.product_count)}
                     </span>
                   )}
                 </>

@@ -14,11 +14,11 @@ import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 import { Can } from '@/components/permissions/gate'
 
 function entryDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function entryTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
 }
 
 function balanceBadge(balance: number) {

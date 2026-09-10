@@ -47,7 +47,7 @@ const FIELDS: Array<{ key: string; label: string; required?: boolean; hint?: str
   { key: 'dosage_form', label: 'الشكل الصيدلي' },
 ]
 
-const numberFmt = new Intl.NumberFormat('ar-EG')
+const numberFmt = new Intl.NumberFormat('ar-EG-u-nu-latn')
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)

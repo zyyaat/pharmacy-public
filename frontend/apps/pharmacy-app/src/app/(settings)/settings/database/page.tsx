@@ -19,7 +19,7 @@ function parseMigration(version: string): { number: string; title: string; file:
   return { number: String(Number(match[1])), title: match[2].replace(/_/g, ' '), file: version }
 }
 
-const dateFormatter = new Intl.DateTimeFormat('ar-EG', {
+const dateFormatter = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
   dateStyle: 'medium',
   timeStyle: 'short',
 })

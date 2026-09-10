@@ -65,26 +65,26 @@ export function presetRange(preset: PeriodPreset): { from: string; to: string } 
   }
 }
 
-/** تاريخ عربي مقروء: ٩ سبتمبر ٢٠٢٦ */
+/** تاريخ عربي مقروء: 9 سبتمبر 2026 */
 export function formatArabicDate(iso: string): string {
   if (!iso) return '—'
   // YYYY-MM-DD تُفسَّر كتوقيت محلي بلا إزاحة
   const [year, month, day] = iso.split('-').map(Number)
   const date = month && day ? new Date(year, month - 1, day) : new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })
+  return date.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-/** تاريخ ووقت عربي: ٩ سبتمبر ٢٠٢٦، ٠٢:٤٥ م */
+/** تاريخ ووقت عربي: 9 سبتمبر 2026، 02:45 م */
 export function formatArabicDateTime(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  const time = date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-  return `${date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })}، ${time}`
+  const time = date.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
+  return `${date.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })}، ${time}`
 }
 
-/** نطاق فترة مقروء: من ١ يناير ٢٠٢٦ إلى ٣١ يناير ٢٠٢٦ */
+/** نطاق فترة مقروء: من 1 يناير 2026 إلى 31 يناير 2026 */
 export function formatPeriodRange(from: string, to: string): string {
   if (!from && !to) return 'كل الفترات'
   if (from === to) return formatArabicDate(from)

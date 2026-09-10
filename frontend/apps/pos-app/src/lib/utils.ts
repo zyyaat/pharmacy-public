@@ -6,5 +6,5 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString()
+  return date.toLocaleDateString('ar-EG-u-nu-latn')
 }

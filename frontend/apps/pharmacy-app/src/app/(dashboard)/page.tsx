@@ -8,7 +8,7 @@ import { availabilityAr, boxWordAr } from '@/lib/product'
 import { Can, RequirePermission, useAccess } from '@/components/permissions/gate'
 import { firstAllowedPage } from '@/lib/permissions'
 
-const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG').format(value)
+const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG-u-nu-latn').format(value)
 
 export default function DashboardPage() {
   const { stats, loading, error } = usePharmacyDashboard()

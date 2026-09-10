@@ -168,24 +168,24 @@ export default function MovementsReportPage() {
     return [
       {
         label: 'عدد الحركات',
-        value: totals.transactions.toLocaleString('ar-EG'),
+        value: totals.transactions.toLocaleString('ar-EG-u-nu-latn'),
         hint: 'حركة مخزون ضمن الفترة',
       },
       {
         label: 'إجمالي الوارد',
-        value: `+${totals.quantity_in.toLocaleString('ar-EG')}`,
+        value: `+${totals.quantity_in.toLocaleString('ar-EG-u-nu-latn')}`,
         tone: 'success' as const,
         hint: 'وحدة أساسية',
       },
       {
         label: 'إجمالي الصادر',
-        value: `−${totals.quantity_out.toLocaleString('ar-EG')}`,
+        value: `−${totals.quantity_out.toLocaleString('ar-EG-u-nu-latn')}`,
         tone: 'destructive' as const,
         hint: 'وحدة أساسية',
       },
       {
         label: 'صافي التغير',
-        value: `${net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString('ar-EG')}`,
+        value: `${net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString('ar-EG-u-nu-latn')}`,
         tone: net >= 0 ? ('success' as const) : ('destructive' as const),
       },
     ]
@@ -286,16 +286,16 @@ export default function MovementsReportPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {row.transactions.toLocaleString('ar-EG')}
+                            {row.transactions.toLocaleString('ar-EG-u-nu-latn')}
                           </TableCell>
                           <TableCell className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                            {row.quantity_in > 0 ? `+${row.quantity_in.toLocaleString('ar-EG')}` : '—'}
+                            {row.quantity_in > 0 ? `+${row.quantity_in.toLocaleString('ar-EG-u-nu-latn')}` : '—'}
                           </TableCell>
                           <TableCell className="font-semibold tabular-nums text-destructive">
-                            {row.quantity_out > 0 ? `−${row.quantity_out.toLocaleString('ar-EG')}` : '—'}
+                            {row.quantity_out > 0 ? `−${row.quantity_out.toLocaleString('ar-EG-u-nu-latn')}` : '—'}
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {net >= 0 ? `+${net.toLocaleString('ar-EG')}` : `−${Math.abs(net).toLocaleString('ar-EG')}`}
+                            {net >= 0 ? `+${net.toLocaleString('ar-EG-u-nu-latn')}` : `−${Math.abs(net).toLocaleString('ar-EG-u-nu-latn')}`}
                           </TableCell>
                         </TableRow>
                       )
@@ -344,8 +344,8 @@ export default function MovementsReportPage() {
 
             <p className="print-hidden mb-3 text-xs text-muted-foreground">
               {detailsTotal > DETAILS_LIMIT
-                ? `تُعرض أحدث ${DETAILS_LIMIT.toLocaleString('ar-EG')} من ${detailsTotal.toLocaleString('ar-EG')} حركة`
-                : `${detailsTotal.toLocaleString('ar-EG')} حركة`}
+                ? `تُعرض أحدث ${DETAILS_LIMIT.toLocaleString('ar-EG-u-nu-latn')} من ${detailsTotal.toLocaleString('ar-EG-u-nu-latn')} حركة`
+                : `${detailsTotal.toLocaleString('ar-EG-u-nu-latn')} حركة`}
             </p>
 
             {details.length === 0 ? (
@@ -375,14 +375,14 @@ export default function MovementsReportPage() {
                           <TableCell className="whitespace-nowrap">
                             <span className="flex flex-col leading-tight">
                               <span className="text-xs text-foreground/80">
-                                {new Date(movement.created_at).toLocaleDateString('ar-EG', {
+                                {new Date(movement.created_at).toLocaleDateString('ar-EG-u-nu-latn', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
                                 })}
                               </span>
                               <span className="text-[11px] tabular-nums text-muted-foreground">
-                                {new Date(movement.created_at).toLocaleTimeString('ar-EG', {
+                                {new Date(movement.created_at).toLocaleTimeString('ar-EG-u-nu-latn', {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}

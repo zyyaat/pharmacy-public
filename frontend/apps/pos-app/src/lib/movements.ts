@@ -46,7 +46,7 @@ export function movementDirection(quantity: number): 'in' | 'out' {
 }
 
 export function formatMovementDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ar-EG', {
+  return new Date(iso).toLocaleDateString('ar-EG-u-nu-latn', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -54,7 +54,7 @@ export function formatMovementDate(iso: string): string {
 }
 
 export function formatMovementTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('ar-EG', {
+  return new Date(iso).toLocaleTimeString('ar-EG-u-nu-latn', {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -63,7 +63,7 @@ export function formatMovementTime(iso: string): string {
 /** تنسيق الكمية بالوحدة الأساسية (شريط/وحدة) */
 export function formatMovementQuantity(quantity: number, unit: string): string {
   const abs = Math.abs(quantity)
-  const rounded = Number.isInteger(abs) ? abs.toLocaleString('ar-EG') : abs.toLocaleString('ar-EG', { maximumFractionDigits: 2 })
+  const rounded = Number.isInteger(abs) ? abs.toLocaleString('ar-EG-u-nu-latn') : abs.toLocaleString('ar-EG-u-nu-latn', { maximumFractionDigits: 2 })
   const unitLabel = unit === 'strip' ? 'شريط' : unit === 'box' ? 'علبة' : unit
   return `${rounded} ${unitLabel}`
 }

@@ -302,7 +302,7 @@ export default function CompaniesPage() {
                       </div>
                     </td>
                     <td className="p-4 hidden xl:table-cell text-sm text-muted-foreground">
-                      {new Date(company.createdAt).toLocaleDateString("ar-EG")}
+                      {new Date(company.createdAt).toLocaleDateString("ar-EG-u-nu-latn")}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">

@@ -9,12 +9,12 @@
 
 export const PIASTRES_PER_UNIT = 100
 
-const currencyFormatter = new Intl.NumberFormat('ar-EG', {
+const currencyFormatter = new Intl.NumberFormat('ar-EG-u-nu-latn', {
   style: 'currency',
   currency: 'EGP',
 })
 
-/** Format an integer piastres amount for display, e.g. 10000 -> "١٠٠٫٠٠ ج.م". */
+/** Format an integer piastres amount for display, e.g. 10000 -> "100.00 ج.م". */
 export function formatPiastres(piastres: number): string {
   const value = Number.isFinite(piastres) ? Math.trunc(piastres) : 0
   return currencyFormatter.format(value / PIASTRES_PER_UNIT)

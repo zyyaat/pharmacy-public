@@ -15,7 +15,7 @@ const labels: Record<string, string> = {
   cancelled: 'ملغي',
 }
 
-const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG').format(value)
+const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG-u-nu-latn').format(value)
 
 export default function DashboardPage() {
   const { stats, loading, error } = useAnalytics()
@@ -106,7 +106,7 @@ export default function DashboardPage() {
                   {stats.recentActivity.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <div className="rounded-lg bg-primary/10 p-2 text-primary"><Activity className="h-4 w-4" /></div>
-                      <div className="min-w-0 flex-1"><p className="text-sm">{item.description}</p><p className="mt-1 text-xs text-muted-foreground">{item.userName} · {new Date(item.timestamp).toLocaleString('ar-EG')}</p></div>
+                      <div className="min-w-0 flex-1"><p className="text-sm">{item.description}</p><p className="mt-1 text-xs text-muted-foreground">{item.userName} · {new Date(item.timestamp).toLocaleString('ar-EG-u-nu-latn')}</p></div>
                     </div>
                   ))}
                 </div>

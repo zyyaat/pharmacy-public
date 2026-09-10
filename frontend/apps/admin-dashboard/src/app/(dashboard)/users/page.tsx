@@ -98,7 +98,7 @@ export default function UsersPage() {
                 </div>
                 <div className="flex items-center gap-4 sm:justify-end">
                   <div className="text-center"><Badge variant={roleVariants[user.role] || "outline"}>{ROLE_LABELS[user.role as Role] || user.role}</Badge><p className="mt-1 text-xs text-muted-foreground">{user.permissionsCount} صلاحية فعلية</p></div>
-                  <p className="hidden text-xs text-muted-foreground lg:block">{user.lastLoginAt ? `آخر دخول: ${new Date(user.lastLoginAt).toLocaleDateString("ar-EG")}` : "لم يسجل الدخول بعد"}</p>
+                  <p className="hidden text-xs text-muted-foreground lg:block">{user.lastLoginAt ? `آخر دخول: ${new Date(user.lastLoginAt).toLocaleDateString("ar-EG-u-nu-latn")}` : "لم يسجل الدخول بعد"}</p>
                 </div>
               </div>
             ))}

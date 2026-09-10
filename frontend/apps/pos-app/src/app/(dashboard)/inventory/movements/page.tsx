@@ -136,7 +136,7 @@ export default function InventoryMovementsPage() {
         </div>
         {total > 0 && (
           <p className="text-sm text-muted-foreground">
-            {movements.length.toLocaleString('ar-EG')} من {total.toLocaleString('ar-EG')} حركة
+            {movements.length.toLocaleString('ar-EG-u-nu-latn')} من {total.toLocaleString('ar-EG-u-nu-latn')} حركة
           </p>
         )}
       </div>

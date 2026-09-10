@@ -119,12 +119,12 @@ export default function SalesReportPage() {
       {
         label: 'إجمالي المبيعات',
         value: formatPiastres(sales.gross_piastres),
-        hint: `${sales.invoices_count.toLocaleString('ar-EG')} فاتورة`,
+        hint: `${sales.invoices_count.toLocaleString('ar-EG-u-nu-latn')} فاتورة`,
       },
       {
         label: 'المرتجعات',
         value: formatPiastres(sales.returned_piastres),
-        hint: `${sales.returns_count.toLocaleString('ar-EG')} إشعار مرتجع`,
+        hint: `${sales.returns_count.toLocaleString('ar-EG-u-nu-latn')} إشعار مرتجع`,
         tone: sales.returned_piastres > 0 ? ('destructive' as const) : ('default' as const),
       },
       {
@@ -134,7 +134,7 @@ export default function SalesReportPage() {
       },
       {
         label: 'الوحدات المبيعة',
-        value: sales.units_base.toLocaleString('ar-EG'),
+        value: sales.units_base.toLocaleString('ar-EG-u-nu-latn'),
         hint: 'وحدة أساسية (شريط/عبوة)',
       },
       {
@@ -142,7 +142,7 @@ export default function SalesReportPage() {
         value: formatPiastres(sales.avg_invoice_piastres),
         hint:
           sales.invoices_count > 0
-            ? `كل فاتورة ${Math.round(sales.units_base / sales.invoices_count).toLocaleString('ar-EG')} وحدة تقريباً`
+            ? `كل فاتورة ${Math.round(sales.units_base / sales.invoices_count).toLocaleString('ar-EG-u-nu-latn')} وحدة تقريباً`
             : undefined,
       },
     ]
@@ -228,7 +228,7 @@ export default function SalesReportPage() {
             <h3 className="mb-3 text-sm font-bold">المبيعات اليومية (الصافي)</h3>
             <BarChart
               points={chartPoints}
-              summary={`${report.daily.length.toLocaleString('ar-EG')} يوم ضمن الفترة`}
+              summary={`${report.daily.length.toLocaleString('ar-EG-u-nu-latn')} يوم ضمن الفترة`}
             />
           </section>
 
@@ -254,7 +254,7 @@ export default function SalesReportPage() {
                     {report.top_products.map((product, index) => (
                       <TableRow key={product.product_id}>
                         <TableCell className="text-xs tabular-nums text-muted-foreground">
-                          {(index + 1).toLocaleString('ar-EG')}
+                          {(index + 1).toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell>
                           <p className="font-medium">{product.name}</p>
@@ -263,7 +263,7 @@ export default function SalesReportPage() {
                           )}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {product.quantity_base.toLocaleString('ar-EG')}
+                          {product.quantity_base.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell className="font-semibold tabular-nums">
                           {formatPiastres(product.amount_piastres)}
@@ -282,8 +282,8 @@ export default function SalesReportPage() {
               <h3 className="text-sm font-bold">فواتير الفترة</h3>
               <p className="text-xs text-muted-foreground">
                 {invoicesTotal > INVOICES_LIMIT
-                  ? `تُعرض أحدث ${INVOICES_LIMIT.toLocaleString('ar-EG')} من ${invoicesTotal.toLocaleString('ar-EG')} فاتورة`
-                  : `${invoicesTotal.toLocaleString('ar-EG')} فاتورة`}
+                  ? `تُعرض أحدث ${INVOICES_LIMIT.toLocaleString('ar-EG-u-nu-latn')} من ${invoicesTotal.toLocaleString('ar-EG-u-nu-latn')} فاتورة`
+                  : `${invoicesTotal.toLocaleString('ar-EG-u-nu-latn')} فاتورة`}
               </p>
             </div>
             {invoices.length === 0 ? (
@@ -328,10 +328,10 @@ export default function SalesReportPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {sale.products_count.toLocaleString('ar-EG')}
+                          {sale.products_count.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {sale.total_quantity_base.toLocaleString('ar-EG')}
+                          {sale.total_quantity_base.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell className="font-semibold tabular-nums">
                           {formatPiastres(sale.total_amount_piastres)}

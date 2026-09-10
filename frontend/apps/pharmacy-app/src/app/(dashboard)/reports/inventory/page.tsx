@@ -85,23 +85,23 @@ export default function InventoryReportPage() {
       {
         label: 'قيمة المخزون (تكلفة)',
         value: formatPiastres(totals.cost_value_piastres),
-        hint: `${totals.batches_count.toLocaleString('ar-EG')} تشغيلة · ${totals.products_count.toLocaleString('ar-EG')} صنف`,
+        hint: `${totals.batches_count.toLocaleString('ar-EG-u-nu-latn')} تشغيلة · ${totals.products_count.toLocaleString('ar-EG-u-nu-latn')} صنف`,
       },
       {
         label: 'قيمة البيع المتوقعة',
         value: formatPiastres(totals.retail_value_piastres),
         tone: 'success' as const,
-        hint: `${totals.units_base.toLocaleString('ar-EG')} وحدة أساسية`,
+        hint: `${totals.units_base.toLocaleString('ar-EG-u-nu-latn')} وحدة أساسية`,
       },
       {
         label: 'أصناف منخفضة',
-        value: totals.low_stock_count.toLocaleString('ar-EG'),
+        value: totals.low_stock_count.toLocaleString('ar-EG-u-nu-latn'),
         tone: totals.low_stock_count > 0 ? ('warning' as const) : ('default' as const),
         hint: 'عند أو تحت الحد الأدنى',
       },
       {
         label: 'أصناف نافدة',
-        value: totals.out_of_stock_count.toLocaleString('ar-EG'),
+        value: totals.out_of_stock_count.toLocaleString('ar-EG-u-nu-latn'),
         tone: totals.out_of_stock_count > 0 ? ('destructive' as const) : ('default' as const),
       },
     ]
@@ -213,7 +213,7 @@ export default function InventoryReportPage() {
                       <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
                     </div>
                     <p className={`mt-2 text-xl font-bold tabular-nums ${bucket.tone}`}>
-                      {bucket.count.toLocaleString('ar-EG')} تشغيلة
+                      {bucket.count.toLocaleString('ar-EG-u-nu-latn')} تشغيلة
                     </p>
                   </div>
                 )
@@ -274,10 +274,10 @@ export default function InventoryReportPage() {
                         </TableCell>
                         <TableCell className="text-xs">{item.branch_name || '—'}</TableCell>
                         <TableCell className="font-semibold tabular-nums">
-                          {item.quantity.toLocaleString('ar-EG')}
+                          {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
-                          {item.threshold.toLocaleString('ar-EG')}
+                          {item.threshold.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell>
                           <Badge variant={item.quantity <= 0 ? 'destructive' : 'warning'}>
@@ -333,7 +333,7 @@ export default function InventoryReportPage() {
                           )}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {item.quantity.toLocaleString('ar-EG')}
+                          {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs tabular-nums">
                           {item.extra_date ? formatArabicDate(String(item.extra_date).slice(0, 10)) : '—'}
@@ -342,7 +342,7 @@ export default function InventoryReportPage() {
                           <Badge variant={expiryTone(item.threshold)}>
                             {item.threshold <= 0
                               ? 'منتهية'
-                              : `${item.threshold.toLocaleString('ar-EG')} يوم`}
+                              : `${item.threshold.toLocaleString('ar-EG-u-nu-latn')} يوم`}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -406,7 +406,7 @@ export default function InventoryReportPage() {
                           </TableCell>
                           <TableCell className="text-xs">{item.branch_name || '—'}</TableCell>
                           <TableCell className="font-semibold tabular-nums">
-                            {item.quantity.toLocaleString('ar-EG')}
+                            {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
                           </TableCell>
                           <TableCell className="tabular-nums">
                             {formatPiastres(item.selling_price_piastres)}

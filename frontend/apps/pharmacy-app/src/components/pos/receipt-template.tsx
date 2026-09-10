@@ -46,7 +46,7 @@ function trim(value: number) {
 }
 
 function receiptDate(iso: string) {
-  return new Date(iso).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(iso).toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 /**

@@ -28,13 +28,13 @@ export function saleStatusVariant(status: string): 'success' | 'warning' | 'dest
   }
 }
 
-const dateFormatter = new Intl.DateTimeFormat('ar-EG', {
+const dateFormatter = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
 })
 
-const timeFormatter = new Intl.DateTimeFormat('ar-EG', {
+const timeFormatter = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
   hour: 'numeric',
   minute: '2-digit',
 })
