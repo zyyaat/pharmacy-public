@@ -145,18 +145,19 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.PUT("/employees/:id/permissions", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("employees.manage_permissions"), h.UpdateEmployeePermissions)
                 pharmacy.PATCH("/employees/:id/status", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("employees.update"), h.SetPharmacyEmployeeStatus)
 
+                // Branches (Task 50): the branches tab is the single place to
+                // manage pharmacy locations — read for every principal, write
+                // behind the matching mutation guard + CSRF + permission.
                 pharmacy.GET("/branches", perm("branches.view"), h.ListPharmacyBranches)
+                pharmacy.POST("/branches", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("branches.create"), h.CreatePharmacyBranch)
+                pharmacy.PUT("/branches/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("branches.update"), h.UpdatePharmacyBranch)
+                pharmacy.DELETE("/branches/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("branches.delete"), h.DeletePharmacyBranch)
                 pharmacy.GET("/attendance", perm("attendance.view"), h.ListPharmacyAttendance)
                 // Pharmacy settings: receipt/print configuration. Reading is
                 // open to every pharmacy principal; writing follows the same
                 // mutation guard + CSRF as every other mutating endpoint.
                 pharmacy.GET("/settings", h.GetPharmacySettings)
                 pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacySettings)
-                // Pharmacy profile: the editable core tenant information
-                // (pharmacy name/contact + main branch name). Same guard
-                // contract as /settings — read open, write settings.general.
-                pharmacy.GET("/profile", h.GetPharmacyProfile)
-                pharmacy.PUT("/profile", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacyProfile)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.

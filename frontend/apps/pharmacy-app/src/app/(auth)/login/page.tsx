@@ -36,7 +36,9 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      router.replace(redirectPath || '/')
+      // Task 50 — تحميل كامل بعد الدخول: كاش الراوتر قد يحمل رسومًا مسبقة بلغة
+      // ما قبل الدخول، والتنقل الكامل يضمن فرشاة خادم بلغة الحساب من قاعدة البيانات
+      window.location.assign(redirectPath || '/')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
         router.replace(`/verify-email?email=${encodeURIComponent(email.trim())}`)

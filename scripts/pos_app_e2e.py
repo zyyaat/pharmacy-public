@@ -15,9 +15,11 @@
   9) نظام اللغات (Task 48): /me يعيد locale، PATCH /auth/pharmacy/locale يغيّره
      ويمنع اللغات غير المدعومة، وصفحة الإعدادات تبدّل الواجهة فورًا (RTL↔LTR)
      وتلزوم بعد إعادة التحميل (كوكي + حفظ دائم على الحساب) ثم يعود للعربية
- 10) معلومات الصيدلية (Task 49): GET/PUT /pharmacy/profile — المالك يقرأ ويعدّل
-     (اسم الفرع الرئيسي بيانات لا نص واجهة)، تحقق المدخلات يرفض الاسم الفارغ
-     والبريد غير الصحيح، الموظف المقيّد يُمنع (403)، ثم تُستعاد البيانات الأصلية
+ 10) إدارة الفروع (Task 50): POST يضيف فرعاً جديداً كلياً، PUT يعدّل بياناته،
+     تعديل الفرع الرئيسي يحدّث معلومات الصيدلية في السياق، حذف الرئيسي محمي،
+     تحقق المدخلات (اسم فارغ/بريد غير صحيح) والموظف المقيّد يُمنع (403)
+ 11) اللغة تتبع الحساب (Task 50): بمتصفح جديد تمامًا (صفر كوكيز) بعد الدخول
+     مباشرة تُفرش واجهة بلغة الحساب من قاعدة البيانات — بلا إعادة تحميل
 """
 import sys
 import time
@@ -368,42 +370,96 @@ def main():
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
         page.evaluate("document.cookie = 'pharmacy_locale=ar; path=/; max-age=31536000; samesite=lax'")
 
-        # ============ 10) معلومات الصيدلية (Task 49) ============
+        # ============ 10) إدارة الفروع (Task 50) ============
         ps = ls
-        prof = ps.get(f"{BASE}/pharmacy/profile", timeout=10)
-        check("10a. GET profile للمالك ينجح ويعيد الحقول", prof.status_code == 200
-              and all(k in prof.json().get("data", {}) for k in
-                      ("name", "phone", "email", "address", "city", "branch_name")),
-              str(prof.status_code))
-        original = prof.json().get("data", {})
-        check("10b. اسم الفرع الحالي بيانات مخزنة (الفرع الرئيسي)",
-              original.get("branch_name") == "الفرع الرئيسي", str(original.get("branch_name")))
+        blist = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        main_branch = next((b for b in blist if b.get("is_main")), None)
+        check("10a. قائمة الفروع تعيد الفرع الرئيسي بعلامة is_main",
+              main_branch is not None and main_branch.get("name") == "الفرع الرئيسي",
+              str([b.get("name") for b in blist]))
 
-        payload = dict(original)
-        payload.update({"branch_name": "فرع التجارب E2E", "phone": "01000000001"})
-        put = ps.put(f"{BASE}/pharmacy/profile", json=payload, headers=csrf_header(ps), timeout=10)
-        check("10c. PUT profile يحدّث اسم الفرع والهاتف (200)",
-              put.status_code == 200 and put.json().get("data", {}).get("branch_name") == "فرع التجارب E2E",
-              str(put.status_code))
-        ctx = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
-        check("10d. /pharmacy/context يعكس الاسم الجديد فورًا",
-              (ctx.get("branch") or {}).get("name") == "فرع التجارب E2E",
-              str((ctx.get("branch") or {}).get("name")))
+        create = ps.post(f"{BASE}/pharmacy/branches", json={
+            "name": "فرع التجارب E2E", "city": "الجيزة", "phone": "01111111112",
+        }, headers=csrf_header(ps), timeout=10)
+        new_id = create.json().get("data", {}).get("id") if create.status_code == 201 else None
+        check("10b. POST يضيف فرعاً جديداً كلياً (201)", new_id is not None, str(create.status_code))
+        blist2 = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        check("10c. الفرع الجديد يظهر في القائمة (غير رئيسي)",
+              any(b.get("id") == new_id and b.get("is_main") is False for b in blist2))
 
-        bad = dict(original); bad["name"] = "   "
-        check("10e. PUT باسم صيدلية فارغ → 400",
-              ps.put(f"{BASE}/pharmacy/profile", json=bad, headers=csrf_header(ps), timeout=10).status_code == 400)
-        bad = dict(original); bad["email"] = "not-an-email"
-        check("10f. PUT ببريد غير صحيح → 400",
-              ps.put(f"{BASE}/pharmacy/profile", json=bad, headers=csrf_header(ps), timeout=10).status_code == 400)
-        check("10g. الموظف المقيّد يُمنع من تعديل معلومات الصيدلية (403)",
-              es.put(f"{BASE}/pharmacy/profile", json=original, headers=csrf_header(es), timeout=10).status_code == 403)
+        put_new = ps.put(f"{BASE}/pharmacy/branches/{new_id}", json={
+            "name": "فرع التجارب E2E", "city": "الإسكندرية",
+        }, headers=csrf_header(ps), timeout=10)
+        check("10d. PUT يعدّل بيانات الفرع الجديد (200)",
+              put_new.status_code == 200 and put_new.json().get("data", {}).get("city") == "الإسكندرية",
+              str(put_new.status_code))
 
-        restore = ps.put(f"{BASE}/pharmacy/profile", json=original, headers=csrf_header(ps), timeout=10)
-        back = ps.get(f"{BASE}/pharmacy/profile", timeout=10).json().get("data", {})
-        check("10h. استعادة البيانات الأصلية بالكامل",
-              restore.status_code == 200 and back == original,
-              str(back))
+        ctx_before = ps.get(f"{BASE}/pharmacy/context", timeout=10).json().get("pharmacy", {})
+        put_main = ps.put(f"{BASE}/pharmacy/branches/{main_branch['id']}", json={
+            "name": "الفرع الرئيسي", "pharmacy_name": "صيدلية التجارب الموحدة",
+            "phone": ctx_before.get("phone") or "01000000000",
+        }, headers=csrf_header(ps), timeout=10)
+        ctx_after = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
+        check("10e. تعديل الفرع الرئيسي يحدّث معلومات الصيدلية (الاسم في السياق)",
+              put_main.status_code == 200
+              and ctx_after.get("pharmacy", {}).get("name") == "صيدلية التجارب الموحدة"
+              and (ctx_after.get("branch") or {}).get("name") == "الفرع الرئيسي",
+              str(ctx_after.get("pharmacy", {}).get("name")))
+
+        bad = {"name": "   "}
+        check("10f. POST باسم فرع فارغ → 400",
+              ps.post(f"{BASE}/pharmacy/branches", json=bad, headers=csrf_header(ps), timeout=10).status_code == 400)
+        bad2 = {"name": "فرع", "email": "not-an-email"}
+        check("10g. PUT ببريد غير صحيح → 400",
+              ps.put(f"{BASE}/pharmacy/branches/{new_id}", json=bad2, headers=csrf_header(ps), timeout=10).status_code == 400)
+        check("10h. الموظف المقيّد يُمنع من إضافة فرع (403)",
+              es.post(f"{BASE}/pharmacy/branches", json={"name": "فرع الموظف"}, headers=csrf_header(es), timeout=10).status_code == 403)
+
+        del_main = ps.delete(f"{BASE}/pharmacy/branches/{main_branch['id']}", headers=csrf_header(ps), timeout=10)
+        check("10i. حذف الفرع الرئيسي محمي (400)", del_main.status_code == 400, str(del_main.status_code))
+        del_new = ps.delete(f"{BASE}/pharmacy/branches/{new_id}", headers=csrf_header(ps), timeout=10)
+        blist3 = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        check("10j. إيقاف الفرع الجديد يخفيه من القائمة",
+              del_new.status_code == 200 and all(b.get("id") != new_id or not b.get("is_active") for b in blist3),
+              str(del_new.status_code))
+
+        # استعادة اسم الصيدلية الأصلي عبر تعديل الفرع الرئيسي
+        restore = ps.put(f"{BASE}/pharmacy/branches/{main_branch['id']}", json={
+            "name": main_branch.get("name") or "الفرع الرئيسي",
+            "pharmacy_name": ctx_before.get("name"),
+            "phone": ctx_before.get("phone"),
+        }, headers=csrf_header(ps), timeout=10)
+        ctx_restored = ps.get(f"{BASE}/pharmacy/context", timeout=10).json().get("pharmacy", {})
+        check("10k. استعادة اسم الصيدلية الأصلي",
+              restore.status_code == 200 and ctx_restored.get("name") == ctx_before.get("name"),
+              str(ctx_restored.get("name")))
+
+        # ============ 11) اللغة تتبع الحساب من متصفح جديد (Task 50) ============
+        ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)
+        fresh = browser.new_context()  # متصفح جديد تمامًا: صفر كوكيز
+        fpage = fresh.new_page()
+        fpage.goto(f"{POS_APP}/login", wait_until="networkidle")
+        fpage.fill('input[type="email"]', OWNER[0])
+        fpage.fill('input[type="password"]', OWNER[1])
+        fpage.click('button[type="submit"]')
+        deadline = time.time() + 25
+        while time.time() < deadline:
+            try:
+                if "/login" not in fpage.evaluate("window.location.href"):
+                    break
+            except Exception:
+                pass
+            time.sleep(0.3)
+        time.sleep(1.0)
+        fresh_body = fpage.locator("body").inner_text()
+        check("11a. متصفح جديد: بعد الدخول مباشرة dir=ltr",
+              fpage.evaluate("document.documentElement.getAttribute('dir')") == "ltr")
+        check("11b. متصفح جديد: الواجهة إنجليزية فورًا من قاعدة البيانات (بلا إعادة تحميل)",
+              "Point of Sale" in fresh_body and "نقطة البيع" not in fresh_body,
+              fresh_body[:120].replace("\n", " | "))
+        fresh.close()
+
+        ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
 
         browser.close()
 

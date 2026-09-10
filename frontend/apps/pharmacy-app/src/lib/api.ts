@@ -154,16 +154,6 @@ export interface PharmacyContext {
   }
 }
 
-/** بيانات الصيدلية القابلة للتعديل (بيانات حقيقية في قاعدة البيانات — لا تتأثر بلغة الواجهة) */
-export interface PharmacyProfile {
-  name: string
-  phone: string
-  email: string
-  address: string
-  city: string
-  branch_name: string
-}
-
 export interface PharmacyInventoryItem {
   batch_id: string
   pharmacy_product_id: string
@@ -267,7 +257,21 @@ export interface PharmacyBranch {
   address: string
   city: string
   is_active: boolean
+  is_main: boolean
   manager_name: string
+  /** اسم الصيدلية الحالي — تعبه واجهة التعديل للفرع الرئيسي من سياق الصيدلية (لا يأتي من الـ API) */
+  pharmacy_name?: string
+}
+
+/** حمولة إضافة/تعديل فرع — pharmacy_name للفرع الرئيسي فقط (اسم الصيدلية) */
+export interface BranchWriteInput {
+  name: string
+  code?: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
+  pharmacy_name?: string
 }
 
 export interface PharmacyAttendance {
@@ -285,15 +289,6 @@ export interface PharmacyAttendance {
 export const pharmacyApi = {
   getContext() {
     return apiFetch<PharmacyContext>('/pharmacy/context')
-  },
-  getProfile() {
-    return apiFetch<{ data: PharmacyProfile }>('/pharmacy/profile')
-  },
-  updateProfile(input: PharmacyProfile) {
-    return apiFetch<{ data: PharmacyProfile }>('/pharmacy/profile', {
-      method: 'PUT',
-      body: JSON.stringify(input),
-    })
   },
   getDashboardStats() {
     return apiFetch<PharmacyDashboardStats>('/pharmacy/dashboard/stats')
@@ -464,6 +459,23 @@ export const pharmacyApi = {
   },
   getBranches() {
     return apiFetch<{ data: PharmacyBranch[]; total: number }>('/pharmacy/branches')
+  },
+  createBranch(input: BranchWriteInput) {
+    return apiFetch<{ data: PharmacyBranch }>('/pharmacy/branches', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+  updateBranch(branchId: string, input: BranchWriteInput) {
+    return apiFetch<{ data: PharmacyBranch }>(`/pharmacy/branches/${branchId}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
+  },
+  deleteBranch(branchId: string) {
+    return apiFetch<{ data: { id: string; is_active: boolean } }>(`/pharmacy/branches/${branchId}`, {
+      method: 'DELETE',
+    })
   },
   getAttendance() {
     return apiFetch<{ data: PharmacyAttendance[]; total: number }>('/pharmacy/attendance')

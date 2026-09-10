@@ -60,7 +60,10 @@ export default function LoginPage() {
 
     try {
       await login({ email: formData.email, password: formData.password });
-      router.replace(redirectPath || "/");
+      // Task 50 — full page load after login: the router cache may hold
+      // pre-login renders; a full navigation guarantees the server renders
+      // the account's stored language straight from the database.
+      window.location.assign(redirectPath || "/");
     } catch (err) {
       if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
         router.replace(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`);

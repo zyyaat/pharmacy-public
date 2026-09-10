@@ -40,7 +40,9 @@ if ! curl -s -o /dev/null --max-time 3 http://localhost:3000/login; then
   for _ in $(seq 1 60); do curl -s -o /dev/null --max-time 3 http://localhost:3000/login && break; sleep 1; done
 fi
 curl -s -o /dev/null --max-time 30 "http://localhost:3000/pos"
-curl -s -o /dev/null --max-time 60 "http://localhost:3000/settings/pharmacy-info"
+curl -s -o /dev/null --max-time 60 "http://localhost:3000/branches"
+curl -s -o /dev/null --max-time 60 "http://localhost:3000/branches/new"
+curl -s -o /dev/null --max-time 60 "http://localhost:3000/settings/database"
 curl -s -o /dev/null -w "main-app: %{http_code}\n" --max-time 30 http://localhost:3000/login
 
 python3 scripts/seed_search_fixtures.py >/dev/null 2>&1
