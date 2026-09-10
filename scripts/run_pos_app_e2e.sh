@@ -29,7 +29,7 @@ pkill -f "next.*3001" 2>/dev/null; sleep 0.5
 (cd frontend/apps/pos-app && PORT=3001 setsid nohup npx next dev -p 3001 > /tmp/posapp.log 2>&1 &)
 for _ in $(seq 1 60); do curl -s -o /dev/null --max-time 3 http://localhost:3001/login && break; sleep 1; done
 # تسخين مسارات التطبيق الجديد (next dev يترجم على الطاير)
-for u in / /pos /sales /login; do
+for u in / /pos /sales /login /inventory /inventory/new /inventory/movements; do
   curl -s -o /dev/null --max-time 60 "http://localhost:3001$u"
 done
 curl -s -o /dev/null -w "pos-app: %{http_code}\n" --max-time 30 http://localhost:3001/login

@@ -3,12 +3,15 @@
 
 السيناريو (يحتاج backend:8080 + pos-app:3001 + DB):
   1) المالك يسجل الدخول على التطبيق الجديد ويُحول تلقائيًا إلى /pos
-  2) قائمته الجانبية: نقطة البيع + سجل البيع فقط (نفس منطق الصلاحيات)
+  2) قائمته الجانبية: نقطة البيع + سجل البيع + المخزون + سجل المخزون (نفس مفاتيح الصلاحيات)
   3) بيع كامل: بحث → سلة → إتمام → إيصال يطبع من التطبيق الجديد
   4) سجل البيع يعرض الفاتورة للمالك
-  5) موظف مقيّد (pos.access + customers.create فقط): يرى نقطة البيع فقط
-  6) /sales بالرابط المباشر → بطاقة «غير متاحة» + الـ API يمنع (403) ويسمح للبيع
-  7) تطبيق الإدارة على 3000 لم يتأثر
+  5) إدارة مخزون كاملة من نفس التطبيق: قائمة التشغيلات → إضافة منتج بمخزون افتتاحي
+     → التحكم في الكمية (+٢ بسبب) → سجل الحركات يظهر تسوية مخزون بالسبب
+  6) موظف مقيّد (pos.access + customers.create فقط): يرى نقطة البيع فقط،
+     /inventory و /sales بالرابط المباشر بطاقة «غير متاحة» والـ API يمنع (403)
+  7) /sales بالرابط المباشر → بطاقة «غير متاحة» + الـ API يمنع (403) ويسمح للبيع
+  8) تطبيق الإدارة على 3000 لم يتأثر
 """
 import sys
 import time
@@ -124,12 +127,15 @@ def main():
             time.sleep(0.25)
         check("1b. التحويل التلقائي إلى /pos بعد الدخول", "/pos" in current_url(page), current_url(page))
 
-        # ============ 2) قائمة المالك: القسمان فقط ============
+        # ============ 2) قائمة المالك: نقطة البيع + سجل البيع + المخزون ============
         time.sleep(1.5)
         sidebar = page.locator("aside").inner_text()
         check("2a. المالك يرى «نقطة البيع»", "نقطة البيع" in sidebar, sidebar[:100])
         check("2b. المالك يرى «سجل البيع»", "سجل البيع" in sidebar)
-        check("2c. لا مخزون/موظفين/تقارير في قائمة POS", "المخزون" not in sidebar and "الموظفون" not in sidebar and "التقارير" not in sidebar)
+        check("2c. المالك يرى «المخزون والأدوية» و «سجل المخزون»",
+              "المخزون والأدوية" in sidebar and "سجل المخزون" in sidebar)
+        check("2d. لا موظفين/تقارير/عملاء في قائمة POS",
+              "الموظفون" not in sidebar and "التقارير" not in sidebar and "العملاء" not in sidebar)
 
         # ============ 3) بيع كامل + إيصال من التطبيق الجديد ============
         receipt = complete_sale_and_print(page, "كاربيما")
@@ -146,14 +152,76 @@ def main():
         check("4a. سجل البيع يفتح ويعرض كروت الفواتير للمالك",
               "INV-" in content and "لا توجد فواتير بعد" not in content)
 
-        # ============ 5) موظف مقيّد: pos.access + customers.create فقط ============
+        # ============ 5) إدارة مخزون كاملة من نفس التطبيق ============
+        PROD = "شراب اختبار آي أو إس"
+        BARCODE = "E2E-POS-INV-1"
+
+        # 5a) قائمة المخزون تعرض تشغيلات الأصناف الموجودة
+        page.goto(f"{POS_APP}/inventory", wait_until="networkidle")
+        deadline = time.time() + 15
+        while time.time() < deadline and "كاربيمازول" not in page.content():
+            time.sleep(0.3)
+        check("5a. قائمة المخزون تفتح وتعرض التشغيلات", "المخزون والأدوية" in page.content() and "كاربيمازول" in page.content())
+
+        # 5b) إضافة منتج جديد بمخزون افتتاحي (نفس نموذج التطبيق الرئيسي)
+        page.goto(f"{POS_APP}/inventory/new", wait_until="networkidle")
+        page.fill('input[name="name"]', PROD)
+        page.fill('input[name="barcode"]', BARCODE)
+        page.fill('input[name="cost_price"]', "40")
+        page.fill('input[name="selling_price"]', "55")
+        page.fill('input[name="initial_boxes"]', "3")
+        page.fill('input[name="batch_number"]', "B-E2E-1")
+        page.fill('input[name="expiry_date"]', "2030-12-31")
+        page.click('button[type="submit"]')
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            if "/inventory/new" not in current_url(page) and PROD in page.content():
+                break
+            time.sleep(0.3)
+        # نقصّر القائمة بالباركود لضمان صف واحد
+        page.fill('input[placeholder="بحث بالاسم أو الباركود"]', BARCODE)
+        deadline = time.time() + 10
+        while time.time() < deadline and PROD not in page.content():
+            time.sleep(0.3)
+        row_text = page.locator("tbody tr", has_text=PROD).first.inner_text()
+        check("5b. منتج جديد بمخزون افتتاحي ٣ عبوات ظهر في القائمة",
+              "عبوة" in row_text and "٣" in row_text, row_text[:120])
+
+        # 5c) التحكم في المخزون: +٢ عبوة بسبب «جرد دوري»
+        page.locator("tbody tr", has_text=PROD).first.locator('button:has-text("مخزون")').click()
+        page.wait_for_selector("text=التحكم في المخزون", timeout=8000)
+        page.fill('input[type="number"]', "2")
+        page.fill('input[placeholder^="تالف"]', "جرد دوري")
+        page.click('button:has-text("إضافة للمخزون")')
+        deadline = time.time() + 15
+        saved = False
+        while time.time() < deadline:
+            body = page.locator("tbody tr", has_text=PROD).first.inner_text()
+            if "التحكم في المخزون" not in page.content() and "٥" in body:
+                saved = True
+                break
+            time.sleep(0.4)
+        check("5c. إضافة ٢ عبوة نجحت — القائمة تعرض ٥ عبوات", saved)
+
+        # 5d) سجل حركات المخزون: شراء افتتاحي + تسوية مخزون بالسبب
+        page.goto(f"{POS_APP}/inventory/movements", wait_until="networkidle")
+        page.fill('input[placeholder^="ابحث باسم الدواء"]', "B-E2E-1")
+        page.click('button:has-text("تطبيق")')
+        deadline = time.time() + 15
+        while time.time() < deadline and "تسوية مخزون" not in page.content():
+            time.sleep(0.3)
+        moves_content = page.content()
+        check("5d. سجل المخزون يعرض تسوية مخزون بسبب «جرد دوري»",
+              "تسوية مخزون" in moves_content and "جرد دوري" in moves_content and "B-E2E-1" in moves_content)
+
+        # ============ 6) موظف مقيّد: pos.access + customers.create فقط ============
         s, status = owner_api_session()
-        check("5a. جلسة مالك للـ API", status == 200)
+        check("6a. جلسة مالك للـ API", status == 200)
         r = s.post(f"{BASE}/pharmacy/employees", headers=csrf_header(s),
                    json={"first_name": "كاشير", "last_name": "نقطة البيع", "email": STAFF[0],
                          "password": STAFF[1], "permissions": ["pos.access", "customers.create"]},
                    timeout=10)
-        check("5b. إنشاء موظف POS فقط عبر API", r.status_code in (200, 201), r.text[:120])
+        check("6b. إنشاء موظف POS فقط عبر API", r.status_code in (200, 201), r.text[:120])
 
         staff_page = browser.new_page()
         staff_page.goto(f"{POS_APP}/login", wait_until="networkidle")
@@ -163,13 +231,14 @@ def main():
         deadline = time.time() + 25
         while time.time() < deadline and "/pos" not in current_url(staff_page):
             time.sleep(0.25)
-        check("5c. الموظف يصل نقطة البيع بعد دخوله", "/pos" in current_url(staff_page), current_url(staff_page))
+        check("6c. الموظف يصل نقطة البيع بعد دخوله", "/pos" in current_url(staff_page), current_url(staff_page))
         time.sleep(1.5)
         staff_sidebar = staff_page.locator("aside").inner_text()
-        check("5d. الموظف يرى «نقطة البيع» فقط — «سجل البيع» مخفي",
-              "نقطة البيع" in staff_sidebar and "سجل البيع" not in staff_sidebar, staff_sidebar[:100])
+        check("6d. الموظف يرى «نقطة البيع» فقط — سجل البيع والمخزون مخفيان",
+              "نقطة البيع" in staff_sidebar and "سجل البيع" not in staff_sidebar and "المخزون" not in staff_sidebar,
+              staff_sidebar[:120])
 
-        # ============ 6) المسار الممنوع + الفرض في الـ API ============
+        # ============ 7) المسارات الممنوعة + الفرض في الـ API ============
         staff_page.goto(f"{POS_APP}/sales", wait_until="networkidle")
         blocked = False
         deadline = time.time() + 10
@@ -178,15 +247,29 @@ def main():
                 blocked = True
                 break
             time.sleep(0.3)
-        check("6a. /sales بالرابط المباشر → بطاقة «غير متاحة لحسابك»", blocked)
+        check("7a. /sales بالرابط المباشر → بطاقة «غير متاحة لحسابك»", blocked)
+
+        staff_page.goto(f"{POS_APP}/inventory", wait_until="networkidle")
+        blocked = False
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if "غير متاحة لحسابك" in staff_page.content():
+                blocked = True
+                break
+            time.sleep(0.3)
+        check("7b. /inventory بالرابط المباشر → بطاقة «غير متاحة لحسابك»", blocked)
 
         es = requests.Session()
         estatus = es.post(f"{BASE}/auth/pharmacy/login", json={"email": STAFF[0], "password": STAFF[1]}, timeout=10).status_code
-        check("6b. دخول الموظف للـ API", estatus == 200)
-        check("6c. API يسمح بحث نقطة البيع للموظف (200)",
+        check("7c. دخول الموظف للـ API", estatus == 200)
+        check("7d. API يسمح بحث نقطة البيع للموظف (200)",
               es.get(f"{BASE}/pharmacy/pos/search?q=%D8%A8%D8%A7%D9%86", timeout=10).status_code == 200)
-        check("6d. API يمنع سجل البيع عن الموظف (403)",
+        check("7e. API يمنع سجل البيع عن الموظف (403)",
               es.get(f"{BASE}/pharmacy/pos/sales", timeout=10).status_code == 403)
+        check("7f. API يمنع المخزون عن الموظف (403)",
+              es.get(f"{BASE}/pharmacy/inventory", timeout=10).status_code == 403)
+        check("7g. API يمنع سجل حركات المخزون عن الموظف (403)",
+              es.get(f"{BASE}/pharmacy/inventory/movements", timeout=10).status_code == 403)
 
         # نقطة البيع تظل تعمل للموظف فعلًا
         staff_page.goto(f"{POS_APP}/pos", wait_until="networkidle")
@@ -196,11 +279,11 @@ def main():
         si.fill("")
         staff_page.keyboard.type("بانادول", delay=50)
         opts = staff_page.locator('#pos-search-listbox [role="option"]')
-        check("6e. الموظف يبيع فعلًا في نقطة البيع (اقتراحات ظهرت)", wait_options(opts))
+        check("7h. الموظف يبيع فعلًا في نقطة البيع (اقتراحات ظهرت)", wait_options(opts))
 
-        # ============ 7) التطبيق الرئيسي لم يتأثر ============
+        # ============ 8) التطبيق الرئيسي لم يتأثر ============
         r = requests.get(f"{MAIN_APP}/login", timeout=15)
-        check("7a. تطبيق الإدارة على 3000 سليم", r.status_code == 200)
+        check("8a. تطبيق الإدارة على 3000 سليم", r.status_code == 200)
 
         browser.close()
 

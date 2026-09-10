@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, History, LogOut, ReceiptText, X } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, History, LogOut, Package, ReceiptText, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,12 +13,15 @@ import { SIDEBAR_PERMISSION_ROUTES } from '@/lib/permissions'
 
 /**
  * قائمة تطبيق نقطة البيع — نفس نمط وقواعد التطبيق الرئيسي:
- * كل عنصر يخضع لنفس مفاتيح الصلاحيات (pos.access / sales.view)،
- * وهيكل عظمي حتى تحميل الصلاحيات كي لا يلمس الموظف المقيّد الممنوع.
+ * كل عنصر يخضع لنفس مفاتيح الصلاحيات (pos.access / sales.view /
+ * inventory.view / inventory.movements.view)، وهيكل عظمي حتى تحميل
+ * الصلاحيات كي لا يلمس الموظف المقيّد الممنوع.
  */
 const items = [
   { title: 'نقطة البيع', href: '/pos', icon: ReceiptText },
   { title: 'سجل البيع', href: '/sales', icon: History },
+  { title: 'المخزون والأدوية', href: '/inventory', icon: Package },
+  { title: 'سجل المخزون', href: '/inventory/movements', icon: ArrowLeftRight },
 ]
 
 /** الصلاحية المطلوبة لظهور كل عنصر في القائمة (مرتبة من الأكثر تحديدًا). */
@@ -108,10 +111,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
       )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        <p className={cn('mb-2 text-xs font-medium text-muted-foreground', collapsed ? 'text-center' : 'px-3')}>{collapsed ? '•••' : 'نقطة البيع'}</p>
+        <p className={cn('mb-2 text-xs font-medium text-muted-foreground', collapsed ? 'text-center' : 'px-3')}>{collapsed ? '•••' : 'الأقسام'}</p>
         {!ready && (
           <div className="space-y-2" aria-hidden="true">
-            {Array.from({ length: 2 }, (_, i) => (
+            {Array.from({ length: items.length }, (_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted/60" />
             ))}
           </div>
