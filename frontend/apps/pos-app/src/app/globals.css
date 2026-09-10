@@ -1,0 +1,275 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.003 160);
+  --foreground: oklch(0.145 0.01 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.01 160);
+  --primary: oklch(0.55 0.17 160);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0.01 160);
+  --secondary-foreground: oklch(0.205 0.01 160);
+  --muted: oklch(0.96 0.004 160);
+  --muted-foreground: oklch(0.52 0.01 160);
+  --accent: oklch(0.96 0.01 160);
+  --accent-foreground: oklch(0.205 0.01 160);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.91 0.01 160);
+  --input: oklch(0.91 0.01 160);
+  --ring: oklch(0.55 0.17 160);
+  --chart-1: oklch(0.55 0.17 160);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+}
+
+.dark {
+  --background: oklch(0.12 0.01 160);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.17 0.012 160);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.67 0.18 160);
+  --primary-foreground: oklch(0.12 0.01 160);
+  --secondary: oklch(0.21 0.015 160);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.21 0.015 160);
+  --muted-foreground: oklch(0.68 0.01 160);
+  --accent: oklch(0.22 0.018 160);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.67 0.18 160);
+  --chart-1: oklch(0.65 0.2 160);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.45s ease-out both;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in oklch, currentColor 25%, transparent); border-radius: 3px; }
+
+/* ---------------------------------------------------------------------------
+   الطباعة / تصدير PDF — تقارير بهوية الموقع
+   - @page A4 بهوامش ثابتة
+   - إخفاء واجهة النظام (.print-hidden) وإبقاء ورقة التقرير فقط
+   - تكرار رأس الجدول في كل صفحة ومنع قطع الصفوف
+   - print-color-adjust: exact للحفاظ على ألوان الهوية (الشارات والرسوم)
+--------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-sheet {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img {
+    break-inside: avoid;
+  }
+
+  /* الروابط تبقى بنص الموقع بلا إضافات */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
+
+/* عند الطباعة: فرض الثيم الفاتح (ورق) حتى في الوضع الداكن — نفس الهوية
+   الخضراء والألوان المميزة، لكن بمحتوى ورقي موفر للحبر وواضح للطباعة. */
+@media print {
+  html,
+  html.dark {
+    --background: oklch(0.985 0.003 160);
+    --foreground: oklch(0.145 0.01 160);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0.01 160);
+    --primary: oklch(0.55 0.17 160);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.96 0.01 160);
+    --secondary-foreground: oklch(0.205 0.01 160);
+    --muted: oklch(0.96 0.004 160);
+    --muted-foreground: oklch(0.52 0.01 160);
+    --accent: oklch(0.96 0.01 160);
+    --accent-foreground: oklch(0.205 0.01 160);
+    --destructive: oklch(0.58 0.22 25);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.91 0.01 160);
+    --input: oklch(0.91 0.01 160);
+    --ring: oklch(0.55 0.17 160);
+  }
+
+  /* ضغط المسافات قليلاً ليستقر التقرير في أقل عدد صفحات */
+  .print-sheet > header {
+    padding: 14px 16px !important;
+  }
+  .print-sheet > div:nth-of-type(1) {
+    padding: 16px !important;
+    gap: 18px !important;
+  }
+  .print-sheet .grid > div {
+    padding: 12px !important;
+  }
+  .report-chart {
+    height: 130px !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   إصلاح اقتطاع أعمدة الجداول في PDF:
+   حاويات overflow-x-auto تقصّ ما يفيض عن عرض الورقة عند الطباعة، والجداول
+   العريضة (8 أعمدة مثل تفاصيل حركات المخزون) كانت أعرض من A4 فيُقتطع آخر
+   عمود (الفرع/الحالة/المسترجع). الحل: تحرير الأعمدة من عروض الشاشة الثابتة،
+   السماح بلفّ النصوص، تصغير خط الجدول وحشوه، وإلغاء قصّ الحاويات —
+   فيستوعب الجدول كامل عرض الورقة دائماً أيًّا كان عدد أعمدته.
+--------------------------------------------------------------------------- */
+@media print {
+  /* لا قصّاً داخل ورقة التقرير أو حاويات الجداول */
+  .print-sheet,
+  .print-sheet [class*='overflow-x'] {
+    overflow: visible !important;
+  }
+
+  .print-sheet table {
+    width: 100% !important;
+    font-size: 10px !important;
+  }
+
+  /* تحرير الأعمدة: بلا عروض ثابتة ولا حد أقصى، وحشو أضيق يستوعب الأعمدة */
+  .print-sheet table :is(th, td) {
+    width: auto !important;
+    max-width: none !important;
+    padding: 4px 5px !important;
+    font-size: inherit !important;
+    overflow-wrap: break-word;
+  }
+
+  /* توحيد حجم النص داخل الخلايا (شارات وتواريخ صغيرة داخلها) */
+  .print-sheet table :is(th, td) :is(span, p, div, strong, b, em) {
+    font-size: inherit !important;
+  }
+
+  /* الأيقونات داخل الجداول تصغر بتناسب مع النص */
+  .print-sheet table :is(th, td) svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  /* الأسماء المقتطعة بـ truncate على الشاشة تُطبع كاملة بلفّها في الورقة */
+  .print-sheet table .truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+
+/* ==========================================================================
+   طباعة الإيصال الحراري (مدير الطباعة ReceiptPrinter)
+   الإيصال يُركّب في بوابة #receipt-print-host خارج هيكل التطبيق، وعند فتح
+   نافذة الطباعة نخفي كل أبناء body ما عدا البوابة — فتخرج الورقة إيصالاً
+   نظيفاً بلا شريط جانبي أو رؤوس، بينما طباعة التقارير (.print-sheet) لا
+   تتأثر لأنها لا تضيف printing-receipt على body.
+   ========================================================================== */
+#receipt-print-host {
+  display: none;
+}
+
+@media print {
+  body.printing-receipt > *:not(#receipt-print-host) {
+    display: none !important;
+  }
+  body.printing-receipt #receipt-print-host {
+    display: block !important;
+  }
+  body.printing-receipt {
+    background: #fff !important;
+  }
+  /* إلغاء أي تباعد من الوسوم الافتراضية حتى يتكفل القالب بكل المسافات */
+  body.printing-receipt #receipt-print-host > div {
+    margin: 0;
+  }
+}

@@ -1,0 +1,341 @@
+/* ============================================================
+   BrandSplash — شاشة افتتاحية بهوية التطبيق
+   اهتزاز عصري للأيقونة + توهج + نبض + نقاط تحميل
+   الألوان كلها متحكم فيها من متغيرات CSS لسهولة rebrand
+   ============================================================ */
+
+.bs-root {
+  /* ===== هوية Pharmacy OS — عدّل هنا فقط ===== */
+  --bs-brand: #00d084;
+  --bs-bg-1: #04150d;
+  --bs-bg-2: #083f2b;
+  --bs-bg-3: #0a5c3d;
+  --bs-accent: var(--bs-brand);
+  --bs-accent-soft: #8ff0cd;
+  --bs-text: #ecfdf5;
+  --bs-text-dim: rgba(236, 253, 245, 0.72);
+
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--bs-bg-3) 0%, transparent 55%),
+    radial-gradient(100% 80% at 85% 100%, var(--bs-bg-2) 0%, transparent 60%),
+    linear-gradient(160deg, var(--bs-bg-1) 0%, #020b06 100%);
+  transition: opacity 0.5s ease, transform 0.5s ease, filter 0.5s ease,
+    visibility 0.5s;
+}
+
+/* نسخة جوه حاوية (موبايل/بريفيو) بدل ملء الشاشة */
+.bs-root.bs-inline {
+  position: absolute;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+/* حالة الخروج: تلاشي ناعم مع تكبير وبلور */
+.bs-root.bs-exiting {
+  opacity: 0;
+  transform: scale(1.06);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+/* ===== كرات ضوئية تطفو في الخلفية ===== */
+.bs-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+}
+.bs-orb-1 {
+  width: 320px;
+  height: 320px;
+  top: -80px;
+  right: -60px;
+  background: rgba(0, 208, 132, 0.4);
+  animation: bsFloat1 13s ease-in-out infinite alternate;
+}
+.bs-orb-2 {
+  width: 260px;
+  height: 260px;
+  bottom: -70px;
+  left: -50px;
+  background: rgba(0, 208, 132, 0.26);
+  animation: bsFloat2 17s ease-in-out infinite alternate;
+}
+.bs-orb-3 {
+  width: 180px;
+  height: 180px;
+  bottom: 22%;
+  right: 12%;
+  background: rgba(0, 208, 132, 0.2);
+  animation: bsFloat1 11s 2s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes bsFloat1 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-50px, 45px) scale(1.18);
+  }
+}
+@keyframes bsFloat2 {
+  from {
+    transform: translate(0, 0) scale(1.1);
+  }
+  to {
+    transform: translate(55px, -40px) scale(0.92);
+  }
+}
+
+/* ===== منصة الأيقونة ===== */
+.bs-stage {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: bsEnter 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* هالة توهج تتنفس مع الاهتزاز */
+.bs-glow {
+  position: absolute;
+  inset: -34px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(0, 208, 132, 0.5) 0%,
+    rgba(0, 208, 132, 0.14) 45%,
+    transparent 70%
+  );
+  animation: bsGlow 2.6s ease-in-out infinite;
+}
+
+/* حلقة سونار تتمدد كل دورة */
+.bs-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(0, 208, 132, 0.6);
+  animation: bsPing 2.6s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+.bs-ring-2 {
+  animation-delay: 1.3s;
+}
+
+/* الأيقونة نفسها — الاهتزاز العصري (اهتزاز مخمد ثم راحة) */
+.bs-icon {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 26px;
+  overflow: hidden;
+  box-shadow:
+    0 22px 44px -14px rgba(2, 11, 6, 0.9),
+    0 6px 18px -6px rgba(0, 208, 132, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  animation: bsWiggle 2.6s cubic-bezier(0.45, 0.05, 0.35, 1) infinite;
+  will-change: transform;
+}
+.bs-icon img,
+.bs-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+@keyframes bsWiggle {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  7% {
+    transform: rotate(-10deg) scale(1.06);
+  }
+  17% {
+    transform: rotate(8deg) scale(1.06);
+  }
+  27% {
+    transform: rotate(-5.5deg) scale(1.04);
+  }
+  36% {
+    transform: rotate(3.5deg) scale(1.02);
+  }
+  44% {
+    transform: rotate(-1.2deg) scale(1);
+  }
+  50% {
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes bsGlow {
+  0%,
+  50%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+  9%,
+  20% {
+    opacity: 0.85;
+    transform: scale(1.14);
+  }
+}
+
+@keyframes bsPing {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.6;
+  }
+  65%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes bsEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.55) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ===== نسخة النبض الناعم (بديل هادئ) ===== */
+.bs-root.bs-variant-pulse .bs-icon {
+  animation: bsPulse 2.4s ease-in-out infinite;
+}
+.bs-root.bs-variant-pulse .bs-glow {
+  animation: bsGlowSoft 2.4s ease-in-out infinite;
+}
+.bs-root.bs-variant-pulse .bs-ring {
+  animation-duration: 2.4s;
+}
+
+@keyframes bsPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes bsGlowSoft {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+/* ===== اسم التطبيق ===== */
+.bs-title {
+  margin: 34px 0 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--bs-text);
+  text-shadow: 0 2px 18px rgba(0, 208, 132, 0.4);
+  animation: bsFadeUp 0.7s 0.18s ease both;
+}
+
+.bs-subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--bs-text-dim);
+  animation: bsFadeUp 0.7s 0.3s ease both;
+}
+
+@keyframes bsFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== نقاط التحميل ===== */
+.bs-dots {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  animation: bsFadeUp 0.7s 0.42s ease both;
+}
+.bs-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background: var(--bs-accent);
+  animation: bsDot 1.3s ease-in-out infinite;
+}
+.bs-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.bs-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes bsDot {
+  0%,
+  65%,
+  100% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0.4;
+  }
+  32% {
+    transform: translateY(-8px) scale(1.12);
+    opacity: 1;
+  }
+}
+
+/* ===== احترام تقليل الحركة ===== */
+@media (prefers-reduced-motion: reduce) {
+  .bs-icon,
+  .bs-glow,
+  .bs-ring,
+  .bs-orb,
+  .bs-dot {
+    animation: none !important;
+  }
+  .bs-glow {
+    opacity: 0.45;
+  }
+  .bs-ring {
+    opacity: 0;
+  }
+  .bs-dot {
+    opacity: 0.7;
+  }
+  .bs-stage,
+  .bs-title,
+  .bs-subtitle,
+  .bs-dots {
+    animation: bsFadeUp 0.4s ease both !important;
+  }
+}
