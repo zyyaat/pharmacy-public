@@ -11,6 +11,7 @@ import {
 } from '@/lib/api'
 import { formatPiastres, parseEGPToPiastres } from '@/lib/money'
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
+import { Can } from '@/components/permissions/gate'
 
 function entryDate(iso: string) {
   return new Date(iso).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -151,9 +152,11 @@ export default function CustomersPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">العملاء</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => setCreating((value) => !value)}>
-                <Plus className="h-4 w-4" /> عميل جديد
-              </Button>
+              <Can perm="customers.create">
+                <Button variant="outline" size="sm" onClick={() => setCreating((value) => !value)}>
+                  <Plus className="h-4 w-4" /> عميل جديد
+                </Button>
+              </Can>
             </div>
             <CardDescription>ابحث بالاسم أو رقم الهاتف</CardDescription>
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث…" aria-label="بحث في العملاء" />
@@ -266,6 +269,7 @@ export default function CustomersPage() {
                 )}
 
                 {/* تسجيل دفعة */}
+                <Can perm="customers.payments">
                 <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
                   <p className="text-sm font-bold">تسجيل دفعة سداد</p>
                   <div className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
@@ -286,6 +290,7 @@ export default function CustomersPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">المبلغ بالجنيه ويُحوَّل داخلياً إلى قروش — يظهر في الكشف فوراً ويخصم من رصيد العميل.</p>
                 </div>
+                </Can>
               </>
             )}
           </CardContent>

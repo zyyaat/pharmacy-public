@@ -6,6 +6,7 @@ import { Package, PackagePlus, Pencil, Plus, Search, ShoppingCart } from 'lucide
 import { pharmacyApi, type PharmacyInventoryItem } from '@/lib/api'
 import { extraStrengthLabel } from '@/lib/product'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Modal } from '@/components/ui'
+import { Can, RequirePermission, useAccess } from '@/components/permissions/gate'
 
 const statusLabels: Record<string, { label: string; variant: 'destructive' | 'warning' | 'secondary' | 'success' | 'outline' }> = {
   out_of_stock: { label: 'نفذ', variant: 'destructive' },
@@ -128,6 +129,11 @@ function AdjustStockModal({
 }
 
 export default function InventoryPage() {
+  // أعمدة/أزرار الإجراءات تختفي كليًا عمن لا يملك أي صلاحية تعديل
+  const { allowed } = useAccess()
+  const canManageProducts = allowed('inventory.manage_products')
+  const canAdjustStock = allowed('inventory.adjust')
+  const canSeeActions = canManageProducts || canAdjustStock
   const [items, setItems] = useState<PharmacyInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -156,6 +162,7 @@ export default function InventoryPage() {
   )
 
   return (
+    <RequirePermission anyOf={['inventory.view']}>
     <div className="mx-auto max-w-[1500px] space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -163,8 +170,12 @@ export default function InventoryPage() {
           <p className="mt-2 text-sm text-muted-foreground">البيانات الفعلية للصيدلية الحالية فقط</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline"><Link href="/pos"><ShoppingCart className="h-4 w-4" />فتح نقطة البيع</Link></Button>
-          <Button asChild><Link href="/inventory/new"><Plus className="h-4 w-4" />إضافة منتج</Link></Button>
+          <Can perm="pos.access">
+            <Button asChild variant="outline"><Link href="/pos"><ShoppingCart className="h-4 w-4" />فتح نقطة البيع</Link></Button>
+          </Can>
+          <Can perm="inventory.manage_products">
+            <Button asChild><Link href="/inventory/new"><Plus className="h-4 w-4" />إضافة منتج</Link></Button>
+          </Can>
         </div>
       </div>
 
@@ -184,7 +195,7 @@ export default function InventoryPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-right text-sm">
                 <thead className="border-b text-xs text-muted-foreground">
-                  <tr><th className="p-3">المنتج</th><th className="p-3">التشغيلة</th><th className="p-3">الفرع</th><th className="p-3">الكمية</th><th className="p-3">الصلاحية</th><th className="p-3">الحالة</th><th className="p-3">الإجراءات</th></tr>
+                  <tr><th className="p-3">المنتج</th><th className="p-3">التشغيلة</th><th className="p-3">الفرع</th><th className="p-3">الكمية</th><th className="p-3">الصلاحية</th><th className="p-3">الحالة</th>{canSeeActions && <th className="p-3">الإجراءات</th>}</tr>
                 </thead>
                 <tbody>
                   {filteredItems.map((item) => {
@@ -210,18 +221,24 @@ export default function InventoryPage() {
                           {statusLabels[item.status]?.label ?? item.status}
                         </Badge>
                       </td>
+                      {canSeeActions && (
                       <td className="p-3">
                         <div className="flex gap-1.5">
-                          <Button asChild variant="outline" size="sm" title="تعديل بيانات المنتج">
-                            <Link href={`/inventory/edit/${item.pharmacy_product_id}`}>
-                              <Pencil className="h-3.5 w-3.5" />تعديل
-                            </Link>
-                          </Button>
-                          <Button variant={item.quantity <= 0 ? 'default' : 'ghost'} size="sm" onClick={() => setAdjustTarget(item)} title="التحكم في مخزون التشغيلة">
-                            <PackagePlus className="h-3.5 w-3.5" />مخزون
-                          </Button>
+                          {canManageProducts && (
+                            <Button asChild variant="outline" size="sm" title="تعديل بيانات المنتج">
+                              <Link href={`/inventory/edit/${item.pharmacy_product_id}`}>
+                                <Pencil className="h-3.5 w-3.5" />تعديل
+                              </Link>
+                            </Button>
+                          )}
+                          {canAdjustStock && (
+                            <Button variant={item.quantity <= 0 ? 'default' : 'ghost'} size="sm" onClick={() => setAdjustTarget(item)} title="التحكم في مخزون التشغيلة">
+                              <PackagePlus className="h-3.5 w-3.5" />مخزون
+                            </Button>
+                          )}
                         </div>
                       </td>
+                      )}
                     </tr>
                     )
                   })}
@@ -236,5 +253,6 @@ export default function InventoryPage() {
         <AdjustStockModal item={adjustTarget} onClose={() => setAdjustTarget(null)} onSaved={load} />
       )}
     </div>
+    </RequirePermission>
   )
 }

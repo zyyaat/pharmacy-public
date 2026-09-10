@@ -18,6 +18,7 @@ import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 import { extraStrengthLabel } from '@/lib/product'
 import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
 import { saleDetailToReceipt } from '@/components/pos/receipt-template'
+import { RequirePermission, useAccess } from '@/components/permissions/gate'
 
 type CartLine = {
   product: POSProduct
@@ -70,6 +71,10 @@ function lineTotalPiastres(line: CartLine): number {
 }
 
 export default function POSPage() {
+  // البيع الآجل يحتاج بحث/اختيار عملاء — بلا صلاحية العرض نخفي الخيار كليًا
+  const { allowed } = useAccess()
+  const canUseCreditSales = allowed('customers.view')
+  const canAddCustomers = allowed('customers.create')
   const [cart, setCart] = useState<CartLine[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -147,7 +152,7 @@ export default function POSPage() {
 
   // بحث العملاء عند تفعيل البيع الآجل (مع تهدئة بسيطة للكتابة)
   useEffect(() => {
-    if (paymentType !== 'credit' || selectedCustomer || creatingCustomer) {
+    if (!canUseCreditSales || paymentType !== 'credit' || selectedCustomer || creatingCustomer) {
       setCustomerResults([])
       return
     }
@@ -161,7 +166,7 @@ export default function POSPage() {
       controller.abort()
       clearTimeout(timer)
     }
-  }, [paymentType, customerSearch, selectedCustomer, creatingCustomer])
+  }, [canUseCreditSales, paymentType, customerSearch, selectedCustomer, creatingCustomer])
 
   async function addNewCustomer() {
     const name = newCustomerName.trim()
@@ -308,6 +313,7 @@ export default function POSPage() {
   }
 
   return (
+    <RequirePermission anyOf={['pos.access']}>
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">نقطة البيع</h1>
@@ -442,13 +448,15 @@ export default function POSPage() {
                     value={paymentType}
                     onValueChange={(value) => setPaymentType(value as 'cash' | 'credit')}
                     aria-label="طريقة الدفع"
-                    options={[{ value: 'cash', label: 'نقدي' }, { value: 'credit', label: 'آجل (على الحساب)' }]}
+                    options={canUseCreditSales
+                      ? [{ value: 'cash', label: 'نقدي' }, { value: 'credit', label: 'آجل (على الحساب)' }]
+                      : [{ value: 'cash', label: 'نقدي' }]}
                   />
                 </div>
               </div>
 
               {/* اختيار العميل للبيع الآجل */}
-              {paymentType === 'credit' && (
+              {paymentType === 'credit' && canUseCreditSales && (
                 <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
                   {selectedCustomer ? (
                     <div className="flex items-center justify-between gap-3">
@@ -503,9 +511,11 @@ export default function POSPage() {
                       {customerResults.length === 0 && customerSearch.trim() && (
                         <p className="text-xs text-muted-foreground">لا نتائج مطابقة — يمكنك إضافة عميل جديد.</p>
                       )}
-                      <button type="button" className="text-xs font-bold text-primary hover:underline" onClick={() => setCreatingCustomer(true)}>
-                        + إضافة عميل جديد
-                      </button>
+                      {canAddCustomers && (
+                        <button type="button" className="text-xs font-bold text-primary hover:underline" onClick={() => setCreatingCustomer(true)}>
+                          + إضافة عميل جديد
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -546,5 +556,6 @@ export default function POSPage() {
       {/* مدير طباعة الإيصال — يفتح نافذة الطباعة على الإعدادات المحفوظة */}
       <ReceiptPrinter job={printJob} settings={printSettings} onDone={() => setPrintJob(null)} />
     </div>
+    </RequirePermission>
   )
 }

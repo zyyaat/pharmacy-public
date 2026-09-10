@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Store } from 'lucide-react'
 import { pharmacyApi, type PharmacyBranch } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 export default function BranchesPage() {
   const [items, setItems] = useState<PharmacyBranch[]>([])
@@ -18,6 +19,7 @@ export default function BranchesPage() {
   }, [])
 
   return (
+    <RequirePermission anyOf={['branches.view']}>
     <div className="mx-auto max-w-[1500px] space-y-6">
       <div><h1 className="text-2xl font-bold">الفروع</h1><p className="mt-2 text-sm text-muted-foreground">فروع الصيدلية الحالية فقط</p></div>
       <Card>
@@ -30,5 +32,6 @@ export default function BranchesPage() {
         </CardContent>
       </Card>
     </div>
+    </RequirePermission>
   )
 }

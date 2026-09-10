@@ -5,11 +5,14 @@ import { AlertTriangle, BarChart3, CalendarCheck, Package, Pill, Plus, TrendingU
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { usePharmacyDashboard } from '@/hooks/usePharmacyDashboard'
 import { availabilityAr, boxWordAr } from '@/lib/product'
+import { Can, RequirePermission, useAccess } from '@/components/permissions/gate'
+import { firstAllowedPage } from '@/lib/permissions'
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG').format(value)
 
 export default function DashboardPage() {
   const { stats, loading, error } = usePharmacyDashboard()
+  const { ready, allowedAny } = useAccess()
 
   const cards = stats
     ? [
@@ -20,16 +23,27 @@ export default function DashboardPage() {
       ]
     : []
 
+  // الإجراءات السريعة تختفي إن لم تكن الصفحة نفسها متاحة للموظف
+  const quickActions = [
+    { label: 'المخزون', href: '/inventory', icon: Package, anyOf: ['inventory.view'] },
+    { label: 'الموظفون', href: '/employees', icon: Users, anyOf: ['employees.view'] },
+    { label: 'الحضور', href: '/attendance', icon: CalendarCheck, anyOf: ['attendance.view'] },
+    { label: 'التقارير', href: '/reports', icon: BarChart3, anyOf: ['reports.sales', 'reports.inventory', 'reports.movements', 'reports.financial', 'reports.employees'] },
+  ].filter((action) => (ready ? allowedAny(action.anyOf) : false))
+
   return (
+    <RequirePermission anyOf={['dashboard.view']} redirectTo={ready ? firstAllowedPage(allowedAny) : null}>
     <div className="mx-auto max-w-[1500px] space-y-6 animate-fade-in">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">لوحة التحكم</h1>
           <p className="mt-2 text-sm text-muted-foreground">بيانات الصيدلية الحالية من قاعدة البيانات</p>
         </div>
-        <Button asChild variant="gradient">
-          <Link href="/inventory"><Plus className="h-4 w-4" />إضافة منتج</Link>
-        </Button>
+        <Can anyOf={['inventory.manage_products']}>
+          <Button asChild variant="gradient">
+            <Link href="/inventory"><Plus className="h-4 w-4" />إضافة منتج</Link>
+          </Button>
+        </Can>
       </div>
 
       {loading && <Card><CardContent className="p-8 text-center text-muted-foreground">جاري تحميل بيانات الصيدلية...</CardContent></Card>}
@@ -75,21 +89,20 @@ export default function DashboardPage() {
             <Card>
               <CardHeader><CardTitle className="text-lg">إجراءات سريعة</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'المخزون', href: '/inventory', icon: Package },
-                  { label: 'الموظفون', href: '/employees', icon: Users },
-                  { label: 'الحضور', href: '/attendance', icon: CalendarCheck },
-                  { label: 'التقارير', href: '/reports', icon: BarChart3 },
-                ].map((action) => (
+                {quickActions.map((action) => (
                   <Link key={action.label} href={action.href} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-4 text-center hover:border-primary/30">
                     <action.icon className="h-6 w-6 text-primary" /><span className="text-xs font-medium">{action.label}</span>
                   </Link>
                 ))}
+                {quickActions.length === 0 && (
+                  <p className="col-span-2 py-6 text-center text-sm text-muted-foreground">لا إجراءات متاحة لحسابك حاليًا</p>
+                )}
               </CardContent>
             </Card>
           </div>
         </>
       )}
     </div>
+    </RequirePermission>
   )
 }

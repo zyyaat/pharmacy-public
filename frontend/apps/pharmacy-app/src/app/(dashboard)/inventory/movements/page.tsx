@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 const PAGE_SIZE = 50
 
@@ -124,6 +125,7 @@ export default function InventoryMovementsPage() {
   const hasMore = movements.length < total
 
   return (
+    <RequirePermission anyOf={['inventory.movements.view']}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -308,5 +310,6 @@ export default function InventoryMovementsPage() {
         </div>
       )}
     </div>
+    </RequirePermission>
   )
 }

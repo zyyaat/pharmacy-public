@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
-import { usePermissions } from '@/hooks/usePermissions'
-import { SIDEBAR_PERMISSION_ROUTES, hasAnyPermission } from '@/lib/permissions'
+import { useAccess } from '@/components/permissions/gate'
+import { SIDEBAR_PERMISSION_ROUTES } from '@/lib/permissions'
 
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
@@ -35,22 +35,27 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
   const router = useRouter()
   const { logout } = useAuth()
   const { context } = usePharmacyContext()
-  const { data: perms } = usePermissions()
+  // Task 43: لا وميض للممنوع — حتى تحميل الصلاحيات نعرض هيكلًا عظميًا،
+  // فالموظف المقيّد لا يرى الأقسام الممنوعة ولو لجزء من الثانية.
+  const { ready, allowedAny } = useAccess()
   const [collapsed, setCollapsed] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  const fullAccess = perms?.full_access ?? true
-  const granted = perms?.permissions ?? []
-  // أثناء تحميل الصلاحيات الأولى نظهر كل الأقسام ثم نخفي — كي لا نكسر
-  // تخطيط الصفحة، والفرض الحقيقي موجود في الباكند.
-  const permsLoaded = perms !== null
   const visibleItems = items.filter((item) => {
     const required = requiredPermissions(item.href)
     if (!required) return true
-    if (fullAccess) return true
-    if (!permsLoaded) return true
-    return hasAnyPermission(granted, required, false)
+    if (!ready) return false
+    return allowedAny(required)
   })
+
+  // رابط الإعدادات يختفي كليًا عمن لا يملك أي قسم إعدادات
+  const settingsAllowed = !ready || allowedAny([
+    'settings.general',
+    'settings.billing',
+    'settings.integrations',
+    'settings.receipts',
+    'inventory.import',
+  ])
 
   async function handleLogout() {
     if (loggingOut) return
@@ -116,7 +121,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         <p className={cn('mb-2 text-xs font-medium text-muted-foreground', collapsed ? 'text-center' : 'px-3')}>{collapsed ? '•••' : 'القائمة الرئيسية'}</p>
-        {visibleItems.map((item) => {
+        {!ready && (
+          <div className="space-y-2" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted/60" />
+            ))}
+          </div>
+        )}
+        {ready && visibleItems.map((item) => {
           const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
           const ItemIcon = item.icon
           return (
@@ -142,12 +154,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
             </Link>
           )
         })}
-        <div className="mt-4 border-t border-border pt-4">
-          <Link href="/settings" onClick={onMobileClose} className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all', pathname.startsWith('/settings') ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
-            <Settings className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>الإعدادات</span>}
-          </Link>
-        </div>
+        {settingsAllowed && (
+          <div className="mt-4 border-t border-border pt-4">
+            <Link href="/settings" onClick={onMobileClose} className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all', pathname.startsWith('/settings') ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+              <Settings className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>الإعدادات</span>}
+            </Link>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-border p-4">

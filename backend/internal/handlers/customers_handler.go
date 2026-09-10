@@ -136,9 +136,11 @@ func (h *Handler) CreatePharmacyCustomer(c *gin.Context) {
 
         var id string
         var createdAt time.Time
+        // phone اختياري في الواجهة — عمود customers.phone NOT NULL، فنمرر ''
+        // بدل NULL (كان يفشل 500 لأي عميل بلا رقم هاتف)
         err := h.db.QueryRow(c.Request.Context(), `
                 INSERT INTO customers (pharmacy_id, name, phone, created_by)
-                VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, '')::uuid)
+                VALUES ($1, $2, COALESCE(NULLIF($3, ''), ''), NULLIF($4, '')::uuid)
                 RETURNING id::text, created_at
         `, principal.PharmacyID, name, phone, employeeID).Scan(&id, &createdAt)
         if err != nil {

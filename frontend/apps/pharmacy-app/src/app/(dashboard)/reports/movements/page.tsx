@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 import {
   KpiCards,
   PeriodPicker,
@@ -191,6 +192,7 @@ export default function MovementsReportPage() {
   }, [report])
 
   return (
+    <RequirePermission anyOf={['reports.movements']}>
     <div className="space-y-5">
       {/* شريط التحكم — لا يظهر عند الطباعة */}
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
@@ -447,5 +449,6 @@ export default function MovementsReportPage() {
         </ReportSheet>
       ) : null}
     </div>
+    </RequirePermission>
   )
 }

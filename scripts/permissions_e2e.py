@@ -97,6 +97,30 @@ def main():
         content = owner_page.content()
         check("2c. الموظف أُضيف ويظهر بالقائمة", "سعيد الجندي" in content or "سعيد" in content)
 
+        # ============ 2-د) المالك مرجع الإخفاء: يرى كل الأزرار ============
+        owner_page.goto(f"{APP}/customers", wait_until="networkidle")
+        time.sleep(1.5)
+        check("2e. المالك يرى زر «عميل جديد»", "عميل جديد" in owner_page.content())
+        # إضافة عميل عبر الواجهة → يُحدد تلقائيًا → كشف حسابه يفتح وصندوق الدفعات يظهر
+        def wait_for_text(needle, timeout=10.0):
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if needle in owner_page.content():
+                    return True
+                time.sleep(0.3)
+            return False
+
+        owner_page.click("text=عميل جديد")
+        time.sleep(0.5)
+        owner_page.fill('input[aria-label="اسم العميل الجديد"]', "عميل فحص الإخفاء")
+        owner_page.click('button:text-is("إضافة")')
+        check("2d. المالك يرى «تسجيل دفعة سداد» بعد تحديد عميل", wait_for_text("تسجيل دفعة سداد"))
+        owner_page.goto(f"{APP}/inventory", wait_until="networkidle")
+        time.sleep(1.5)
+        content = owner_page.content()
+        check("2f. المالك يرى «إضافة منتج» بالمخزون", "إضافة منتج" in content)
+        check("2g. المالك يرى أزرار الإجراءات (تعديل/مخزون)", "الإجراءات" in content)
+
         # جلسة مالك للـ API (تُستخدم لاحقًا في المنح والإيقاف)
         s, status = owner_session()
         check("5a. جلسة مالك للـ API", status == 200)
@@ -119,6 +143,67 @@ def main():
         check("3b. الموظف لا يرى «الموظفون» في القائمة", "الموظفون" not in sidebar_text)
         check("3c. الموظف يرى «نقطة البيع»", "نقطة البيع" in sidebar_text, sidebar_text)
 
+        # ============ 3-د) Task 43: لوحة التحكم بدون أزرار ممنوعة ============
+        time.sleep(1.0)
+        dash = staff_page.content()
+        check("3d. لوحة الموظف بلا «إضافة منتج»", "إضافة منتج" not in dash)
+        check("3e. الإجراءات السريعة بلا «الموظفون»", "الموظفون" not in dash)
+        check("3f. الإجراءات السريعة بلا «التقارير»", "التقارير" not in dash)
+
+        # ============ 3-هـ) صفحة العملاء: الدفعات مخفية والإضافة ظاهرة ============
+        staff_page.goto(f"{APP}/customers", wait_until="networkidle")
+        time.sleep(1.5)
+        cust = staff_page.content()
+        check("3h. الكاشير يرى زر «عميل جديد» (عنده customers.create)", "عميل جديد" in cust)
+        # نضيف عميلًا ليُحدد تلقائيًا — بذلك نفحص صندوق الدفعات وهو ظاهر فعلًا بالصفحة
+        def wait_staff_text(needle, timeout=10.0):
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if needle in staff_page.content():
+                    return True
+                time.sleep(0.3)
+            return False
+
+        staff_page.click("text=عميل جديد")
+        time.sleep(0.5)
+        staff_page.fill('input[aria-label="اسم العميل الجديد"]', "عميل الكاشير فحص")
+        staff_page.click('button:text-is("إضافة")')
+        selected_loaded = wait_staff_text("لا حركات بعد")
+        cust = staff_page.content()
+        check("3g. الكاشير (بلا customers.payments): لا «تسجيل دفعة سداد» حتى مع عميل محدد",
+              selected_loaded and "تسجيل دفعة سداد" not in cust, f"selected_loaded={selected_loaded}")
+
+        # ============ 3-و) صفحة المخزون: أزرار التعديل مخفية ============
+        staff_page.goto(f"{APP}/inventory", wait_until="networkidle")
+        time.sleep(1.8)
+        inv = staff_page.content()
+        check("3i. الكاشير لا يرى «إضافة منتج»", "إضافة منتج" not in inv)
+        check("3j. الكاشير يرى «فتح نقطة البيع» (عنده pos.access)", "فتح نقطة البيع" in inv)
+        check("3k. عمود الإجراءات مخفي كليًا", "الإجراءات" not in inv)
+        check("3l. لا زر تعديل منتج", "تعديل بيانات المنتج" not in inv)
+
+        # ============ 3-ز) المسارات الممنوعة المكتوبة يدويًا → بطاقة غير متاحة ============
+        def wait_for_text(page, needle, timeout=10.0):
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if needle in page.content():
+                    return True
+                time.sleep(0.3)
+            return False
+
+        for guarded in ["/reports", "/employees", "/inventory/movements", "/attendance"]:
+            staff_page.goto(f"{APP}{guarded}", wait_until="networkidle")
+            blocked = wait_for_text(staff_page, "غير متاحة لحسابك")
+            check(f"3m. {guarded} محمية (بطاقة غير متاحة)", blocked)
+
+        # ============ 3-ح) الإعدادات: قسم الفواتير فقط ============
+        staff_page.goto(f"{APP}/settings", wait_until="networkidle")
+        time.sleep(2.5)
+        settings_url = staff_page.evaluate("window.location.href")
+        check("3n. مدخل الإعدادات حوّل لأول قسم مسموح (receipts)", "/settings/receipts" in settings_url, settings_url)
+        st = staff_page.content()
+        check("3o. الكاشير يرى «الفواتير والطباعة» فقط", "الفواتير والطباعة" in st and "ترحيل المنتجات" not in st and "قاعدة البيانات" not in st)
+
         # ============ 4) الـ API يرفض الأقسام غير المصرح بها ============
         es, estatus = employee_api_session()
         check("4a. دخول الموظف للـ API", estatus == 200)
@@ -139,6 +224,12 @@ def main():
 
         # ============ 5-د) بعد منح reports.sales يفتح التقرير ============
         check("5d. API يفتح تقارير المبيعات بعد المنح (200)", es.get(f"{BASE}/pharmacy/reports/sales", timeout=10).status_code == 200)
+
+        # ============ 5-هـ) Task 43: المنح الفوري يظهر بطاقة التقرير في الواجهة ============
+        staff_page.goto(f"{APP}/reports", wait_until="networkidle")
+        time.sleep(2.0)
+        rep = staff_page.content()
+        check("5e. بعد المنح: تقرير المبيعات ظهر كبطاقة (لا بطاقة رفض)", "تقرير المبيعات" in rep and "غير متاحة لحسابك" not in rep)
 
         # ============ 6) إيقاف الموظف يمنع دخوله ============
         r = s.patch(f"{BASE}/pharmacy/employees/{eid}/status", headers=csrf_header(s), json={"status": "inactive"}, timeout=10)

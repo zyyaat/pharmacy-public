@@ -9,6 +9,7 @@ import { ApiError, pharmacyApi, type PharmacyProductDetail, type UpdatePharmacyP
 import { ProductFormFields, readProductFormCommon, type ProductFormDefaults } from '@/components/inventory/product-form-fields'
 import { piastresToEGPInput } from '@/lib/money'
 import { Button } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 /**
  * تعديل المنتج بنفس صفحة الإضافة بالضبط (طلب المستخدم: «التعديل يدخلني على نفس
@@ -97,6 +98,7 @@ export default function EditProductPage() {
   }
 
   return (
+    <RequirePermission anyOf={['inventory.manage_products']}>
     <div className="mx-auto max-w-4xl space-y-6">
       <BackHeader name={detail?.name ?? null} />
 
@@ -119,6 +121,7 @@ export default function EditProductPage() {
         </form>
       )}
     </div>
+    </RequirePermission>
   )
 }
 

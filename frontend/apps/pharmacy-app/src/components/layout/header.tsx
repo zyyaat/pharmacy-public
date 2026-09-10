@@ -8,6 +8,7 @@ import { pharmacyApi, type CustomerDebtItem, type LowStockItem } from '@/lib/api
 import { formatPiastres } from '@/lib/money'
 import { availabilityAr, boxWordAr, extraStrengthLabel } from '@/lib/product'
 import { Button } from '@/components/ui'
+import { useAccess } from '@/components/permissions/gate'
 
 /**
  * جرس الإشعارات الحقيقي: أصناف المخزون المنخفض — حد الطلب يُحسب بالعلبة
@@ -61,9 +62,13 @@ function useCustomerDebts() {
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme()
+  // أقسام الإشعارات وروابطها تختفي كليًا عمن لا يملك صلاحية الصفحة المقصودة
+  const { ready, allowed } = useAccess()
+  const canSeeInventoryAlerts = ready && allowed('inventory.view')
+  const canSeeCustomerDebts = ready && allowed('customers.view')
   const lowStock = useLowStock()
   const debts = useCustomerDebts()
-  const alertCount = lowStock.length + debts.length
+  const alertCount = (canSeeInventoryAlerts ? lowStock.length : 0) + (canSeeCustomerDebts ? debts.length : 0)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -136,7 +141,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                   </p>
                 ) : (
                   <>
-                    {debts.length > 0 && (
+                    {canSeeCustomerDebts && debts.length > 0 && (
                       <div>
                         <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">ديون العملاء (البيع الآجل)</p>
                         {debts.map((debt) => (
@@ -155,7 +160,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                         ))}
                       </div>
                     )}
-                    {lowStock.length > 0 && (
+                    {canSeeInventoryAlerts && lowStock.length > 0 && (
                       <div>
                         <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">المخزون المنخفض</p>
                         {lowStock.map((item) => (
@@ -188,14 +193,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                   </>
                 )}
               </div>
-              {debts.length > 0 && (
+              {canSeeCustomerDebts && debts.length > 0 && (
                 <Link href="/customers" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
                   فتح حسابات العملاء للتحصيل
                 </Link>
               )}
-              <Link href="/inventory" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
-                فتح صفحة المخزون لاتخاذ الإجراء
-              </Link>
+              {canSeeInventoryAlerts && (
+                <Link href="/inventory" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
+                  فتح صفحة المخزون لاتخاذ الإجراء
+                </Link>
+              )}
             </div>
           )}
         </div>

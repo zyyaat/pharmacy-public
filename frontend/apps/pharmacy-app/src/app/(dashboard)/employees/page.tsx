@@ -19,6 +19,7 @@ import {
 } from '@/lib/api'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui'
 import { PermissionsEditor, usePermissionCatalog } from '@/components/employees/permissions-editor'
+import { RequirePermission } from '@/components/permissions/gate'
 import { usePermissions } from '@/hooks/usePermissions'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -35,7 +36,7 @@ function fieldLabel(value: string, labels: Record<string, string>) {
 }
 
 export default function EmployeesPage() {
-  const { can, data: myPerms } = usePermissions()
+  const { can } = usePermissions()
   const canManage = can('employees.manage_permissions')
   const canCreate = can('employees.create')
 
@@ -166,6 +167,7 @@ export default function EmployeesPage() {
     editingPerms.some((k) => !editingOriginal.includes(k))
 
   return (
+    <RequirePermission anyOf={['employees.view']}>
     <div className="mx-auto max-w-[1500px] space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -377,5 +379,6 @@ export default function EmployeesPage() {
         </div>
       )}
     </div>
+    </RequirePermission>
   )
 }

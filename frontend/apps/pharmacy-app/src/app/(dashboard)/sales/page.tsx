@@ -7,6 +7,7 @@ import { ApiError, pharmacyApi, type POSSaleSummary } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
 import { formatSaleDate, formatSaleTime, saleStatusLabel, saleStatusVariant } from '@/lib/sales'
 import { Badge, Button, Card, CardContent, Input, LoadingSpinner } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 const PAGE_SIZE = 20
 
@@ -50,6 +51,7 @@ export default function SalesHistoryPage() {
   const hasMore = sales.length < total
 
   return (
+    <RequirePermission anyOf={['sales.view']}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -166,5 +168,6 @@ export default function SalesHistoryPage() {
         </div>
       )}
     </div>
+    </RequirePermission>
   )
 }

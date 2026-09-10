@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 import {
   BarChart,
   KpiCards,
@@ -158,6 +159,7 @@ export default function SalesReportPage() {
   )
 
   return (
+    <RequirePermission anyOf={['reports.sales']}>
     <div className="space-y-5">
       {/* شريط التحكم — لا يظهر عند الطباعة */}
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
@@ -355,5 +357,6 @@ export default function SalesReportPage() {
         </ReportSheet>
       ) : null}
     </div>
+    </RequirePermission>
   )
 }

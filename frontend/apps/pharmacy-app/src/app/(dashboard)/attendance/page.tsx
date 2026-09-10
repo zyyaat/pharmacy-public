@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CalendarCheck } from 'lucide-react'
 import { pharmacyApi, type PharmacyAttendance } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 export default function AttendancePage() {
   const [items, setItems] = useState<PharmacyAttendance[]>([])
@@ -18,6 +19,7 @@ export default function AttendancePage() {
   }, [])
 
   return (
+    <RequirePermission anyOf={['attendance.view']}>
     <div className="mx-auto max-w-[1500px] space-y-6">
       <div><h1 className="text-2xl font-bold">الحضور والانصراف</h1><p className="mt-2 text-sm text-muted-foreground">سجلات الحضور الحقيقية للصيدلية الحالية</p></div>
       <Card>
@@ -30,5 +32,6 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
     </div>
+    </RequirePermission>
   )
 }

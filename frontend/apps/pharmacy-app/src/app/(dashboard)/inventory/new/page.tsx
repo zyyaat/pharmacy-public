@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { ApiError, pharmacyApi, type CreatePharmacyProductInput } from '@/lib/api'
 import { ProductFormFields, readProductFormCommon } from '@/components/inventory/product-form-fields'
 import { Button } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -44,6 +45,7 @@ export default function NewProductPage() {
   }
 
   return (
+    <RequirePermission anyOf={['inventory.manage_products']}>
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon"><Link href="/inventory" aria-label="العودة للمخزون"><ArrowRight className="h-5 w-5" /></Link></Button>
@@ -63,5 +65,6 @@ export default function NewProductPage() {
         </div>
       </form>
     </div>
+    </RequirePermission>
   )
 }

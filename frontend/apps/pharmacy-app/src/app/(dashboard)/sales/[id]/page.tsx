@@ -22,6 +22,7 @@ import {
   saleStatusVariant,
 } from '@/lib/sales'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, LoadingSpinner, Modal, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
+import { Can } from '@/components/permissions/gate'
 
 export default function SaleDetailPage() {
   const params = useParams<{ id: string }>()
@@ -165,9 +166,11 @@ export default function SaleDetailPage() {
           <Badge variant={saleStatusVariant(sale.status)}>{saleStatusLabel(sale.status)}</Badge>
         </div>
         {returnableRows.length > 0 && (
-          <Button onClick={openReturnModal}>
-            <RotateCcw className="h-4 w-4" /> استرجاع أصناف
-          </Button>
+          <Can perm="sales.returns">
+            <Button onClick={openReturnModal}>
+              <RotateCcw className="h-4 w-4" /> استرجاع أصناف
+            </Button>
+          </Can>
         )}
       </div>
 

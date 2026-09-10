@@ -13,6 +13,10 @@ LD_LIBRARY_PATH=/tmp/pg17/lib /tmp/pg17/bin/pg_ctl -D /home/z/pgdata status >/de
   || LD_LIBRARY_PATH=/tmp/pg17/lib /tmp/pg17/bin/pg_ctl -D /home/z/pgdata -o "-p 54329 -k /tmp" -l /home/z/pgdata/log.txt start >/dev/null 2>&1
 for _ in $(seq 1 20); do /tmp/pg17/bin/pg_ctl -D /home/z/pgdata status >/dev/null 2>&1 && break; sleep 0.5; done
 
+# تكرارية التشغيل: نبدأ دائمًا من سيناريو print_seed على قاعدة fresh
+# (test_reports في نهاية التشغيل يعيد القاعدة لسيناريوه هو، فنصلحها هنا)
+bash scripts/reset_reports_test_db.sh || exit 1
+
 echo "== Backend =="
 (cd backend && /tmp/go/bin/go build -o /tmp/pharmacy-backend ./cmd/server) || exit 1
 pkill -f pharmacy-backend 2>/dev/null; sleep 0.5
@@ -26,7 +30,7 @@ if ! curl -s -o /dev/null --max-time 3 http://localhost:3000/login; then
 fi
 for _ in $(seq 1 60); do curl -s -o /dev/null --max-time 3 http://localhost:3000/login && break; sleep 1; done
 # تسخين كل مسارات اللوحة (next dev يترجم على الطاير)
-for u in / /inventory /pos /sales /customers /inventory/movements /employees /attendance /branches /reports /settings /login; do
+for u in / /inventory /pos /sales /customers /inventory/movements /employees /attendance /branches /reports /reports/sales /reports/inventory /reports/movements /inventory/new /settings /settings/receipts /settings/import /login; do
   curl -s -o /dev/null --max-time 60 "http://localhost:3000$u"
 done
 curl -s -o /dev/null -w "frontend: %{http_code}\n" --max-time 30 http://localhost:3000/login

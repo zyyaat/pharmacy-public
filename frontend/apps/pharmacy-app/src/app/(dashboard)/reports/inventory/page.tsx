@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { RequirePermission } from '@/components/permissions/gate'
 import { KpiCards, ReportSheet, useReportContext } from '@/components/reports'
 
 const statusBadges: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' }> = {
@@ -142,6 +143,7 @@ export default function InventoryReportPage() {
   }, [report])
 
   return (
+    <RequirePermission anyOf={['reports.inventory']}>
     <div className="space-y-5">
       {/* شريط التحكم — لا يظهر عند الطباعة */}
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
@@ -429,5 +431,6 @@ export default function InventoryReportPage() {
         </ReportSheet>
       ) : null}
     </div>
+    </RequirePermission>
   )
 }
