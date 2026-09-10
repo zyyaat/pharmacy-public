@@ -51,7 +51,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
       ...options,
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(options.method && options.method !== 'GET' ? csrfHeaders() : {}),
         ...(options.headers || {}),
       },
@@ -760,4 +760,78 @@ export interface MovementsReport {
     quantity_in: number
     quantity_out: number
   }
+}
+
+// ---------------------------------------------------------------------------
+// Product import — نظام ترحيل المنتجات من ملف جداول (Excel/CSV)
+// ---------------------------------------------------------------------------
+
+/** خريطة ربط الحقول بفهارس أعمدة الملف (-1 = غير مرتبط) */
+export type ProductImportMapping = Record<string, number>
+
+export interface ProductImportPreview {
+  file_type: 'xlsx' | 'csv'
+  total_rows: number
+  headers: string[]
+  mapping: ProductImportMapping
+  rows: string[][]
+  valid_estimate: number
+  invalid_estimate: number
+  max_rows: number
+}
+
+export interface ProductImportError {
+  row: number
+  name: string
+  reason: string
+}
+
+export interface ProductImportReport {
+  total_rows: number
+  created: number
+  updated: number
+  skipped: number
+  failed: number
+  stock_lines: number
+  errors: ProductImportError[]
+}
+
+export interface ProductImportOptions {
+  duplicate_strategy: 'skip' | 'update'
+  quantity_unit: 'box' | 'strip'
+  import_stock: boolean
+}
+
+export const productImportApi = {
+  /** الخطوة 1: تحليل الملف وإرجاع الربط المقترح + عينة صفوف + تقدير الصلاحية */
+  preview(file: File, mapping?: ProductImportMapping) {
+    const form = new FormData()
+    form.append('file', file)
+    if (mapping) form.append('mapping', JSON.stringify(mapping))
+    return apiFetch<{ data: ProductImportPreview }>('/pharmacy/imports/products/preview', {
+      method: 'POST',
+      body: form,
+    })
+  },
+  /** الخطوة 2: تنفيذ الترحيل الفعلي — الصفوف الصالحة تُرحَّل ذريًا مع تقرير بالأسباب */
+  execute(file: File, mapping: ProductImportMapping, options: ProductImportOptions) {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('mapping', JSON.stringify(mapping))
+    form.append('options', JSON.stringify(options))
+    return apiFetch<{ data: ProductImportReport }>('/pharmacy/imports/products/execute', {
+      method: 'POST',
+      body: form,
+    })
+  },
+  /** نموذج CSV جاهز (UTF-8 مع BOM ليفتح في Excel بلا تشويه عربي) */
+  async template(): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/pharmacy/imports/products/template`, {
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      throw new ApiError('تعذر تحميل نموذج الترحيل', 'TEMPLATE_FAILED', response.status)
+    }
+    return response.blob()
+  },
 }

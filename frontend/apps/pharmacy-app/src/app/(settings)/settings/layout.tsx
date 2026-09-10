@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowRight, Database, ReceiptText } from 'lucide-react'
+import { ArrowRight, Database, FileSpreadsheet, ReceiptText } from 'lucide-react'
 import BrandSplash from '@/components/brand-splash'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
  * «العودة للرئيسية» وقائمة جانبية خاصة بأقسام الإعدادات.
  */
 const SECTIONS = [
+  { href: '/settings/import', label: 'ترحيل المنتجات', icon: FileSpreadsheet, desc: 'استيراد أصناف البرنامج القديم من Excel/CSV' },
   { href: '/settings/receipts', label: 'الفواتير والطباعة', icon: ReceiptText, desc: 'شكل الفاتورة وسلوك الطباعة' },
   { href: '/settings/database', label: 'قاعدة البيانات', icon: Database, desc: 'حالة المخطط وسجل الترحيلات' },
 ] as const

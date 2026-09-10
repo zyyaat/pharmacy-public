@@ -12,6 +12,8 @@ GO=/tmp/go/bin/go
 
 echo "== بناء الباكند =="
 (cd backend && "$GO" build -o /tmp/pharmacy-backend ./cmd/server) || exit 1
+# اقتل أي نسخة قديمة كي لا يفشل الربط على 8080 ويُختبر كود قديم
+pkill -f pharmacy-backend 2>/dev/null; sleep 0.5
 
 echo "== تشغيل الباكند على 8080 =="
 /tmp/pharmacy-backend &
@@ -23,6 +25,9 @@ for _ in $(seq 1 40); do
   sleep 0.5
 done
 curl -s -o /dev/null -w "backend health: %{http_code}\n" --max-time 3 http://localhost:8080/api/v1/health
+
+echo "== بذرة أصناف البحث (idempotent) =="
+python3 scripts/seed_search_fixtures.py || exit 1
 
 echo "== تسخين الواجهة (next dev يترجم المسارات على الطاير) =="
 curl -s -o /dev/null --max-time 60 http://localhost:3000/login
