@@ -1,14 +1,12 @@
 # Pharmacy OS Backend - Standalone Dockerfile
 # Clean Go project - no monorepo overhead!
 
-# Stage 1: Build
+# Stage 1: Build (deps are vendored — the build never touches the network)
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache git ca-certificates
 WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=vendor go build -ldflags="-s -w" -o server ./cmd/server
 
 # Stage 2: Runtime
 FROM alpine:latest

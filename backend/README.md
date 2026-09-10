@@ -191,7 +191,7 @@ Authorization: Bearer <your-jwt-token>
 2. Set environment variables
 3. Deploy (auto-detects Go project)
 
-### Railway / Render
+### Railway
 1. Import from GitHub
 2. Add environment variables
 3. Deploy

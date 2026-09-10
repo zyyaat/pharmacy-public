@@ -4,7 +4,11 @@ The frontend and API are independently deployable. The API owns authentication
 and PostgreSQL access; Supabase is the PostgreSQL provider, not the frontend
 API and not the authentication provider.
 
-## 1. Deploy the backend first
+## 1. Deploy the backend on DockHosting (Docker)
+
+The backend ships a production `backend/Dockerfile` (multi-stage build, Alpine
+runtime image, honors the `PORT` environment variable). DockHosting builds it
+directly from this repository — no platform blueprint file is needed.
 
 The backend must be reachable over HTTPS and respond to:
 
@@ -12,10 +16,7 @@ The backend must be reachable over HTTPS and respond to:
 GET https://<backend-host>/api/v1/health
 ```
 
-### Render
-
-The repository includes `render.yaml`. Create a Render Blueprint from the
-repository and provide these values in Render's environment settings:
+Environment variables to set on the DockHosting service:
 
 ```text
 APP_ENV=production
@@ -25,9 +26,28 @@ CORS_ORIGINS=https://<pharmacy-vercel-domain>,https://<admin-vercel-domain>,http
 PUBLIC_APP_URL=https://<pharmacy-vercel-domain>
 MAIL_FROM_EMAIL=<verified Brevo sender>
 MAIL_FROM_NAME=Pharmacy OS
-BREVO_API_KEY=<secret stored in Render, never in source control>
+BREVO_API_KEY=<secret stored in the hosting panel, never in source control>
 AUTH_COOKIE_SECURE=true
 ```
+
+Notes:
+
+- The server resolves its port as `PORT` (DockHosting/standard) first, then
+  `BACKEND_PORT`, then `8080` — see `backend/internal/config/config.go`.
+- Go dependencies are vendored (`backend/vendor/`), so the image build never
+  downloads modules from the network and cannot fail on registry hiccups.
+- `backend/docker-compose.yml` mirrors the same container for VPS use
+  (`docker compose up -d`), including a wget healthcheck against
+  `/api/v1/health`.
+
+### Verifying the deployed build
+
+`GET /api/v1/health` reports `status` and `api_level`. The `api_level`
+constant (see `backend/internal/handlers/handler.go`) is bumped with every
+behavioral backend change. If the endpoint does not report the level you
+expect, the running container is stale: rebuild and redeploy the service on
+DockHosting and re-check before debugging anything else. This check requires
+no credentials and settles "did my push actually ship?" in seconds.
 
 Use the Supabase connection pooler URL when the host cannot use a direct
 PostgreSQL connection. The backend disables prepared statements so Supabase's
@@ -36,7 +56,7 @@ transaction pooler works correctly.
 ## 2. Configure each Vercel app
 
 The recommended Vercel setup is a same-origin proxy. It keeps browser requests
-on the Vercel origin and forwards them server-side to Render:
+on the Vercel origin and forwards them server-side to the DockHosting backend:
 
 ```text
 NEXT_PUBLIC_API_URL=/api/v1
@@ -67,7 +87,7 @@ frontend/apps/marketing
 
 Do not set `BACKEND_INTERNAL_URL` to `localhost` or `127.0.0.1` in Vercel.
 Those addresses point to the Vercel runtime, not the Replit workspace or your
-local machine. Do not use a private Render hostname unless the Vercel runtime
+local machine. Do not use a private backend hostname unless the Vercel runtime
 can resolve and reach it.
 
 ## 3. Authentication and CORS rules
