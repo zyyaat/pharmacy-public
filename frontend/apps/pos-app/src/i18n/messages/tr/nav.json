@@ -1,0 +1,19 @@
+{
+  "pos": "Satış Noktası",
+  "sales": "Satış Kaydı",
+  "inventory": "Stok ve İlaçlar",
+  "movements": "Stok Hareketleri",
+  "settings": "Ayarlar",
+  "sections": "Bölümler",
+  "current_pharmacy": "Mevcut Eczane",
+  "loading_pharmacy": "Eczane yükleniyor...",
+  "no_branch": "Tanımlı şube yok",
+  "avatar_initial": "K",
+  "user_fallback": "Kullanıcı",
+  "pharmacy_account": "Eczane hesabı",
+  "logout": "Çıkış yap",
+  "close_menu": "Menüyü kapat",
+  "collapse_menu": "Menüyü daralt",
+  "light_mode": "Açık tema",
+  "dark_mode": "Koyu tema"
+}

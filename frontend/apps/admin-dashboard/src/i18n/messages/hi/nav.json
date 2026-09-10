@@ -1,0 +1,18 @@
+{
+  "dashboard": "डैशबोर्ड",
+  "companies": "कंपनियाँ",
+  "users": "उपयोगकर्ता",
+  "permissions": "अनुमतियाँ",
+  "accounts": "खाते",
+  "settings": "सेटिंग्स",
+  "brand_home_aria": "Pharmacy OS - होम",
+  "avatar_fallback": "उ",
+  "default_user": "सिस्टम व्यवस्थापक",
+  "logout": "लॉग आउट",
+  "search_placeholder": "कंपनियाँ, उपयोगकर्ता खोजें...",
+  "change_language": "भाषा बदलें",
+  "light_mode": "लाइट मोड",
+  "dark_mode": "डार्क मोड",
+  "loading_aria": "लोड हो रहा है",
+  "logo_alt": "ऐप लोगो"
+}

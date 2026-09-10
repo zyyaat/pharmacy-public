@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "Could not reach the system server. Check NEXT_PUBLIC_API_URL and the backend CORS settings.",
+  "template_download_failed": "Could not download the import template"
+}

@@ -1,0 +1,26 @@
+{
+  "title": "平台用户",
+  "subtitle": "所有公司用户与药房员工，含账户来源和实际角色",
+  "metric_total": "用户总数",
+  "metric_active": "结果中的活跃用户",
+  "metric_admins": "结果中的系统管理员",
+  "guide_title": "用户名录",
+  "search_placeholder": "按姓名、邮箱或公司搜索...",
+  "filter_role_aria": "按角色筛选",
+  "role_all": "所有角色",
+  "loading": "正在加载用户...",
+  "load_failed": "无法加载用户",
+  "no_matches": "没有匹配的用户",
+  "badge_disabled": "已停用",
+  "account_company_user": "公司账户",
+  "account_pharmacy_employee": "药房员工",
+  "permissions_count": "{count} 项有效权限",
+  "last_login": "最后登录：{date}",
+  "never_logged_in": "从未登录",
+  "roles": {
+    "super_admin": "系统管理员",
+    "company_admin": "公司管理员",
+    "company_manager": "运营经理",
+    "company_viewer": "公司查看者"
+  }
+}

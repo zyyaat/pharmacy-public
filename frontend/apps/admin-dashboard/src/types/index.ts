@@ -3,6 +3,7 @@ export interface CompanyUser {
   id: string;
   email: string;
   account_type?: "company_user" | "employee";
+  locale?: string;
   displayName: string;
   role: "super_admin" | "company_admin" | "company_manager" | "company_viewer";
   companyId?: string;

@@ -1,0 +1,18 @@
+{
+  "dashboard": "ڈیش بورڈ",
+  "companies": "کمپنیاں",
+  "users": "صارفین",
+  "permissions": "اجازتیں",
+  "accounts": "اکاؤنٹس",
+  "settings": "ترتیبات",
+  "brand_home_aria": "Pharmacy OS - مرکزی صفحہ",
+  "avatar_fallback": "م",
+  "default_user": "سسٹم ایڈمنسٹریٹر",
+  "logout": "لاگ آؤٹ",
+  "search_placeholder": "کمپنیاں، صارفین تلاش کریں...",
+  "change_language": "زبان تبدیل کریں",
+  "light_mode": "لائٹ موڈ",
+  "dark_mode": "ڈارک موڈ",
+  "loading_aria": "لوڈ ہو رہا ہے",
+  "logo_alt": "ایپ کا لوگو"
+}

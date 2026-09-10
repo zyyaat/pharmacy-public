@@ -1,0 +1,26 @@
+{
+  "title": "Platform Kullanıcıları",
+  "subtitle": "Hesap kaynağı ve fiili rolüyle tüm şirket kullanıcıları ve eczane çalışanları",
+  "metric_total": "Toplam kullanıcı",
+  "metric_active": "Sonuçlarda aktif",
+  "metric_admins": "Sonuçlardaki sistem yöneticileri",
+  "guide_title": "Kullanıcı Rehberi",
+  "search_placeholder": "İsim, e-posta veya şirkete göre ara...",
+  "filter_role_aria": "Role göre filtrele",
+  "role_all": "Tüm roller",
+  "loading": "Kullanıcılar yükleniyor...",
+  "load_failed": "Kullanıcılar yüklenemedi",
+  "no_matches": "Eşleşen kullanıcı yok",
+  "badge_disabled": "Devre dışı",
+  "account_company_user": "Şirket hesabı",
+  "account_pharmacy_employee": "Eczane çalışanı",
+  "permissions_count": "{count} fiili izin",
+  "last_login": "Son giriş: {date}",
+  "never_logged_in": "Hiç giriş yapmadı",
+  "roles": {
+    "super_admin": "Sistem Yöneticisi",
+    "company_admin": "Şirket Yöneticisi",
+    "company_manager": "Operasyon Müdürü",
+    "company_viewer": "Şirket Görüntüleyicisi"
+  }
+}

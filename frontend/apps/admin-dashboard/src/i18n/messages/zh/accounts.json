@@ -1,0 +1,16 @@
+{
+  "title": "账户与药房",
+  "subtitle": "查看平台上的商业账户、药房和分店",
+  "stat_total": "账户总数",
+  "stat_pharmacies": "结果中的药房",
+  "stat_branches": "结果中的分店",
+  "list_title": "已注册账户",
+  "search_placeholder": "按账户、公司或邮箱搜索...",
+  "loading": "正在加载账户...",
+  "load_failed": "无法加载账户",
+  "no_accounts": "暂无注册账户",
+  "status_active": "活跃",
+  "status_suspended": "已停用",
+  "status_inactive": "未激活",
+  "pharmacies_branches": "{pharmacies} 家药房 · {branches} 家分店"
+}

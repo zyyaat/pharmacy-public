@@ -1,0 +1,21 @@
+{
+  "title": "डैशबोर्ड",
+  "subtitle": "डेटाबेस से फार्मेसी का वर्तमान डेटा",
+  "add_product": "उत्पाद जोड़ें",
+  "loading": "फार्मेसी डेटा लोड हो रहा है...",
+  "error_load": "डैशबोर्ड डेटा लोड नहीं हो सका",
+  "total_products": "कुल उत्पाद",
+  "low_stock_products": "कम स्टॉक वाले उत्पाद",
+  "sales_units_today": "आज बिक्री हुई इकाइयाँ",
+  "attendance_today": "आज की उपस्थिति",
+  "inventory_status": "इन्वेंटरी स्थिति",
+  "inventory_status_desc": "वे आइटम जिन्होंने री-ऑर्डर बिंदु तक पहुँच लिया है",
+  "no_low_stock": "कोई कम-स्टॉक आइटम नहीं",
+  "reorder_note": "री-ऑर्डर बिंदु: {min} — अलग पट्टियाँ गिनी नहीं जातीं",
+  "quick_actions": "त्वरित कार्य",
+  "no_quick_actions": "आपके खाते के लिए अभी कोई कार्य उपलब्ध नहीं है",
+  "nav_inventory": "इन्वेंटरी",
+  "nav_employees": "कर्मचारी",
+  "nav_attendance": "उपस्थिति",
+  "nav_reports": "रिपोर्ट"
+}

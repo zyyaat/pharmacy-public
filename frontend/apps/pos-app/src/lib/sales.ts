@@ -3,17 +3,24 @@
 // Quantities are stored in base units (strips for BOX_STRIP products, the
 // product unit otherwise). Money is integer piastres and is formatted
 // exclusively through formatPiastres in lib/money.ts.
+//
+// Task 48: every user-visible label comes from the 'sales' message catalog
+// through the runtime translator (this module is outside React context), and
+// date formatting goes through the central i18n format layer.
 
 import type { POSSaleStatus } from './api'
+import { fmtDate } from '@/i18n/format'
+import { runtimeTranslator } from '@/i18n/runtime'
 
 export function saleStatusLabel(status: string): string {
+  const t = runtimeTranslator('sales')
   switch (status) {
     case 'returned':
-      return 'مرتجعة بالكامل'
+      return t('statusReturned')
     case 'partially_returned':
-      return 'مرتجعة جزئياً'
+      return t('statusPartiallyReturned')
     default:
-      return 'مكتملة'
+      return t('statusCompleted')
   }
 }
 
@@ -28,48 +35,40 @@ export function saleStatusVariant(status: string): 'success' | 'warning' | 'dest
   }
 }
 
-const dateFormatter = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
-
-const timeFormatter = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
-  hour: 'numeric',
-  minute: '2-digit',
-})
-
 export function formatSaleDate(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return dateFormatter.format(date)
+  return fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export function formatSaleTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return timeFormatter.format(date)
+  return fmtDate(date, { hour: 'numeric', minute: '2-digit' })
 }
 
 /** Label of one base unit for the product, e.g. "شريط" or "وحدة". */
 export function baseUnitLabel(packagingType: string): string {
-  return packagingType === 'BOX_STRIP' ? 'شريط' : 'وحدة'
+  const t = runtimeTranslator('sales')
+  return packagingType === 'BOX_STRIP' ? t('unitStrip') : t('unitUnit')
 }
 
-/** Arabic-aware quantity text for a base-unit count, e.g. "5 شرائط". */
+/** Locale-aware quantity text for a base-unit count, e.g. "5 شرائط". */
 export function formatBaseQuantity(packagingType: string, quantity: number): string {
-  const unit = baseUnitLabel(packagingType)
-  if (quantity === 1) return unit === 'شريط' ? 'شريط واحد' : 'وحدة واحدة'
-  if (quantity === 2) return unit === 'شريط' ? 'شريطان' : `وحدتان`
-  return `${quantity} ${unit === 'شريط' ? 'شرائط' : 'وحدات'}`
+  const t = runtimeTranslator('sales')
+  const isStrip = packagingType === 'BOX_STRIP'
+  if (quantity === 1) return isStrip ? t('oneStrip') : t('oneUnit')
+  if (quantity === 2) return isStrip ? t('twoStrips') : t('twoUnits')
+  return isStrip ? t('manyStrips', { count: quantity }) : t('manyUnits', { count: quantity })
 }
 
 /** How the line was sold: box lines show the box count, strip lines the strip count. */
 export function formatSoldQuantity(saleUnit: 'box' | 'strip', packagingType: string, unitsPerBox: number, quantityBase: number): string {
+  const t = runtimeTranslator('sales')
   if (saleUnit === 'box') {
-    if (quantityBase === 1) return 'علبة واحدة'
-    if (quantityBase === 2) return 'علبتان'
-    return `${quantityBase} علب`
+    if (quantityBase === 1) return t('oneBox')
+    if (quantityBase === 2) return t('twoBoxes')
+    return t('manyBoxes', { count: quantityBase })
   }
   return formatBaseQuantity(packagingType, quantityBase)
 }
@@ -77,5 +76,5 @@ export function formatSoldQuantity(saleUnit: 'box' | 'strip', packagingType: str
 /** "1 box = 10 strips" hint for the return input. */
 export function boxConversionHint(packagingType: string, unitsPerBox: number): string | null {
   if (packagingType !== 'BOX_STRIP' || unitsPerBox < 2) return null
-  return `العلبة = ${unitsPerBox} ${baseUnitLabel(packagingType)}`
+  return runtimeTranslator('sales')('boxHint', { count: unitsPerBox, unit: baseUnitLabel(packagingType) })
 }

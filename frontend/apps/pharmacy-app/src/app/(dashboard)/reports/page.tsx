@@ -3,36 +3,36 @@
 import Link from 'next/link'
 import { ArrowLeftRight, Boxes, ChevronLeft, ReceiptText } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui'
+import { useT } from '@/i18n/provider'
 import { useAccess, RequirePermission } from '@/components/permissions/gate'
 
-const reportCards = [
-  {
-    href: '/reports/sales',
-    perm: 'reports.sales',
-    icon: ReceiptText,
-    title: 'تقرير المبيعات',
-    description:
-      'إجمالي المبيعات والمرتجعات والصافي، متوسط الفاتورة، رسم بياني يومي، والمنتجات الأكثر بيعاً خلال أي فترة.',
-  },
-  {
-    href: '/reports/inventory',
-    perm: 'reports.inventory',
-    icon: Boxes,
-    title: 'تقرير المخزون',
-    description:
-      'قيمة المخزون بالتكلفة وبسعر البيع، النواقص والنافد، مجموعات الصلاحية، وجدول بالمخزون الحالي.',
-  },
-  {
-    href: '/reports/movements',
-    perm: 'reports.movements',
-    icon: ArrowLeftRight,
-    title: 'تقرير حركات المخزون',
-    description:
-      'ملخص كل حركات الدخول والخروج حسب النوع (بيع، شراء، استرجاع، تسويات…) مع تفاصيل الحركات.',
-  },
-]
-
 export default function ReportsPage() {
+  const t = useT('reports')
+
+  const reportCards = [
+    {
+      href: '/reports/sales',
+      perm: 'reports.sales',
+      icon: ReceiptText,
+      title: t('sales_title'),
+      description: t('sales_desc'),
+    },
+    {
+      href: '/reports/inventory',
+      perm: 'reports.inventory',
+      icon: Boxes,
+      title: t('inventory_title'),
+      description: t('inventory_desc'),
+    },
+    {
+      href: '/reports/movements',
+      perm: 'reports.movements',
+      icon: ArrowLeftRight,
+      title: t('movements_title'),
+      description: t('movements_desc'),
+    },
+  ]
+
   // Task 43: كل تقرير يختفي كليًا عن من لا يملك صلاحيته — لا بطاقة «ممنوع»
   const { ready, allowed } = useAccess()
   const visible = ready ? reportCards.filter((card) => allowed(card.perm)) : []
@@ -41,16 +41,16 @@ export default function ReportsPage() {
     <RequirePermission anyOf={['reports.sales', 'reports.inventory', 'reports.movements', 'reports.financial', 'reports.employees']}>
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">التقارير</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          تقارير جاهزة بأفضل المقاييس — كل تقرير قابل للطباعة أو الحفظ PDF بنفس هوية الموقع.
+          {t('subtitle')}
         </p>
       </div>
 
       {ready && visible.length === 0 ? (
         <Card>
           <CardContent className="py-14 text-center text-sm text-muted-foreground">
-            لا تقارير متاحة لحسابك حاليًا — تواصل مع مالك الصيدلية لمنحك صلاحية التقارير المناسبة.
+            {t('empty')}
           </CardContent>
         </Card>
       ) : (
@@ -69,8 +69,8 @@ export default function ReportsPage() {
                       {report.description}
                     </p>
                     <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                      فتح التقرير
-                      <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                      {t('open_report')}
+                      <ChevronLeft className="h-4 w-4 rtl-flip transition-transform ltr:group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
                     </span>
                   </CardContent>
                 </Card>

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Shield, ShieldCheck } from 'lucide-react'
 import { pharmacyApi, type PermissionModule, type PermissionTemplate } from '@/lib/api'
+import { useT } from '@/i18n/provider'
 import { cn } from '@/lib/utils'
 
 interface PermissionsEditorProps {
@@ -99,6 +100,7 @@ function Toggle({
 }
 
 export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps) {
+  const t = useT('employees')
   const { modules, templates, loading } = usePermissionCatalog()
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -131,7 +133,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
   }
 
   if (loading) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">جاري تحميل الصلاحيات...</p>
+    return <p className="py-6 text-center text-sm text-muted-foreground">{t('loadingPerms')}</p>
   }
 
   return (
@@ -140,8 +142,8 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
       <div>
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          قوالب جاهزة حسب الوظيفة
-          <span className="text-xs font-normal text-muted-foreground">— اختَر قالبًا ثم عدّل كما تشاء</span>
+          {t('templatesTitle')}
+          <span className="text-xs font-normal text-muted-foreground">{t('templatesHint')}</span>
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {templates.map((tpl) => {
@@ -154,7 +156,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
                 type="button"
                 onClick={() => applyTemplate(tpl)}
                 className={cn(
-                  'rounded-lg border p-2.5 text-right transition-all',
+                  'rounded-lg border p-2.5 text-end transition-all',
                   active || (exact && tpl.permissions.length > 0)
                     ? 'border-primary bg-primary/5 ring-1 ring-primary'
                     : 'border-border hover:border-primary/40 hover:bg-accent/50',
@@ -162,7 +164,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
               >
                 <p className="text-sm font-semibold">{tpl.display_name_ar || tpl.display_name}</p>
                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{tpl.description_ar}</p>
-                <p className="mt-1 text-[11px] text-primary">{tpl.permissions.length} صلاحية</p>
+                <p className="mt-1 text-[11px] text-primary">{t('permsCount', { count: tpl.permissions.length })}</p>
               </button>
             )
           })}
@@ -173,10 +175,10 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
       <div className="space-y-2">
         <p className="flex items-center gap-2 text-sm font-semibold">
           <Shield className="h-4 w-4 text-primary" />
-          تفاصيل الصلاحيات ({selected.length} مفعّلة)
+          {t('detailsTitle', { count: selected.length })}
         </p>
         {modules.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">لا توجد صلاحيات معرفة</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">{t('noPermissionsDefined')}</p>
         )}
         {modules.map((mod) => {
           const keys = mod.permissions.map((p) => p.key)
@@ -188,7 +190,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
               <div className="flex items-center gap-2 p-3">
                 <button
                   type="button"
-                  className="flex flex-1 items-center gap-2 text-right"
+                  className="flex flex-1 items-center gap-2 text-end"
                   onClick={() => setCollapsed((prev) => ({ ...prev, [mod.module]: !prev[mod.module] }))}
                 >
                   <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
@@ -200,7 +202,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
                 <Toggle
                   checked={allOn}
                   onChange={(next) => toggleModule(mod, next)}
-                  label={`تشغيل كل صلاحيات ${mod.label}`}
+                  label={t('toggleModuleAria', { module: mod.label })}
                 />
               </div>
               {!isCollapsed && (
@@ -217,7 +219,7 @@ export function PermissionsEditor({ selected, onChange }: PermissionsEditorProps
                       >
                         <span className={cn('text-sm', sensitive && 'font-medium')}>
                           {p.name_ar || p.key}
-                          {sensitive && <span className="mr-1 text-xs text-amber-600">●</span>}
+                          {sensitive && <span className="ms-1 text-xs text-amber-600">●</span>}
                         </span>
                         <Toggle
                           checked={selectedSet.has(p.key)}

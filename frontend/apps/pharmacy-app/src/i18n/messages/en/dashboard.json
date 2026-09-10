@@ -1,0 +1,21 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Live pharmacy data straight from the database",
+  "add_product": "Add product",
+  "loading": "Loading pharmacy data...",
+  "error_load": "Could not load dashboard data",
+  "total_products": "Total products",
+  "low_stock_products": "Low-stock products",
+  "sales_units_today": "Sales units today",
+  "attendance_today": "Attendance today",
+  "inventory_status": "Inventory status",
+  "inventory_status_desc": "Items that reached their reorder point",
+  "no_low_stock": "No low-stock items",
+  "reorder_note": "Reorder point: {min} — single strips are not counted",
+  "quick_actions": "Quick actions",
+  "no_quick_actions": "No actions available for your account yet",
+  "nav_inventory": "Inventory",
+  "nav_employees": "Employees",
+  "nav_attendance": "Attendance",
+  "nav_reports": "Reports"
+}

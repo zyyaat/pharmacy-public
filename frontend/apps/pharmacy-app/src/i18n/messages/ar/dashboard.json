@@ -1,0 +1,21 @@
+{
+  "title": "لوحة التحكم",
+  "subtitle": "بيانات الصيدلية الحالية من قاعدة البيانات",
+  "add_product": "إضافة منتج",
+  "loading": "جاري تحميل بيانات الصيدلية...",
+  "error_load": "تعذر تحميل بيانات لوحة التحكم",
+  "total_products": "إجمالي المنتجات",
+  "low_stock_products": "منتجات منخفضة المخزون",
+  "sales_units_today": "حركات البيع اليوم",
+  "attendance_today": "الحضور اليوم",
+  "inventory_status": "حالة المخزون",
+  "inventory_status_desc": "الأصناف التي وصلت إلى حد إعادة الطلب",
+  "no_low_stock": "لا توجد أصناف منخفضة المخزون",
+  "reorder_note": "حد الطلب: {min} — الشرائط المفردة لا تُحسب",
+  "quick_actions": "إجراءات سريعة",
+  "no_quick_actions": "لا إجراءات متاحة لحسابك حاليًا",
+  "nav_inventory": "المخزون",
+  "nav_employees": "الموظفون",
+  "nav_attendance": "الحضور",
+  "nav_reports": "التقارير"
+}

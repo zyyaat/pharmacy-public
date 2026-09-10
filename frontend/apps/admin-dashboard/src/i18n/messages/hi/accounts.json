@@ -1,0 +1,16 @@
+{
+  "title": "खाते और फार्मेसियाँ",
+  "subtitle": "प्लेटफ़ॉर्म पर व्यावसायिक खाते, फार्मेसियाँ और शाखाएँ देखें",
+  "stat_total": "कुल खाते",
+  "stat_pharmacies": "परिणामों में फार्मेसियाँ",
+  "stat_branches": "परिणामों में शाखाएँ",
+  "list_title": "पंजीकृत खाते",
+  "search_placeholder": "खाता, कंपनी या ईमेल से खोजें...",
+  "loading": "खाते लोड हो रहे हैं...",
+  "load_failed": "खाते लोड नहीं हो सके",
+  "no_accounts": "कोई पंजीकृत खाता नहीं",
+  "status_active": "सक्रिय",
+  "status_suspended": "निलंबित",
+  "status_inactive": "निष्क्रिय",
+  "pharmacies_branches": "{pharmacies} फार्मेसियाँ · {branches} शाखाएँ"
+}

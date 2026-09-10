@@ -2,6 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { authApi } from '@/lib/api'
+import { applyLocaleEverywhere } from '@/i18n/change-locale'
+import { DEFAULT_LOCALE, isLocale } from '@/i18n/config'
+import { useT } from '@/i18n/provider'
 
 export type PharmacyUser = Record<string, unknown> & {
   account_type?: 'company_user' | 'employee'
@@ -16,6 +19,30 @@ function isPharmacyAccount(user: PharmacyUser): boolean {
     ['company_admin', 'company_manager'].includes(user.role || '')
 }
 
+/**
+ * Task 48 — مزامنة لغة الواجهة مع التفضيل المحفوظ دائمًا على الحساب.
+ * تُستدعى بعد الدخول وبعد كل جلب للجلسة: الكوكي يظل صورة طبق الأصل من قاعدة البيانات،
+ * وإذا اختلفا (جهاز جديد مثلاً) تُطبَّق لغة الحساب مع إعادة تحميل واحدة فقط عند الحاجة
+ * كي تُرسم شجرة الخادم بالقاموس الصحيح من أول مرة.
+ */
+function syncLocaleFromUser(user: PharmacyUser, allowReload = true) {
+  const stored = user.locale
+  if (typeof stored !== 'string' || !isLocale(stored)) return
+  const cookieRow = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('pharmacy_locale='))
+  const cookieValue = cookieRow?.split('=')[1]
+  if (cookieValue === stored) {
+    applyLocaleEverywhere(stored)
+    return
+  }
+  applyLocaleEverywhere(stored)
+  // إعادة التحميل فقط عندما يكون ما رسمه الخادم مختلفًا فعلًا عن لغة الحساب
+  if (allowReload && (cookieValue !== undefined || stored !== DEFAULT_LOCALE)) {
+    window.location.reload()
+  }
+}
+
 interface AuthContextValue {
   user: PharmacyUser | null
   loading: boolean
@@ -28,6 +55,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // AuthProvider يُرسم داخل I18nProvider — لذلك useT متاح هنا (Task 48)
+  const t = useT('auth')
   const [user, setUser] = useState<PharmacyUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,9 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       const response = await authApi.me()
       if (!isPharmacyAccount(response.user)) {
-        throw new Error('نوع الحساب غير مدعوم في تطبيق الصيدلية')
+        throw new Error(t('unsupported_account'))
       }
       setUser(response.user)
+      syncLocaleFromUser(response.user)
     } catch {
       setUser(null)
     } finally {
@@ -58,11 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       const response = await authApi.login(email, password)
       if (!isPharmacyAccount(response.user)) {
-        throw new Error('هذا الحساب غير مخصص لتطبيق الصيدلية')
+        throw new Error(t('not_pharmacy_account'))
       }
       setUser(response.user)
+      // بعد الدخول مباشرة: ضبط الكوكي قبل التوجيه كي يرسم الخادم اللغة الصحيحة، بلا إعادة تحميل
+      syncLocaleFromUser(response.user, false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'فشل تسجيل الدخول'
+      const message = err instanceof Error ? err.message : t('login_failed')
       setError(message)
       throw err
     } finally {

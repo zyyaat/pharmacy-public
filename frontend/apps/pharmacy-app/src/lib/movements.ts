@@ -1,24 +1,32 @@
+// Task 48 — تسميات حركات المخزون عبر كتالوج i18n (مساحة movements).
+// وحدات عميل فقط — الترجمة وقت الاستدعاء عبر runtimeTranslator حتى تتغير
+// التسميات فور تبديل اللغة دون إعادة تحميل، مع بقاء توقيع الدوال كما هو
+// لصالح كل المستدعين (سجل الحركات + تقارير الحركات).
 import type { BadgeProps } from '@/components/ui'
 import type { StockMovementType } from '@/lib/api'
+import { runtimeTranslator } from '@/i18n/runtime'
+import { fmtDate, fmtNumber } from '@/i18n/format'
 
-/** تسميات أنواع حركات المخزون بالعربية */
-export const movementTypeLabels: Record<StockMovementType, string> = {
-  purchase: 'شراء',
-  sale: 'بيع',
-  return_to_supplier: 'مرتجع للمورد',
-  return_from_customer: 'استرجاع من عميل',
-  adjustment: 'تسوية مخزون',
-  transfer_in: 'تحويل وارد',
-  transfer_out: 'تحويل صادر',
-  expiry_writeoff: 'إعدام منتهي الصلاحية',
-  damage_writeoff: 'إعدام تالف',
-  theft_loss: 'فقد/سرقة',
-  production_input: 'استهلاك تصنيع',
-  production_output: 'إنتاج',
+/** مفاتيح تسميات أنواع حركات المخزون في مساحة movements */
+const movementTypeKeys: Record<StockMovementType, string> = {
+  purchase: 'type_purchase',
+  sale: 'type_sale',
+  return_to_supplier: 'type_return_to_supplier',
+  return_from_customer: 'type_return_from_customer',
+  adjustment: 'type_adjustment',
+  transfer_in: 'type_transfer_in',
+  transfer_out: 'type_transfer_out',
+  expiry_writeoff: 'type_expiry_writeoff',
+  damage_writeoff: 'type_damage_writeoff',
+  theft_loss: 'type_theft_loss',
+  production_input: 'type_production_input',
+  production_output: 'type_production_output',
 }
 
 export function movementTypeLabel(type: StockMovementType): string {
-  return movementTypeLabels[type] ?? type
+  const t = runtimeTranslator('movements')
+  const key = movementTypeKeys[type]
+  return key ? t(key) : type
 }
 
 export function movementTypeVariant(type: StockMovementType): BadgeProps['variant'] {
@@ -46,7 +54,7 @@ export function movementDirection(quantity: number): 'in' | 'out' {
 }
 
 export function formatMovementDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ar-EG-u-nu-latn', {
+  return fmtDate(iso, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -54,16 +62,17 @@ export function formatMovementDate(iso: string): string {
 }
 
 export function formatMovementTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('ar-EG-u-nu-latn', {
+  return fmtDate(iso, {
     hour: '2-digit',
     minute: '2-digit',
   })
 }
 
-/** تنسيق الكمية بالوحدة الأساسية (شريط/وحدة) */
+/** تنسيق الكمية بالوحدة الأساسية (شريط/علبة) — الوحدات الأخرى تبقى كما وردت من الخادم */
 export function formatMovementQuantity(quantity: number, unit: string): string {
   const abs = Math.abs(quantity)
-  const rounded = Number.isInteger(abs) ? abs.toLocaleString('ar-EG-u-nu-latn') : abs.toLocaleString('ar-EG-u-nu-latn', { maximumFractionDigits: 2 })
-  const unitLabel = unit === 'strip' ? 'شريط' : unit === 'box' ? 'علبة' : unit
+  const rounded = Number.isInteger(abs) ? fmtNumber(abs) : fmtNumber(abs, { maximumFractionDigits: 2 })
+  const t = runtimeTranslator('movements')
+  const unitLabel = unit === 'strip' ? t('unit_strip') : unit === 'box' ? t('unit_box') : unit
   return `${rounded} ${unitLabel}`
 }

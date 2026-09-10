@@ -7,13 +7,15 @@ import { useAuth } from '@/hooks/useAuth'
 import BrandSplash from '@/components/brand-splash'
 import { authApi } from '@/lib/api'
 import { getSafeRedirectPath } from '@/lib/navigation'
+import { useT } from '@/i18n/provider'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const t = useT('auth')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [message, setMessage] = useState('أدخل رمز التحقق المكوّن من 6 أرقام')
+  const [message, setMessage] = useState<string>(t('verify_default_message'))
   const [error, setError] = useState(false)
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
@@ -32,7 +34,7 @@ export default function VerifyEmailPage() {
     setEmail(pendingEmail)
     if (params.get('sent') === '0') {
       setError(true)
-      setMessage('تم إنشاء الحساب، لكن تعذر إرسال رمز التحقق. حاول إعادة الإرسال الآن.')
+      setMessage(t('verify_send_failed_on_create'))
     }
     if (!pendingEmail) return
 
@@ -45,14 +47,14 @@ export default function VerifyEmailPage() {
         setError(false)
         setMessage(
           response.sent === false
-            ? 'يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني.'
-            : 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني',
+            ? t('verify_code_exists')
+            : t('verify_code_sent'),
         )
       })
       .catch((resendError) => {
         if (cancelled) return
         setError(true)
-        setMessage(resendError instanceof Error ? resendError.message : 'تعذر إرسال رمز التحقق')
+        setMessage(resendError instanceof Error ? resendError.message : t('verify_resend_failed'))
       })
       .finally(() => {
         if (!cancelled) setSending(false)
@@ -66,12 +68,12 @@ export default function VerifyEmailPage() {
     event.preventDefault()
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       setError(true)
-      setMessage('أدخل رمز التحقق المكوّن من 6 أرقام')
+      setMessage(t('verify_default_message'))
       return
     }
     if (!email) {
       setError(true)
-      setMessage('أدخل بريدك الإلكتروني أولًا')
+      setMessage(t('verify_email_first'))
       return
     }
 
@@ -79,11 +81,11 @@ export default function VerifyEmailPage() {
     setError(false)
     try {
       await authApi.verifyEmail(email, code)
-      setMessage('تم تأكيد البريد بنجاح. جاري فتح صفحة تسجيل الدخول...')
+      setMessage(t('verify_success'))
       window.setTimeout(() => window.location.assign('/login'), 900)
     } catch (verificationError) {
       setError(true)
-      setMessage(verificationError instanceof Error ? verificationError.message : 'تعذر تأكيد البريد')
+      setMessage(verificationError instanceof Error ? verificationError.message : t('verify_failed'))
     } finally {
       setVerifying(false)
     }
@@ -99,12 +101,12 @@ export default function VerifyEmailPage() {
       setSent(response.sent !== false)
       setMessage(
         response.sent === false
-          ? 'يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني.'
-          : 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني',
+          ? t('verify_code_exists')
+          : t('verify_code_sent'),
       )
     } catch (resendError) {
       setError(true)
-      setMessage(resendError instanceof Error ? resendError.message : 'تعذر إرسال رمز التحقق')
+      setMessage(resendError instanceof Error ? resendError.message : t('verify_resend_failed'))
     } finally {
       setSending(false)
     }
@@ -115,20 +117,20 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8" dir="rtl">
-      <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
+      <div className="absolute -start-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+      <div className="absolute -bottom-40 -end-24 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
       <section className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-12" aria-live="polite">
         <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-black ${error ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
           {error ? '!' : '✓'}
         </div>
         <p className="mt-6 text-sm font-medium text-primary">Pharmacy OS</p>
-        <h1 className="mt-3 text-2xl font-bold leading-relaxed">تأكيد البريد الإلكتروني</h1>
+        <h1 className="mt-3 text-2xl font-bold leading-relaxed">{t('verify_heading')}</h1>
         <p className={`mt-3 text-sm leading-7 ${error ? 'text-destructive' : 'text-muted-foreground'}`}>{message}</p>
 
-        <form className="mt-8 space-y-4 text-right" onSubmit={verifyEmail}>
+        <form className="mt-8 space-y-4 text-start" onSubmit={verifyEmail}>
           <label className="block">
-            <span className="mb-2 block text-sm font-medium">البريد الإلكتروني</span>
+            <span className="mb-2 block text-sm font-medium">{t('email')}</span>
             <input
               className="h-12 w-full rounded-xl border border-input bg-background px-4 text-left text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               dir="ltr"
@@ -140,7 +142,7 @@ export default function VerifyEmailPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-medium">رمز التحقق</span>
+            <span className="mb-2 block text-sm font-medium">{t('code_label')}</span>
             <input
               className="h-14 w-full rounded-xl border border-input bg-background px-4 text-center text-2xl font-bold tracking-[0.6em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               dir="ltr"
@@ -159,7 +161,7 @@ export default function VerifyEmailPage() {
             type="submit"
             disabled={verifying}
           >
-            {verifying ? 'جاري التأكيد...' : 'تأكيد البريد'}
+            {verifying ? t('verifying') : t('verify_button')}
           </button>
         </form>
 
@@ -169,12 +171,12 @@ export default function VerifyEmailPage() {
           onClick={resendVerification}
           disabled={!email || sending}
         >
-          {sending ? 'جاري إرسال الرمز...' : 'إعادة إرسال رمز التحقق'}
+          {sending ? t('sending_code') : t('resend_button')}
         </button>
-        {sent && <p className="mt-3 text-sm text-emerald-600">تحقق من صندوق الوارد ومجلد الرسائل غير المرغوب فيها.</p>}
+        {sent && <p className="mt-3 text-sm text-emerald-600">{t('check_inbox')}</p>}
 
         <Link className="mt-8 inline-flex h-11 items-center rounded-xl border border-border px-6 text-sm font-semibold transition hover:bg-muted" href="/login">
-          العودة إلى تسجيل الدخول
+          {t('back_to_login')}
         </Link>
       </section>
     </main>

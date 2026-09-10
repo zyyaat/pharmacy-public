@@ -1,3 +1,5 @@
+import { runtimeTranslator } from '@/i18n/runtime'
+
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
 const AUTH_BASE_PATH = '/auth/pharmacy'
 const CSRF_COOKIE_NAME = 'pharmacy_csrf'
@@ -58,7 +60,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
     })
   } catch {
     throw new ApiError(
-      'تعذر الاتصال بخادم النظام. راجع NEXT_PUBLIC_API_URL وإعدادات CORS في الـ backend.',
+      runtimeTranslator('errors')('network_unreachable'),
       'API_UNREACHABLE',
       0,
     )
@@ -102,6 +104,13 @@ export const authApi = {
   },
   logout() {
     return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
+  },
+  /** Task 48 — الحفظ الدائم للغة الواجهة على الحساب (نفس نقطة النهاية في كل التطبيقات). */
+  setMyLocale(locale: string) {
+    return apiFetch<{ locale: string }>(`${AUTH_BASE_PATH}/locale`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locale }),
+    })
   },
 }
 
@@ -915,7 +924,7 @@ export const productImportApi = {
       credentials: 'include',
     })
     if (!response.ok) {
-      throw new ApiError('تعذر تحميل نموذج الترحيل', 'TEMPLATE_FAILED', response.status)
+      throw new ApiError(runtimeTranslator('errors')('template_download_failed'), 'TEMPLATE_FAILED', response.status)
     }
     return response.blob()
   },

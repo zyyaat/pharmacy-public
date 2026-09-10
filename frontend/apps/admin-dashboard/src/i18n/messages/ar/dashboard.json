@@ -1,0 +1,18 @@
+{
+  "title": "لوحة التحكم",
+  "subtitle": "نظرة عامة على منصة Pharmacy OS بالكامل",
+  "loading": "جاري تحميل بيانات لوحة التحكم...",
+  "companies_error": "تعذر تحميل الشركات",
+  "stat_total_companies": "إجمالي الشركات",
+  "stat_active_companies": "الشركات النشطة",
+  "stat_suspended_companies": "الشركات الموقوفة",
+  "stat_total_pharmacies": "إجمالي الصيدليات",
+  "stat_total_users": "إجمالي المستخدمين",
+  "stat_active_users": "المستخدمون النشطون",
+  "latest_companies": "أحدث الشركات",
+  "view_all": "عرض الكل",
+  "no_companies": "لا توجد شركات مسجلة",
+  "users_count": "{count} مستخدم",
+  "recent_activity": "النشاط الأخير",
+  "no_activity": "لا يوجد نشاط مسجل"
+}

@@ -1,0 +1,18 @@
+{
+  "title": "Panel",
+  "subtitle": "Tüm Pharmacy OS platformuna genel bakış",
+  "loading": "Panel verileri yükleniyor...",
+  "companies_error": "Şirketler yüklenemedi",
+  "stat_total_companies": "Toplam şirket",
+  "stat_active_companies": "Aktif şirketler",
+  "stat_suspended_companies": "Askıya alınan şirketler",
+  "stat_total_pharmacies": "Toplam eczane",
+  "stat_total_users": "Toplam kullanıcı",
+  "stat_active_users": "Aktif kullanıcılar",
+  "latest_companies": "Son şirketler",
+  "view_all": "Tümünü gör",
+  "no_companies": "Kayıtlı şirket yok",
+  "users_count": "{count} kullanıcı",
+  "recent_activity": "Son etkinlikler",
+  "no_activity": "Kayıtlı etkinlik yok"
+}

@@ -1,0 +1,33 @@
+{
+  "title": "Roles & Permissions",
+  "subtitle": "Actual roles and permissions from the platform database",
+  "loading": "Loading permissions...",
+  "load_failed": "Could not load permissions",
+  "metric_permissions": "Registered permissions",
+  "metric_roles": "System roles",
+  "metric_users": "Users linked to roles",
+  "roles_title": "Roles",
+  "users_count": "{count} users",
+  "permissions_fallback": "Permissions",
+  "role_permissions_count": "{count} permissions in this role",
+  "search_placeholder": "Search permissions...",
+  "no_matches": "No matching permissions",
+  "labels": {
+    "companies_view": "View companies",
+    "companies_create": "Create company",
+    "companies_edit": "Edit company",
+    "companies_delete": "Delete company",
+    "company_users_view": "View users",
+    "company_users_create": "Create user",
+    "company_users_edit": "Edit user",
+    "company_users_delete": "Delete user",
+    "company_users_manage_permissions": "Manage permissions",
+    "accounts_view": "View accounts",
+    "accounts_create": "Create account",
+    "accounts_edit": "Edit account",
+    "accounts_delete": "Delete account",
+    "platform_settings": "Platform settings",
+    "platform_management": "Platform management",
+    "platform_analytics": "Platform analytics"
+  }
+}

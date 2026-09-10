@@ -1,0 +1,40 @@
+{
+  "title": "کمپنی مینجمنٹ",
+  "subtitle": "پلیٹ فارم پر رجسٹرڈ تمام کمپنیوں کا انتظام کریں",
+  "add_company": "نئی کمپنی شامل کریں",
+  "stat_total": "کل کمپنیاں",
+  "stat_active": "فعال کمپنیاں",
+  "stat_trial": "ٹرائل مدت میں",
+  "stat_suspended": "معطل کمپنیاں",
+  "search_placeholder": "نام یا ای میل سے تلاش کریں...",
+  "filter_status_aria": "حیثیت کے لحاظ سے فلٹر کریں",
+  "filter_all": "تمام حیثیتیں",
+  "loading": "کمپنیاں لوڈ ہو رہی ہیں...",
+  "load_failed": "کمپنیاں لوڈ نہیں ہو سکیں",
+  "th_company": "کمپنی",
+  "th_status": "حیثیت",
+  "th_plan": "پلان",
+  "th_users": "صارفین",
+  "th_registered": "رجسٹریشن کی تاریخ",
+  "th_actions": "کارروائیاں",
+  "action_view": "دیکھیں",
+  "action_edit": "ترمیم",
+  "action_delete": "حذف",
+  "empty_title": "کوئی کمپنی نہیں",
+  "empty_desc": "تلاش کے معیار سے مماثل کوئی کمپنی نہیں ملی",
+  "clear_filters": "فلٹرز صاف کریں",
+  "pagination": "{total} کمپنیوں میں سے {shown} دکھائی جا رہی ہیں",
+  "status": {
+    "active": "فعال",
+    "suspended": "معطل",
+    "trial": "ٹرائل",
+    "cancelled": "منسوخ"
+  },
+  "plans": {
+    "free": "مفت",
+    "starter": "اسٹارٹر",
+    "professional": "پروفیشنل",
+    "enterprise": "انٹرپرائز",
+    "custom": "کسٹم"
+  }
+}

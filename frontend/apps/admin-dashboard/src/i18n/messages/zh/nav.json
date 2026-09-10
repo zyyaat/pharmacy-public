@@ -1,0 +1,18 @@
+{
+  "dashboard": "仪表板",
+  "companies": "公司",
+  "users": "用户",
+  "permissions": "权限",
+  "accounts": "账户",
+  "settings": "设置",
+  "brand_home_aria": "Pharmacy OS - 首页",
+  "avatar_fallback": "U",
+  "default_user": "系统管理员",
+  "logout": "退出登录",
+  "search_placeholder": "搜索公司、用户...",
+  "change_language": "更改语言",
+  "light_mode": "浅色模式",
+  "dark_mode": "深色模式",
+  "loading_aria": "加载中",
+  "logo_alt": "应用徽标"
+}

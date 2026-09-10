@@ -1,0 +1,21 @@
+{
+  "title": "Panel de control",
+  "subtitle": "Datos actuales de la farmacia desde la base de datos",
+  "add_product": "Añadir producto",
+  "loading": "Cargando datos de la farmacia...",
+  "error_load": "No se pudieron cargar los datos del panel",
+  "total_products": "Total de productos",
+  "low_stock_products": "Productos con stock bajo",
+  "sales_units_today": "Unidades vendidas hoy",
+  "attendance_today": "Asistencia hoy",
+  "inventory_status": "Estado del inventario",
+  "inventory_status_desc": "Artículos que alcanzaron su punto de reorden",
+  "no_low_stock": "No hay artículos con stock bajo",
+  "reorder_note": "Punto de reorden: {min} — las tiras sueltas no se cuentan",
+  "quick_actions": "Acciones rápidas",
+  "no_quick_actions": "No hay acciones disponibles para tu cuenta por ahora",
+  "nav_inventory": "Inventario",
+  "nav_employees": "Empleados",
+  "nav_attendance": "Asistencia",
+  "nav_reports": "Informes"
+}

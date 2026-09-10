@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "سسٹم سرور سے رابطہ ممکن نہ ہو سکا۔ NEXT_PUBLIC_API_URL اور بیک اینڈ کی CORS ترتیبات دیکھیں۔",
+  "template_download_failed": "امپورٹ ٹیمپلیٹ ڈاؤن لوڈ نہیں ہو سکا"
+}

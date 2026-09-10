@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "تعذر الاتصال بخادم النظام. راجع NEXT_PUBLIC_API_URL وإعدادات CORS في الـ backend.",
+  "template_download_failed": "تعذر تحميل نموذج الترحيل"
+}

@@ -1,0 +1,26 @@
+{
+  "title": "Utilisateurs de la plateforme",
+  "subtitle": "Tous les utilisateurs de sociétés et employés de pharmacies avec source du compte et rôle effectif",
+  "metric_total": "Total des utilisateurs",
+  "metric_active": "Actifs dans les résultats",
+  "metric_admins": "Administrateurs système dans les résultats",
+  "guide_title": "Annuaire des utilisateurs",
+  "search_placeholder": "Rechercher par nom, e-mail ou société...",
+  "filter_role_aria": "Filtrer par rôle",
+  "role_all": "Tous les rôles",
+  "loading": "Chargement des utilisateurs...",
+  "load_failed": "Impossible de charger les utilisateurs",
+  "no_matches": "Aucun utilisateur correspondant",
+  "badge_disabled": "Désactivé",
+  "account_company_user": "Compte société",
+  "account_pharmacy_employee": "Employé de pharmacie",
+  "permissions_count": "{count} permissions effectives",
+  "last_login": "Dernière connexion : {date}",
+  "never_logged_in": "Jamais connecté",
+  "roles": {
+    "super_admin": "Administrateur système",
+    "company_admin": "Administrateur de société",
+    "company_manager": "Responsable des opérations",
+    "company_viewer": "Observateur de société"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "title": "Panel",
+  "subtitle": "Vista general de toda la plataforma Pharmacy OS",
+  "loading": "Cargando datos del panel...",
+  "companies_error": "No se pudieron cargar las empresas",
+  "stat_total_companies": "Total de empresas",
+  "stat_active_companies": "Empresas activas",
+  "stat_suspended_companies": "Empresas suspendidas",
+  "stat_total_pharmacies": "Total de farmacias",
+  "stat_total_users": "Total de usuarios",
+  "stat_active_users": "Usuarios activos",
+  "latest_companies": "Empresas recientes",
+  "view_all": "Ver todo",
+  "no_companies": "No hay empresas registradas",
+  "users_count": "{count} usuarios",
+  "recent_activity": "Actividad reciente",
+  "no_activity": "No hay actividad registrada"
+}

@@ -1,0 +1,33 @@
+{
+  "title": "کردار اور اجازتیں",
+  "subtitle": "پلیٹ فارم ڈیٹابیس سے حقیقی کردار اور اجازتیں",
+  "loading": "اجازتیں لوڈ ہو رہی ہیں...",
+  "load_failed": "اجازتیں لوڈ نہیں ہو سکیں",
+  "metric_permissions": "رجسٹرڈ اجازتیں",
+  "metric_roles": "سسٹم کردار",
+  "metric_users": "کرداروں سے منسلک صارفین",
+  "roles_title": "کردار",
+  "users_count": "{count} صارفین",
+  "permissions_fallback": "اجازتیں",
+  "role_permissions_count": "اس کردار میں {count} اجازتیں",
+  "search_placeholder": "اجازتوں میں تلاش کریں...",
+  "no_matches": "کوئی مماثل اجازت نہیں",
+  "labels": {
+    "companies_view": "کمپنیاں دیکھیں",
+    "companies_create": "کمپنی بنائیں",
+    "companies_edit": "کمپنی ترمیم کریں",
+    "companies_delete": "کمپنی حذف کریں",
+    "company_users_view": "صارفین دیکھیں",
+    "company_users_create": "صارف بنائیں",
+    "company_users_edit": "صارف ترمیم کریں",
+    "company_users_delete": "صارف حذف کریں",
+    "company_users_manage_permissions": "اجازتوں کا انتظام",
+    "accounts_view": "اکاؤنٹس دیکھیں",
+    "accounts_create": "اکاؤنٹ بنائیں",
+    "accounts_edit": "اکاؤنٹ ترمیم کریں",
+    "accounts_delete": "اکاؤنٹ حذف کریں",
+    "platform_settings": "پلیٹ فارم ترتیبات",
+    "platform_management": "پلیٹ فارم مینجمنٹ",
+    "platform_analytics": "پلیٹ فارم تجزیات"
+  }
+}

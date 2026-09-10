@@ -1,0 +1,9 @@
+{
+  "meta_title": "Pharmacy OS | Tableau de bord d'administration",
+  "meta_description": "Gestion intégrée de pharmacie - tableau de bord de la société holding",
+  "language_change_failed": "Impossible de changer la langue. Veuillez réessayer.",
+  "loading": "Chargement...",
+  "select_placeholder": "Sélectionner…",
+  "select_no_options": "Aucune option",
+  "context_load_failed": "Impossible de charger les données de la pharmacie"
+}

@@ -1,0 +1,33 @@
+{
+  "title": "भूमिकाएँ और अनुमतियाँ",
+  "subtitle": "प्लेटफ़ॉर्म डेटाबेस से वास्तविक भूमिकाएँ और अनुमतियाँ",
+  "loading": "अनुमतियाँ लोड हो रही हैं...",
+  "load_failed": "अनुमतियाँ लोड नहीं हो सकीं",
+  "metric_permissions": "पंजीकृत अनुमतियाँ",
+  "metric_roles": "सिस्टम भूमिकाएँ",
+  "metric_users": "भूमिकाओं से जुड़े उपयोगकर्ता",
+  "roles_title": "भूमिकाएँ",
+  "users_count": "{count} उपयोगकर्ता",
+  "permissions_fallback": "अनुमतियाँ",
+  "role_permissions_count": "इस भूमिका में {count} अनुमतियाँ",
+  "search_placeholder": "अनुमतियों में खोजें...",
+  "no_matches": "कोई मेल खाती अनुमति नहीं",
+  "labels": {
+    "companies_view": "कंपनियाँ देखें",
+    "companies_create": "कंपनी बनाएँ",
+    "companies_edit": "कंपनी संपादित करें",
+    "companies_delete": "कंपनी हटाएँ",
+    "company_users_view": "उपयोगकर्ता देखें",
+    "company_users_create": "उपयोगकर्ता बनाएँ",
+    "company_users_edit": "उपयोगकर्ता संपादित करें",
+    "company_users_delete": "उपयोगकर्ता हटाएँ",
+    "company_users_manage_permissions": "अनुमतियाँ प्रबंधित करें",
+    "accounts_view": "खाते देखें",
+    "accounts_create": "खाता बनाएँ",
+    "accounts_edit": "खाता संपादित करें",
+    "accounts_delete": "खाता हटाएँ",
+    "platform_settings": "प्लेटफ़ॉर्म सेटिंग्स",
+    "platform_management": "प्लेटफ़ॉर्म प्रबंधन",
+    "platform_analytics": "प्लेटफ़ॉर्म विश्लेषण"
+  }
+}

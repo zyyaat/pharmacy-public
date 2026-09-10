@@ -1,5 +1,8 @@
-// مساعدات وحدة التقارير: فترات جاهزة، تنسيق تواريخ عربي، وقيم مشتقة.
+// مساعدات وحدة التقارير: فترات جاهزة، تنسيق تواريخ، وقيم مشتقة.
 // كل التواريخ بصيغة YYYY-MM-DD محلية — نفس صيغة حقول input[type=date].
+// Task 48: التسميات والتنسيق يتبعان لغة الواجهة الحالية عبر i18n.
+import { fmtDate, fmtDateTime } from '@/i18n/format'
+import { runtimeTranslator } from '@/i18n/runtime'
 
 export type PeriodPreset =
   | 'today'
@@ -10,15 +13,19 @@ export type PeriodPreset =
   | 'last_month'
   | 'custom'
 
-export const periodPresetOptions: Array<{ value: PeriodPreset; label: string }> = [
-  { value: 'today', label: 'اليوم' },
-  { value: 'yesterday', label: 'أمس' },
-  { value: 'last7', label: 'آخر 7 أيام' },
-  { value: 'last30', label: 'آخر 30 يوم' },
-  { value: 'this_month', label: 'هذا الشهر' },
-  { value: 'last_month', label: 'الشهر الماضي' },
-  { value: 'custom', label: 'فترة مخصصة' },
-]
+/** خيارات منتقي الفترة — تُبنى لحظة الاستدعاء بلغة الواجهة الحالية. */
+export function periodPresetOptions(): Array<{ value: PeriodPreset; label: string }> {
+  const t = runtimeTranslator('reports')
+  return [
+    { value: 'today', label: t('preset_today') },
+    { value: 'yesterday', label: t('preset_yesterday') },
+    { value: 'last7', label: t('preset_last7') },
+    { value: 'last30', label: t('preset_last30') },
+    { value: 'this_month', label: t('preset_this_month') },
+    { value: 'last_month', label: t('preset_last_month') },
+    { value: 'custom', label: t('preset_custom') },
+  ]
+}
 
 /** تحويل Date إلى YYYY-MM-DD بالتوقيت المحلي (وليس UTC). */
 export function toDateInput(date: Date): string {
@@ -65,30 +72,33 @@ export function presetRange(preset: PeriodPreset): { from: string; to: string } 
   }
 }
 
-/** تاريخ عربي مقروء: 9 سبتمبر 2026 */
+/** تاريخ مقروء بلغة الواجهة: 9 سبتمبر 2026 */
 export function formatArabicDate(iso: string): string {
   if (!iso) return '—'
   // YYYY-MM-DD تُفسَّر كتوقيت محلي بلا إزاحة
   const [year, month, day] = iso.split('-').map(Number)
   const date = month && day ? new Date(year, month - 1, day) : new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })
+  return fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-/** تاريخ ووقت عربي: 9 سبتمبر 2026، 02:45 م */
+/** تاريخ ووقت بلغة الواجهة: 9 سبتمبر 2026، 02:45 م */
 export function formatArabicDateTime(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  const time = date.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
-  return `${date.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })}، ${time}`
+  return runtimeTranslator('reports')('date_time_join', {
+    date: fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' }),
+    time: fmtDateTime(date, { hour: '2-digit', minute: '2-digit' }),
+  })
 }
 
 /** نطاق فترة مقروء: من 1 يناير 2026 إلى 31 يناير 2026 */
 export function formatPeriodRange(from: string, to: string): string {
-  if (!from && !to) return 'كل الفترات'
+  const t = runtimeTranslator('reports')
+  if (!from && !to) return t('range_all')
   if (from === to) return formatArabicDate(from)
-  return `من ${formatArabicDate(from)} إلى ${formatArabicDate(to)}`
+  return t('range_from_to', { from: formatArabicDate(from), to: formatArabicDate(to) })
 }
 
 /** يوم الشهر من تاريخ YYYY-MM-DD لتسميات الرسم البياني */

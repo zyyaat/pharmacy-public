@@ -1,0 +1,40 @@
+{
+  "title": "कंपनी प्रबंधन",
+  "subtitle": "प्लेटफ़ॉर्म पर पंजीकृत सभी कंपनियों को प्रबंधित करें",
+  "add_company": "नई कंपनी जोड़ें",
+  "stat_total": "कुल कंपनियाँ",
+  "stat_active": "सक्रिय कंपनियाँ",
+  "stat_trial": "परीक्षण अवधि में",
+  "stat_suspended": "निलंबित कंपनियाँ",
+  "search_placeholder": "नाम या ईमेल से खोजें...",
+  "filter_status_aria": "स्थिति के अनुसार फ़िल्टर करें",
+  "filter_all": "सभी स्थितियाँ",
+  "loading": "कंपनियाँ लोड हो रही हैं...",
+  "load_failed": "कंपनियाँ लोड नहीं हो सकीं",
+  "th_company": "कंपनी",
+  "th_status": "स्थिति",
+  "th_plan": "योजना",
+  "th_users": "उपयोगकर्ता",
+  "th_registered": "पंजीकरण तिथि",
+  "th_actions": "क्रियाएँ",
+  "action_view": "देखें",
+  "action_edit": "संपादित करें",
+  "action_delete": "हटाएँ",
+  "empty_title": "कोई कंपनी नहीं",
+  "empty_desc": "खोज मानदंडों से मेल खाती कोई कंपनी नहीं मिली",
+  "clear_filters": "फ़िल्टर साफ़ करें",
+  "pagination": "{total} कंपनियों में से {shown} दिखाई जा रही हैं",
+  "status": {
+    "active": "सक्रिय",
+    "suspended": "निलंबित",
+    "trial": "परीक्षण",
+    "cancelled": "रद्द"
+  },
+  "plans": {
+    "free": "मुफ़्त",
+    "starter": "स्टार्टर",
+    "professional": "प्रोफेशनल",
+    "enterprise": "एंटरप्राइज़",
+    "custom": "कस्टम"
+  }
+}

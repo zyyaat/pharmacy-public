@@ -1,0 +1,15 @@
+{
+  "meta_title": "Pharmacy POS | 销售点",
+  "meta_description": "快速药房销售点 — 销售、发票和小票打印",
+  "language_change_failed": "无法更改语言，请重试。",
+  "currency_short": "EGP",
+  "loading": "加载中...",
+  "select_placeholder": "请选择…",
+  "no_options": "暂无选项",
+  "splash_loading": "加载中",
+  "app_logo_alt": "应用图标",
+  "no_access_title": "您的账户无权访问此页面",
+  "no_access_body": "药房所有者尚未授予您访问此板块的权限。如果工作中需要使用，请联系所有者为您开通相应权限。",
+  "back_home": "返回首页",
+  "context_load_failed": "无法加载药房数据"
+}

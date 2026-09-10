@@ -4,6 +4,8 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/useAuth";
+import { I18nProvider } from "@/i18n/provider";
+import { getServerI18n } from "@/i18n/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,27 +17,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Pharmacy OS | لوحة تحكم الإدارة",
-  description:
-    "نظام إدارة الصيدلية المتكامل - لوحة تحكم الشركة القابضة",
-  keywords: [
+// Task 48 — العنوان يتبع لغة الواجهة المحفوظة على الحساب/الكوكي
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerI18n();
+  return {
+    title: t("common.meta_title"),
+    description: t("common.meta_description"),
+    keywords: [
     "pharmacy management",
     "نظام صيدلية",
     "لوحة تحكم",
     "إدارة شركات",
-    "صلاحيات",
-  ],
-  authors: [{ name: "Pharmacy OS" }],
-};
+      "صلاحيات",
+    ],
+    authors: [{ name: "Pharmacy OS" }],
+  };
+}
 
-export default function RootLayout({
+// Task 48 — lang/dir والقاموس يُقرآن من الكوكي (الافتراضي العربية RTL)
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { locale, dir, messages } = await getServerI18n();
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] antialiased bg-background text-foreground`}
       >
@@ -45,7 +52,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <I18nProvider locale={locale} messages={messages}>
+            <AuthProvider>{children}</AuthProvider>
+          </I18nProvider>
           <Toaster />
         </ThemeProvider>
       </body>

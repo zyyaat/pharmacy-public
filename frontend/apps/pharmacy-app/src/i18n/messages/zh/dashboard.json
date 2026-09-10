@@ -1,0 +1,21 @@
+{
+  "title": "仪表盘",
+  "subtitle": "来自数据库的药房实时数据",
+  "add_product": "添加商品",
+  "loading": "正在加载药房数据...",
+  "error_load": "无法加载仪表盘数据",
+  "total_products": "商品总数",
+  "low_stock_products": "低库存商品",
+  "sales_units_today": "今日销售数量",
+  "attendance_today": "今日出勤",
+  "inventory_status": "库存状态",
+  "inventory_status_desc": "已达到补货点的商品",
+  "no_low_stock": "没有低库存商品",
+  "reorder_note": "补货点：{min} — 单板不计算在内",
+  "quick_actions": "快速操作",
+  "no_quick_actions": "您的账户目前没有可用的操作",
+  "nav_inventory": "库存",
+  "nav_employees": "员工",
+  "nav_attendance": "考勤",
+  "nav_reports": "报表"
+}

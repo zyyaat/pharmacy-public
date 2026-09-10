@@ -4,18 +4,21 @@ import { useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 import { parseEGPToPiastres, piastresToEGPInput } from '@/lib/money'
 import { composeStrength, splitStrength, strengthUnits } from '@/lib/product'
+import { useT } from '@/i18n/provider'
+import { runtimeTranslator } from '@/i18n/runtime'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from '@/components/ui'
 
+/** الأشكال الدوائية: القيمة المخزّنة + مفتاح التسمية في مساحة inventory */
 export const dosageForms = [
-  ['tablet', 'أقراص'],
-  ['capsule', 'كبسولات'],
-  ['syrup', 'شراب'],
-  ['injection', 'حقن'],
-  ['cream', 'كريم'],
-  ['drop', 'قطرة'],
-  ['inhaler', 'بخاخ'],
-  ['other', 'أخرى'],
-]
+  ['tablet', 'dosage_tablet'],
+  ['capsule', 'dosage_capsule'],
+  ['syrup', 'dosage_syrup'],
+  ['injection', 'dosage_injection'],
+  ['cream', 'dosage_cream'],
+  ['drop', 'dosage_drop'],
+  ['inhaler', 'dosage_inhaler'],
+  ['other', 'dosage_other'],
+] as const
 
 /**
  * القيم الافتتاحية للحقول كنصوص — صفحة التعديل تملأها من بيانات المنتج
@@ -82,6 +85,7 @@ export function ProductFormFields({
   defaults?: ProductFormDefaults
   showInitialStock?: boolean
 }) {
+  const t = useT('inventory')
   // التركيز حقلان: رقم + وحدة من القائمة (طلب المستخدم: الدكتور يكتب رقم فقط
   // مثل 50 ويختار mg) — القيم المحفوظة القديمة تُفكّك تلقائياً عند التعديل،
   // وما لا يُفكّك يبقى كاملاً تحت وحدة «أخرى».
@@ -92,30 +96,30 @@ export function ProductFormFields({
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><PackagePlus className="h-5 w-5 text-primary" />بيانات العلاج</CardTitle>
-          <CardDescription>أدخل بيانات الصنف كما تظهر على العبوة والباركود الذي سيُستخدم في نقطة البيع.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><PackagePlus className="h-5 w-5 text-primary" />{t('treatment_info_title')}</CardTitle>
+          <CardDescription>{t('treatment_info_desc')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Input name="name" label="اسم العلاج" required defaultValue={defaults.name} placeholder="مثال: علاج معين" />
-          <Input name="generic_name" label="المادة الفعالة / الاسم العلمي" defaultValue={defaults.generic_name} placeholder="اختياري" />
+          <Input name="name" label={t('label_name')} required defaultValue={defaults.name} placeholder={t('placeholder_name')} />
+          <Input name="generic_name" label={t('label_generic_name')} defaultValue={defaults.generic_name} placeholder={t('placeholder_optional')} />
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground/80">الشكل الدوائي</label>
+            <label className="text-sm font-medium text-foreground/80">{t('label_dosage_form')}</label>
             <Select
               name="dosage_form"
               defaultValue={defaults.dosage_form || 'tablet'}
-              options={dosageForms.map(([value, label]) => ({ value, label }))}
+              options={dosageForms.map(([value, key]) => ({ value, label: t(key) }))}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground/80">التركيز</label>
+            <label className="text-sm font-medium text-foreground/80">{t('label_strength')}</label>
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <Input
                   name="strength_value"
-                  placeholder={strengthUnit === 'other' ? 'مثال: 120mg/5ml' : 'مثال: 500'}
+                  placeholder={strengthUnit === 'other' ? t('placeholder_strength_other') : t('placeholder_strength_value')}
                   inputMode={strengthUnit === 'other' ? 'text' : 'decimal'}
                   defaultValue={strengthSplit.value}
-                  aria-label="قيمة التركيز"
+                  aria-label={t('strength_value_aria')}
                 />
               </div>
               <div className="w-40 shrink-0">
@@ -123,39 +127,39 @@ export function ProductFormFields({
                   name="strength_unit"
                   value={strengthUnit}
                   onValueChange={setStrengthUnit}
-                  options={[...strengthUnits]}
-                  aria-label="وحدة التركيز"
+                  options={strengthUnits.map((unit) => ({ value: unit.value, label: t(unit.key) }))}
+                  aria-label={t('strength_unit_aria')}
                 />
               </div>
             </div>
           </div>
-          <Input name="barcode" label="الباركود" required defaultValue={defaults.barcode} placeholder="امسح أو اكتب الباركود" />
+          <Input name="barcode" label={t('label_barcode')} required defaultValue={defaults.barcode} placeholder={t('placeholder_barcode')} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>طريقة التعبئة والبيع</CardTitle>
-          <CardDescription>لا يوجد خيار منفصل للبيع الجزئي؛ يتم استنتاجه من نوع التعبئة.</CardDescription>
+          <CardTitle>{t('packaging_title')}</CardTitle>
+          <CardDescription>{t('packaging_desc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className={`cursor-pointer rounded-xl border p-4 transition ${packagingType === 'WHOLE_ONLY' ? 'border-primary bg-primary/5' : 'border-border'}`}>
               <input type="radio" name="packaging_type" value="WHOLE_ONLY" checked={packagingType === 'WHOLE_ONLY'} onChange={() => onPackagingTypeChange('WHOLE_ONLY')} className="sr-only" />
-              <span className="font-semibold">عبوة كاملة فقط</span>
-              <span className="mt-1 block text-xs text-muted-foreground">زجاجة، أنبوبة، بخاخ أو أي صنف لا يباع بأجزاء.</span>
+              <span className="font-semibold">{t('packaging_whole')}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{t('packaging_whole_desc')}</span>
             </label>
             <label className={`cursor-pointer rounded-xl border p-4 transition ${packagingType === 'BOX_STRIP' ? 'border-primary bg-primary/5' : 'border-border'}`}>
               <input type="radio" name="packaging_type" value="BOX_STRIP" checked={packagingType === 'BOX_STRIP'} onChange={() => onPackagingTypeChange('BOX_STRIP')} className="sr-only" />
-              <span className="font-semibold">علبة تحتوي على شرائط</span>
-              <span className="mt-1 block text-xs text-muted-foreground">تظهر في البيع كعلبة كاملة أو عدد من الشرائط.</span>
+              <span className="font-semibold">{t('packaging_box_strip')}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{t('packaging_box_strip_desc')}</span>
             </label>
           </div>
           {packagingType === 'BOX_STRIP' && (
             <div className="grid gap-4 rounded-xl bg-primary/5 p-4 sm:grid-cols-2">
               <Input
                 name="units_per_box"
-                label="عدد الشرائط داخل العلبة"
+                label={t('label_units_per_box')}
                 type="number"
                 min="2"
                 step="1"
@@ -163,7 +167,7 @@ export function ProductFormFields({
                 defaultValue={defaults.units_per_box}
                 onBlur={(event) => suggestStripPrice(event.currentTarget.form as HTMLFormElement)}
               />
-              <Input name="partial_selling_price" label="سعر بيع الشريط (جنيه)" type="number" min="0" step="0.01" required defaultValue={defaults.partial_selling_price} placeholder="مثال: 17.55" />
+              <Input name="partial_selling_price" label={t('label_strip_price')} type="number" min="0" step="0.01" required defaultValue={defaults.partial_selling_price} placeholder={t('placeholder_strip_price')} />
             </div>
           )}
         </CardContent>
@@ -171,33 +175,33 @@ export function ProductFormFields({
 
       <Card>
         <CardHeader>
-          <CardTitle>{showInitialStock ? 'الأسعار والمخزون الافتتاحي' : 'الأسعار'}</CardTitle>
+          <CardTitle>{showInitialStock ? t('prices_initial_title') : t('prices_title')}</CardTitle>
           <CardDescription>
             {showInitialStock
-              ? 'في حالة الشرائط، سعر الشراء للعلبة والمخزون يتحولان داخليًا إلى شرائط.'
-              : 'تعديل الأسعار والحد الأدنى — المخزون يُدار من صفحة المخزون ليبقى سجل الحركات مرجعاً واحداً.'}
+              ? t('prices_initial_desc')
+              : t('prices_desc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Input name="cost_price" label="سعر الشراء للعبوة (جنيه)" type="number" min="0" step="0.01" required defaultValue={defaults.cost_price} placeholder="مثال: 80.00" />
+          <Input name="cost_price" label={t('label_cost_price')} type="number" min="0" step="0.01" required defaultValue={defaults.cost_price} placeholder={t('placeholder_cost_price')} />
           <Input
             name="selling_price"
-            label="سعر بيع العبوة (جنيه)"
+            label={t('label_selling_price')}
             type="number"
             min="0"
             step="0.01"
             required
             defaultValue={defaults.selling_price}
-            placeholder="مثال: 105.50"
+            placeholder={t('placeholder_selling_price')}
             onBlur={(event) => suggestStripPrice(event.currentTarget.form as HTMLFormElement)}
           />
-          <Input name="min_stock_level" label="حد إعادة الطلب (بالعلبة الكاملة)" type="number" min="0" step="1" defaultValue={defaults.min_stock_level} />
+          <Input name="min_stock_level" label={t('label_min_stock')} type="number" min="0" step="1" defaultValue={defaults.min_stock_level} />
           {showInitialStock && (
             <>
-              <Input name="initial_boxes" label={packagingType === 'BOX_STRIP' ? 'عدد العلب المستلمة' : 'الكمية الافتتاحية'} type="number" min="0" step="1" defaultValue={defaults.initial_boxes} />
-              {packagingType === 'BOX_STRIP' && <Input name="initial_strips" label="عدد الشرائط الإضافية" type="number" min="0" step="1" defaultValue={defaults.initial_strips} />}
-              <Input name="batch_number" label="رقم التشغيلة" defaultValue={defaults.batch_number} placeholder="اختياري عند عدم إدخال مخزون" />
-              <Input name="expiry_date" label="تاريخ الانتهاء" type="date" defaultValue={defaults.expiry_date} />
+              <Input name="initial_boxes" label={packagingType === 'BOX_STRIP' ? t('label_initial_boxes') : t('label_initial_quantity')} type="number" min="0" step="1" defaultValue={defaults.initial_boxes} />
+              {packagingType === 'BOX_STRIP' && <Input name="initial_strips" label={t('label_initial_strips')} type="number" min="0" step="1" defaultValue={defaults.initial_strips} />}
+              <Input name="batch_number" label={t('label_batch_number')} defaultValue={defaults.batch_number} placeholder={t('placeholder_batch_number')} />
+              <Input name="expiry_date" label={t('label_expiry_date')} type="date" defaultValue={defaults.expiry_date} />
             </>
           )}
         </CardContent>
@@ -226,28 +230,30 @@ export function readProductFormCommon(
   data: FormData,
   packagingType: 'WHOLE_ONLY' | 'BOX_STRIP',
 ): { error: string; values: null } | { error: null; values: ProductFormValues } {
+  // وحدة عميل فقط (صفحات الإضافة/التعديل كلاهما 'use client') — الترجمة وقت الاستدعاء
+  const t = runtimeTranslator('inventory')
   const partialRaw = String(data.get('partial_selling_price') || '').trim()
   let partialPiastres: number | null = null
   if (packagingType === 'BOX_STRIP') {
     if (!partialRaw) {
-      return { error: 'سعر بيع الشريط مطلوب للمنتجات التي تُباع بالشرائط (تم اقتراح قيمة تلقائياً — عدّلها إذا لزم).', values: null }
+      return { error: t('error_strip_price_required'), values: null }
     }
     partialPiastres = parseEGPToPiastres(partialRaw)
     if (partialPiastres === null) {
-      return { error: 'سعر بيع الشريط غير صالح. اكتب المبلغ بالجنيه مثل 17.55', values: null }
+      return { error: t('error_strip_price_invalid'), values: null }
     }
   }
   const costPiastres = parseEGPToPiastres(String(data.get('cost_price') || ''))
   const sellingPiastres = parseEGPToPiastres(String(data.get('selling_price') || ''))
   if (costPiastres === null || sellingPiastres === null) {
-    return { error: 'أسعار الشراء والبيع مطلوبة بالجنيه مثل 105.50', values: null }
+    return { error: t('error_prices_required'), values: null }
   }
   // تركيب التركيز من الرقم + الوحدة («أخرى» تُحفظ النص كما كُتب)
   const strengthValue = String(data.get('strength_value') || '').trim()
   const strengthUnit = String(data.get('strength_unit') || 'mg')
   const strength = composeStrength(strengthValue, strengthUnit)
   if (strength && strengthUnit !== 'other' && !/^\d+(?:[.,]\d+)?$/.test(strengthValue)) {
-    return { error: 'اكتب التركيز رقماً فقط مثل 50 واختر الوحدة، أو اختر «أخرى» لكتابته نصاً كاملاً.', values: null }
+    return { error: t('error_strength_invalid'), values: null }
   }
   return {
     error: null,

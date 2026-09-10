@@ -1,0 +1,26 @@
+{
+  "title": "مستخدمو المنصة",
+  "subtitle": "كل مستخدمي الشركات وموظفي الصيدليات مع مصدر الحساب والدور الفعلي",
+  "metric_total": "إجمالي المستخدمين",
+  "metric_active": "نشطون في النتائج",
+  "metric_admins": "مديرو النظام في النتائج",
+  "guide_title": "دليل المستخدمين",
+  "search_placeholder": "ابحث بالاسم أو البريد أو الشركة...",
+  "filter_role_aria": "تصفية بالدور",
+  "role_all": "كل الأدوار",
+  "loading": "جاري تحميل المستخدمين...",
+  "load_failed": "تعذر تحميل المستخدمين",
+  "no_matches": "لا يوجد مستخدمون مطابقون",
+  "badge_disabled": "معطل",
+  "account_company_user": "حساب شركة",
+  "account_pharmacy_employee": "موظف صيدلية",
+  "permissions_count": "{count} صلاحية فعلية",
+  "last_login": "آخر دخول: {date}",
+  "never_logged_in": "لم يسجل الدخول بعد",
+  "roles": {
+    "super_admin": "مدير النظام",
+    "company_admin": "مدير الشركة",
+    "company_manager": "مدير العمليات",
+    "company_viewer": "مشاهد الشركة"
+  }
+}

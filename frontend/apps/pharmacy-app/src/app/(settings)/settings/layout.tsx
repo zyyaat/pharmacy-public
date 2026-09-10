@@ -3,8 +3,9 @@
 import { useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowRight, Database, FileSpreadsheet, ReceiptText } from 'lucide-react'
+import { ArrowRight, Database, FileSpreadsheet, Languages, ReceiptText } from 'lucide-react'
 import BrandSplash from '@/components/brand-splash'
+import { useT } from '@/i18n/provider'
 import { useAuth } from '@/hooks/useAuth'
 import { PermissionsProvider } from '@/hooks/usePermissions'
 import { NoAccessCard, useAccess } from '@/components/permissions/gate'
@@ -17,14 +18,18 @@ import { SETTINGS_SECTION_PERMISSIONS } from '@/lib/permissions'
  *
  * Task 43: أقسام الإعدادات نفسها تختفي عن من لا يملك صلاحيتها، والدخول
  * المباشر برابط قسم ممنوع يعرض بطاقة «غير متاحة» بدل محتواه.
+ * Task 48: قسم «اللغة» ظاهر دائمًا لكل المستخدمين (تغيير لغة الواجهة).
  */
 const SECTIONS = [
-  { href: '/settings/import', label: 'ترحيل المنتجات', icon: FileSpreadsheet, desc: 'استيراد أصناف البرنامج القديم من Excel/CSV' },
-  { href: '/settings/receipts', label: 'الفواتير والطباعة', icon: ReceiptText, desc: 'شكل الفاتورة وسلوك الطباعة' },
-  { href: '/settings/database', label: 'قاعدة البيانات', icon: Database, desc: 'حالة المخطط وسجل الترحيلات' },
+  { key: 'import', href: '/settings/import', icon: FileSpreadsheet },
+  { key: 'receipts', href: '/settings/receipts', icon: ReceiptText },
+  { key: 'database', href: '/settings/database', icon: Database },
+  { key: 'language', href: '/settings/language', icon: Languages },
 ] as const
 
 function sectionAllowed(href: string, allowedAny: (keys: string[]) => boolean, fullAccess: boolean): boolean {
+  // قسم اللغة متاح دائمًا — كل مستخدم يحتاج تغيير لغة الواجهة
+  if (href === '/settings/language') return true
   const required = SETTINGS_SECTION_PERMISSIONS[href]
   // قسم بلا صلاحية محددة (قاعدة البيانات) للمالك الكامل فقط
   if (!required || required.length === 0) return fullAccess
@@ -32,6 +37,7 @@ function sectionAllowed(href: string, allowedAny: (keys: string[]) => boolean, f
 }
 
 function SettingsChrome({ children }: { children: ReactNode }) {
+  const t = useT('settings')
   const pathname = usePathname()
   const { ready, allowedAny, fullAccess } = useAccess()
 
@@ -47,7 +53,7 @@ function SettingsChrome({ children }: { children: ReactNode }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen bg-background">
       {/* الشريط العلوي: العودة للرئيسية + مسار الإعدادات */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:px-6">
@@ -55,17 +61,17 @@ function SettingsChrome({ children }: { children: ReactNode }) {
             href="/"
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
           >
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            العودة للرئيسية
+            <ArrowRight className="h-4 w-4 rtl-flip" aria-hidden="true" />
+            {t('backToHome')}
           </Link>
           <span className="text-muted-foreground" aria-hidden="true">/</span>
-          <span className="text-sm font-semibold text-muted-foreground">الإعدادات</span>
+          <span className="text-sm font-semibold text-muted-foreground">{t('breadcrumb')}</span>
         </div>
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-8 px-4 py-6 lg:px-6">
         {/* القائمة الجانبية الخاصة بالإعدادات */}
-        <nav aria-label="أقسام الإعدادات" className="hidden w-64 shrink-0 md:block">
+        <nav aria-label={t('navAria')} className="hidden w-64 shrink-0 md:block">
           <div className="sticky top-20 space-y-1">
             {visibleSections.map((section) => {
               const active = isActive(section.href)
@@ -82,8 +88,8 @@ function SettingsChrome({ children }: { children: ReactNode }) {
                 >
                   <section.icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                   <span>
-                    <span className="block text-sm font-bold">{section.label}</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">{section.desc}</span>
+                    <span className="block text-sm font-bold">{t(`${section.key}NavLabel`)}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{t(`${section.key}NavDesc`)}</span>
                   </span>
                 </Link>
               )
@@ -93,7 +99,7 @@ function SettingsChrome({ children }: { children: ReactNode }) {
 
         <div className="min-w-0 flex-1">
           {/* نسخة موبايل: شرائح أفقية قابلة للتمرير */}
-          <nav aria-label="أقسام الإعدادات المختصرة" className="mb-5 flex gap-2 overflow-x-auto pb-1 md:hidden">
+          <nav aria-label={t('navAriaCompact')} className="mb-5 flex gap-2 overflow-x-auto pb-1 md:hidden">
             {visibleSections.map((section) => {
               const active = isActive(section.href)
               return (
@@ -108,7 +114,7 @@ function SettingsChrome({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <section.icon className="h-4 w-4" aria-hidden="true" />
-                  {section.label}
+                  {t(`${section.key}NavLabel`)}
                 </Link>
               )
             })}

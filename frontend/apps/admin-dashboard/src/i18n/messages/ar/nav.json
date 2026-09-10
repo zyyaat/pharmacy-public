@@ -1,0 +1,18 @@
+{
+  "dashboard": "لوحة التحكم",
+  "companies": "الشركات",
+  "users": "المستخدمين",
+  "permissions": "الصلاحيات",
+  "accounts": "الحسابات",
+  "settings": "الإعدادات",
+  "brand_home_aria": "Pharmacy OS - الرئيسية",
+  "avatar_fallback": "م",
+  "default_user": "مدير النظام",
+  "logout": "تسجيل الخروج",
+  "search_placeholder": "بحث عن شركات، مستخدمين...",
+  "change_language": "تغيير اللغة",
+  "light_mode": "الوضع النهاري",
+  "dark_mode": "الوضع الليلي",
+  "loading_aria": "جارٍ التحميل",
+  "logo_alt": "شعار التطبيق"
+}

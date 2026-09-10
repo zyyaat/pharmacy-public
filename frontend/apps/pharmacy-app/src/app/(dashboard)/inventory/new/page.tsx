@@ -6,10 +6,12 @@ import { FormEvent, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { ApiError, pharmacyApi, type CreatePharmacyProductInput } from '@/lib/api'
 import { ProductFormFields, readProductFormCommon } from '@/components/inventory/product-form-fields'
+import { useT } from '@/i18n/provider'
 import { Button } from '@/components/ui'
 import { RequirePermission } from '@/components/permissions/gate'
 
 export default function NewProductPage() {
+  const t = useT('inventory')
   const router = useRouter()
   const [packagingType, setPackagingType] = useState<CreatePharmacyProductInput['packaging_type']>('WHOLE_ONLY')
   const [saving, setSaving] = useState(false)
@@ -23,7 +25,7 @@ export default function NewProductPage() {
 
     const common = readProductFormCommon(data, packagingType)
     if (common.error || !common.values) {
-      setError(common.error || 'تعذر قراءة بيانات النموذج')
+      setError(common.error || t('error_read_form'))
       return
     }
 
@@ -39,7 +41,7 @@ export default function NewProductPage() {
       await pharmacyApi.createProduct(value)
       router.push('/inventory')
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر حفظ المنتج')
+      setError(cause instanceof ApiError ? cause.message : t('error_save_product'))
       setSaving(false)
     }
   }
@@ -48,10 +50,10 @@ export default function NewProductPage() {
     <RequirePermission anyOf={['inventory.manage_products']}>
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="icon"><Link href="/inventory" aria-label="العودة للمخزون"><ArrowRight className="h-5 w-5" /></Link></Button>
+        <Button asChild variant="ghost" size="icon"><Link href="/inventory" aria-label={t('back_to_inventory')}><ArrowRight className="rtl-flip h-5 w-5" /></Link></Button>
         <div>
-          <h1 className="text-2xl font-bold">إضافة منتج جديد</h1>
-          <p className="mt-2 text-sm text-muted-foreground">نوع التعبئة يحدد تلقائيًا طريقة البيع والمخزون.</p>
+          <h1 className="text-2xl font-bold">{t('new_title')}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t('new_subtitle')}</p>
         </div>
       </div>
 
@@ -60,8 +62,8 @@ export default function NewProductPage() {
 
         {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-3">
-          <Button asChild variant="outline"><Link href="/inventory">إلغاء</Link></Button>
-          <Button type="submit" loading={saving}>حفظ المنتج</Button>
+          <Button asChild variant="outline"><Link href="/inventory">{t('cancel')}</Link></Button>
+          <Button type="submit" loading={saving}>{t('save_product')}</Button>
         </div>
       </form>
     </div>

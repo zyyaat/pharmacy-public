@@ -8,6 +8,7 @@ import { ArrowRight, PencilLine } from 'lucide-react'
 import { ApiError, pharmacyApi, type PharmacyProductDetail, type UpdatePharmacyProductInput } from '@/lib/api'
 import { ProductFormFields, readProductFormCommon, type ProductFormDefaults } from '@/components/inventory/product-form-fields'
 import { piastresToEGPInput } from '@/lib/money'
+import { useT } from '@/i18n/provider'
 import { Button } from '@/components/ui'
 import { RequirePermission } from '@/components/permissions/gate'
 
@@ -18,6 +19,7 @@ import { RequirePermission } from '@/components/permissions/gate'
  * تعديل المخزون حتى يبقى سجل الحركات المرجع الواحد للكميات.
  */
 export default function EditProductPage() {
+  const t = useT('inventory')
   const router = useRouter()
   const params = useParams<{ productId: string }>()
   const productId = params?.productId
@@ -58,11 +60,11 @@ export default function EditProductPage() {
           expiry_date: '',
         })
       })
-      .catch((err) => !cancelled && setLoadError(err instanceof Error ? err.message : 'تعذر تحميل بيانات المنتج'))
+      .catch((err) => !cancelled && setLoadError(err instanceof Error ? err.message : t('error_load_product')))
     return () => {
       cancelled = true
     }
-  }, [productId])
+  }, [productId, t])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -70,7 +72,7 @@ export default function EditProductPage() {
     setError(null)
     const common = readProductFormCommon(new FormData(event.currentTarget), packagingType)
     if (common.error || !common.values) {
-      setError(common.error || 'تعذر قراءة بيانات النموذج')
+      setError(common.error || t('error_read_form'))
       return
     }
     const payload: UpdatePharmacyProductInput = {
@@ -82,7 +84,7 @@ export default function EditProductPage() {
       await pharmacyApi.updateProduct(productId, payload)
       router.push('/inventory')
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر حفظ التعديلات')
+      setError(cause instanceof ApiError ? cause.message : t('error_save_edits'))
       setSaving(false)
     }
   }
@@ -92,7 +94,7 @@ export default function EditProductPage() {
       <div className="mx-auto max-w-4xl space-y-4">
         <BackHeader name={null} />
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{loadError}</p>
-        <Button asChild variant="outline"><Link href="/inventory">العودة للمخزون</Link></Button>
+        <Button asChild variant="outline"><Link href="/inventory">{t('back_to_inventory')}</Link></Button>
       </div>
     )
   }
@@ -103,20 +105,20 @@ export default function EditProductPage() {
       <BackHeader name={detail?.name ?? null} />
 
       {(!detail || !defaults) ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">جاري تحميل بيانات المنتج...</p>
+        <p className="py-10 text-center text-sm text-muted-foreground">{t('loading_product')}</p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6" key={detail.id}>
           <ProductFormFields packagingType={packagingType} onPackagingTypeChange={setPackagingType} defaults={defaults} />
 
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border p-4 text-sm">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-            المنتج مُفعّل ويظهر في نقطة البيع
+            {t('active_label')}
           </label>
 
           {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-3">
-            <Button asChild variant="outline"><Link href="/inventory">إلغاء</Link></Button>
-            <Button type="submit" loading={saving}>حفظ التعديلات</Button>
+            <Button asChild variant="outline"><Link href="/inventory">{t('cancel')}</Link></Button>
+            <Button type="submit" loading={saving}>{t('save_edits')}</Button>
           </div>
         </form>
       )}
@@ -126,12 +128,13 @@ export default function EditProductPage() {
 }
 
 function BackHeader({ name }: { name: string | null }) {
+  const t = useT('inventory')
   return (
     <div className="flex items-center gap-3">
-      <Button asChild variant="ghost" size="icon"><Link href="/inventory" aria-label="العودة للمخزون"><ArrowRight className="h-5 w-5" /></Link></Button>
+      <Button asChild variant="ghost" size="icon"><Link href="/inventory" aria-label={t('back_to_inventory')}><ArrowRight className="rtl-flip h-5 w-5" /></Link></Button>
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><PencilLine className="h-5 w-5 text-primary" />تعديل المنتج{name ? `: ${name}` : ''}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">نفس بيانات الإضافة كاملة — بلا نوافذ منبثقة.</p>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><PencilLine className="h-5 w-5 text-primary" />{name ? t('edit_title_named', { name }) : t('edit_title')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t('edit_subtitle')}</p>
       </div>
     </div>
   )

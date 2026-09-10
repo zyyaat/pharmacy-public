@@ -1,0 +1,18 @@
+{
+  "dashboard": "Panel",
+  "companies": "Empresas",
+  "users": "Usuarios",
+  "permissions": "Permisos",
+  "accounts": "Cuentas",
+  "settings": "Configuración",
+  "brand_home_aria": "Pharmacy OS - Inicio",
+  "avatar_fallback": "U",
+  "default_user": "Administrador del sistema",
+  "logout": "Cerrar sesión",
+  "search_placeholder": "Buscar empresas, usuarios...",
+  "change_language": "Cambiar idioma",
+  "light_mode": "Modo claro",
+  "dark_mode": "Modo oscuro",
+  "loading_aria": "Cargando",
+  "logo_alt": "Logotipo de la aplicación"
+}

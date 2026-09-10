@@ -5,27 +5,30 @@ import { useCallback, useEffect, useState } from 'react'
 import { Package, PackagePlus, Pencil, Plus, Search, ShoppingCart } from 'lucide-react'
 import { pharmacyApi, type PharmacyInventoryItem } from '@/lib/api'
 import { extraStrengthLabel } from '@/lib/product'
+import { fmtNumber } from '@/i18n/format'
+import { useT } from '@/i18n/provider'
+import type { Translator } from '@/i18n/translator'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Modal } from '@/components/ui'
 import { Can, RequirePermission, useAccess } from '@/components/permissions/gate'
 
-const statusLabels: Record<string, { label: string; variant: 'destructive' | 'warning' | 'secondary' | 'success' | 'outline' }> = {
-  out_of_stock: { label: 'نفذ', variant: 'destructive' },
-  low_stock: { label: 'منخفض', variant: 'warning' },
-  expiring_soon: { label: 'قريب الانتهاء', variant: 'secondary' },
-  quarantined: { label: 'محجوز', variant: 'outline' },
-  normal: { label: 'متوفر', variant: 'success' },
+const statusLabels: Record<string, { key: string; variant: 'destructive' | 'warning' | 'secondary' | 'success' | 'outline' }> = {
+  out_of_stock: { key: 'status_out_of_stock', variant: 'destructive' },
+  low_stock: { key: 'status_low_stock', variant: 'warning' },
+  expiring_soon: { key: 'status_expiring_soon', variant: 'secondary' },
+  quarantined: { key: 'status_quarantined', variant: 'outline' },
+  normal: { key: 'status_normal', variant: 'success' },
 }
 
-function formatQuantity(item: PharmacyInventoryItem): string {
+function formatQuantity(item: PharmacyInventoryItem, t: Translator): string {
   if (item.packaging_type === 'BOX_STRIP') {
     const boxes = Math.floor(item.quantity / item.units_per_box)
     const strips = item.quantity % item.units_per_box
-    if (boxes === 0 && strips === 0) return 'نفذ من المخزون'
-    if (boxes === 0) return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(strips)} شريط`
-    if (strips === 0) return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(boxes)} علبة`
-    return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(boxes)} علبة و${new Intl.NumberFormat('ar-EG-u-nu-latn').format(strips)} شريط`
+    if (boxes === 0 && strips === 0) return t('qty_out_of_stock')
+    if (boxes === 0) return t('qty_strips_only', { count: fmtNumber(strips) })
+    if (strips === 0) return t('qty_boxes_only', { count: fmtNumber(boxes) })
+    return t('qty_box_and_strip', { boxes: fmtNumber(boxes), strips: fmtNumber(strips) })
   }
-  return `${new Intl.NumberFormat('ar-EG-u-nu-latn').format(item.quantity)} عبوة`
+  return `${fmtNumber(item.quantity)} ${t('units_pack')}`
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +50,7 @@ function AdjustStockModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT('inventory')
   const isBoxStrip = item.packaging_type === 'BOX_STRIP'
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
   const [boxes, setBoxes] = useState('')
@@ -64,7 +68,7 @@ function AdjustStockModal({
   const submit = async () => {
     setFormError(null)
     if (amount <= 0) {
-      setFormError('أدخل كمية أكبر من صفر')
+      setFormError(t('error_amount_positive'))
       return
     }
     setSaving(true)
@@ -73,7 +77,7 @@ function AdjustStockModal({
       onSaved()
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'تعذر تسجيل حركة المخزون')
+      setFormError(err instanceof Error ? err.message : t('error_adjust_failed'))
     } finally {
       setSaving(false)
     }
@@ -83,35 +87,35 @@ function AdjustStockModal({
     <Modal isOpen onClose={onClose}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">التحكم في المخزون</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>إغلاق</Button>
+          <h3 className="text-lg font-bold">{t('adjust_title')}</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>{t('close')}</Button>
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {item.product_name} — التشغيلة {item.batch_number}
-          <span className="mt-1 block font-semibold text-foreground">الكمية الحالية: {formatQuantity(item)}</span>
+          {t('adjust_product_batch', { name: item.product_name, batch: item.batch_number })}
+          <span className="mt-1 block font-semibold text-foreground">{t('adjust_current_quantity', { quantity: formatQuantity(item, t) })}</span>
         </p>
 
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant={direction === 'add' ? 'default' : 'outline'} size="sm" onClick={() => setDirection('add')}>+ إضافة كمية</Button>
-          <Button type="button" variant={direction === 'remove' ? 'destructive' : 'outline'} size="sm" onClick={() => setDirection('remove')}>− خصم كمية</Button>
+          <Button type="button" variant={direction === 'add' ? 'default' : 'outline'} size="sm" onClick={() => setDirection('add')}>{t('adjust_add')}</Button>
+          <Button type="button" variant={direction === 'remove' ? 'destructive' : 'outline'} size="sm" onClick={() => setDirection('remove')}>{t('adjust_remove')}</Button>
         </div>
 
         {isBoxStrip ? (
           <div className="grid grid-cols-2 gap-3">
-            <Input label="عدد العلب" type="number" min={0} value={boxes} onChange={(e) => setBoxes(e.target.value)} inputMode="numeric" />
-            <Input label="عدد الشرائح" type="number" min={0} value={strips} onChange={(e) => setStrips(e.target.value)} inputMode="numeric" />
+            <Input label={t('adjust_boxes')} type="number" min={0} value={boxes} onChange={(e) => setBoxes(e.target.value)} inputMode="numeric" />
+            <Input label={t('adjust_strips')} type="number" min={0} value={strips} onChange={(e) => setStrips(e.target.value)} inputMode="numeric" />
           </div>
         ) : (
-          <Input label="عدد العبوات" type="number" min={0} value={boxes} onChange={(e) => setBoxes(e.target.value)} inputMode="numeric" />
+          <Input label={t('adjust_packs')} type="number" min={0} value={boxes} onChange={(e) => setBoxes(e.target.value)} inputMode="numeric" />
         )}
 
-        <Input label="السبب (اختياري)" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="تالف / جرد / إعادة تعبئة..." />
+        <Input label={t('adjust_reason_label')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('adjust_reason_placeholder')} />
 
         {amount > 0 && (
           <p className={`rounded-lg p-2.5 text-xs ${projected < 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
-            الكمية بعد الحركة: {new Intl.NumberFormat('ar-EG-u-nu-latn').format(projected)}
-            {projected < 0 && ' — لا يمكن أن يصبح المخزون سالبًا'}
+            {t('adjust_after_quantity', { quantity: fmtNumber(projected) })}
+            {projected < 0 && t('adjust_negative_warning')}
           </p>
         )}
 
@@ -119,9 +123,9 @@ function AdjustStockModal({
 
         <div className="flex gap-2">
           <Button className="flex-1" loading={saving} onClick={submit} disabled={projected < 0}>
-            {direction === 'add' ? 'إضافة للمخزون' : 'خصم من المخزون'}
+            {direction === 'add' ? t('adjust_submit_add') : t('adjust_submit_remove')}
           </Button>
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button variant="outline" onClick={onClose}>{t('cancel')}</Button>
         </div>
       </div>
     </Modal>
@@ -129,6 +133,7 @@ function AdjustStockModal({
 }
 
 export default function InventoryPage() {
+  const t = useT('inventory')
   // أعمدة/أزرار الإجراءات تختفي كليًا عمن لا يملك أي صلاحية تعديل
   const { allowed } = useAccess()
   const canManageProducts = allowed('inventory.manage_products')
@@ -145,9 +150,9 @@ export default function InventoryPage() {
     pharmacyApi
       .getInventory()
       .then((response) => setItems(response.data))
-      .catch((err) => setError(err instanceof Error ? err.message : 'تعذر تحميل المخزون'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('error_load_failed')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -166,36 +171,36 @@ export default function InventoryPage() {
     <div className="mx-auto max-w-[1500px] space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold">المخزون والأدوية</h1>
-          <p className="mt-2 text-sm text-muted-foreground">البيانات الفعلية للصيدلية الحالية فقط</p>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Can perm="pos.access">
-            <Button asChild variant="outline"><Link href="/pos"><ShoppingCart className="h-4 w-4" />فتح نقطة البيع</Link></Button>
+            <Button asChild variant="outline"><Link href="/pos"><ShoppingCart className="h-4 w-4" />{t('open_pos')}</Link></Button>
           </Can>
           <Can perm="inventory.manage_products">
-            <Button asChild><Link href="/inventory/new"><Plus className="h-4 w-4" />إضافة منتج</Link></Button>
+            <Button asChild><Link href="/inventory/new"><Plus className="h-4 w-4" />{t('add_product')}</Link></Button>
           </Can>
         </div>
       </div>
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" />كل الأصناف</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" />{t('all_items')}</CardTitle>
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث بالاسم أو الباركود" className="h-10 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-ring" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('search_placeholder')} className="h-10 w-full rounded-lg border border-input bg-background ps-3 pe-10 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </CardHeader>
         <CardContent>
-          {loading && <p className="py-10 text-center text-muted-foreground">جاري تحميل المخزون...</p>}
+          {loading && <p className="py-10 text-center text-muted-foreground">{t('loading')}</p>}
           {error && !loading && <p className="py-10 text-center text-destructive">{error}</p>}
-          {!loading && !error && filteredItems.length === 0 && <p className="py-10 text-center text-muted-foreground">لا توجد أصناف مطابقة</p>}
+          {!loading && !error && filteredItems.length === 0 && <p className="py-10 text-center text-muted-foreground">{t('no_matches')}</p>}
           {!loading && !error && filteredItems.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-right text-sm">
+              <table className="w-full min-w-[900px] text-end text-sm">
                 <thead className="border-b text-xs text-muted-foreground">
-                  <tr><th className="p-3">المنتج</th><th className="p-3">التشغيلة</th><th className="p-3">الفرع</th><th className="p-3">الكمية</th><th className="p-3">الصلاحية</th><th className="p-3">الحالة</th>{canSeeActions && <th className="p-3">الإجراءات</th>}</tr>
+                  <tr><th className="p-3">{t('th_product')}</th><th className="p-3">{t('th_batch')}</th><th className="p-3">{t('th_branch')}</th><th className="p-3">{t('th_quantity')}</th><th className="p-3">{t('th_expiry')}</th><th className="p-3">{t('th_status')}</th>{canSeeActions && <th className="p-3">{t('th_actions')}</th>}</tr>
                 </thead>
                 <tbody>
                   {filteredItems.map((item) => {
@@ -209,31 +214,31 @@ export default function InventoryPage() {
                         <span className="mt-1 block text-xs text-muted-foreground">{item.generic_name || item.brand_name}</span>
                       </td>
                       <td className="p-3">{item.batch_number}</td>
-                      <td className="p-3">{item.branch_name || 'كل الفروع'}</td>
+                      <td className="p-3">{item.branch_name || t('all_branches')}</td>
                       <td className="p-3 font-semibold">
                         {item.quantity <= 0
-                          ? <span className="text-destructive">نفذ من المخزون</span>
-                          : formatQuantity(item)}
+                          ? <span className="text-destructive">{t('qty_out_of_stock')}</span>
+                          : formatQuantity(item, t)}
                       </td>
                       <td className="p-3">{item.expiry_date || '—'}</td>
                       <td className="p-3">
                         <Badge variant={statusLabels[item.status]?.variant ?? 'outline'}>
-                          {statusLabels[item.status]?.label ?? item.status}
+                          {statusLabels[item.status] ? t(statusLabels[item.status].key) : item.status}
                         </Badge>
                       </td>
                       {canSeeActions && (
                       <td className="p-3">
                         <div className="flex gap-1.5">
                           {canManageProducts && (
-                            <Button asChild variant="outline" size="sm" title="تعديل بيانات المنتج">
+                            <Button asChild variant="outline" size="sm" title={t('edit_title_attr')}>
                               <Link href={`/inventory/edit/${item.pharmacy_product_id}`}>
-                                <Pencil className="h-3.5 w-3.5" />تعديل
+                                <Pencil className="h-3.5 w-3.5" />{t('edit')}
                               </Link>
                             </Button>
                           )}
                           {canAdjustStock && (
-                            <Button variant={item.quantity <= 0 ? 'default' : 'ghost'} size="sm" onClick={() => setAdjustTarget(item)} title="التحكم في مخزون التشغيلة">
-                              <PackagePlus className="h-3.5 w-3.5" />مخزون
+                            <Button variant={item.quantity <= 0 ? 'default' : 'ghost'} size="sm" onClick={() => setAdjustTarget(item)} title={t('stock_button_title')}>
+                              <PackagePlus className="h-3.5 w-3.5" />{t('stock_button')}
                             </Button>
                           )}
                         </div>

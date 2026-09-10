@@ -1,0 +1,19 @@
+{
+  "pos": "نقطة البيع",
+  "sales": "سجل البيع",
+  "inventory": "المخزون والأدوية",
+  "movements": "سجل المخزون",
+  "settings": "الإعدادات",
+  "sections": "الأقسام",
+  "current_pharmacy": "الصيدلية الحالية",
+  "loading_pharmacy": "جاري تحميل الصيدلية...",
+  "no_branch": "لا يوجد فرع محدد",
+  "avatar_initial": "م",
+  "user_fallback": "المستخدم",
+  "pharmacy_account": "حساب الصيدلية",
+  "logout": "تسجيل الخروج",
+  "close_menu": "إغلاق القائمة",
+  "collapse_menu": "طي القائمة",
+  "light_mode": "الوضع النهاري",
+  "dark_mode": "الوضع الليلي"
+}

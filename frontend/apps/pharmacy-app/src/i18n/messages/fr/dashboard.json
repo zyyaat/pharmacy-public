@@ -1,0 +1,21 @@
+{
+  "title": "Tableau de bord",
+  "subtitle": "Données actuelles de la pharmacie issues de la base de données",
+  "add_product": "Ajouter un produit",
+  "loading": "Chargement des données de la pharmacie...",
+  "error_load": "Impossible de charger les données du tableau de bord",
+  "total_products": "Total des produits",
+  "low_stock_products": "Produits en stock faible",
+  "sales_units_today": "Unités vendues aujourd'hui",
+  "attendance_today": "Présence aujourd'hui",
+  "inventory_status": "État du stock",
+  "inventory_status_desc": "Articles ayant atteint leur seuil de réapprovisionnement",
+  "no_low_stock": "Aucun article en stock faible",
+  "reorder_note": "Seuil de commande : {min} — les plaquettes isolées ne comptent pas",
+  "quick_actions": "Actions rapides",
+  "no_quick_actions": "Aucune action disponible pour votre compte pour le moment",
+  "nav_inventory": "Stock",
+  "nav_employees": "Employés",
+  "nav_attendance": "Présence",
+  "nav_reports": "Rapports"
+}

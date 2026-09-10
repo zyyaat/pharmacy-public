@@ -1,0 +1,26 @@
+{
+  "title": "پلیٹ فارم کے صارفین",
+  "subtitle": "اکاؤنٹ کا ذریعہ اور مؤثر کردار سمیت تمام کمپنی صارفین اور فارمیسی ملازمین",
+  "metric_total": "کل صارفین",
+  "metric_active": "نتائج میں فعال",
+  "metric_admins": "نتائج میں سسٹم ایڈمنسٹریٹرز",
+  "guide_title": "صارف ڈائریکٹری",
+  "search_placeholder": "نام، ای میل یا کمپنی سے تلاش کریں...",
+  "filter_role_aria": "کردار کے لحاظ سے فلٹر کریں",
+  "role_all": "تمام کردار",
+  "loading": "صارفین لوڈ ہو رہے ہیں...",
+  "load_failed": "صارفین لوڈ نہیں ہو سکے",
+  "no_matches": "کوئی مماثل صارف نہیں",
+  "badge_disabled": "غیر فعال",
+  "account_company_user": "کمپنی اکاؤنٹ",
+  "account_pharmacy_employee": "فارمیسی ملازم",
+  "permissions_count": "{count} مؤثر اجازتیں",
+  "last_login": "آخری لاگ اِن: {date}",
+  "never_logged_in": "کبھی لاگ اِن نہیں",
+  "roles": {
+    "super_admin": "سسٹم ایڈمنسٹریٹر",
+    "company_admin": "کمپنی ایڈمنسٹریٹر",
+    "company_manager": "آپریشنز مینیجر",
+    "company_viewer": "کمپنی ناظر"
+  }
+}

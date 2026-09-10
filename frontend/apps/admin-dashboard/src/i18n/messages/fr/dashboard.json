@@ -1,0 +1,18 @@
+{
+  "title": "Tableau de bord",
+  "subtitle": "Vue d'ensemble de toute la plateforme Pharmacy OS",
+  "loading": "Chargement des données du tableau de bord...",
+  "companies_error": "Impossible de charger les sociétés",
+  "stat_total_companies": "Total des sociétés",
+  "stat_active_companies": "Sociétés actives",
+  "stat_suspended_companies": "Sociétés suspendues",
+  "stat_total_pharmacies": "Total des pharmacies",
+  "stat_total_users": "Total des utilisateurs",
+  "stat_active_users": "Utilisateurs actifs",
+  "latest_companies": "Dernières sociétés",
+  "view_all": "Voir tout",
+  "no_companies": "Aucune société enregistrée",
+  "users_count": "{count} utilisateurs",
+  "recent_activity": "Activité récente",
+  "no_activity": "Aucune activité enregistrée"
+}

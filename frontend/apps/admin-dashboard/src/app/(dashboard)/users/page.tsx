@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Search, ShieldCheck, Users as UsersIcon } from "lucide-react";
 import { Badge, Card, CardContent, CardHeader, CardTitle, Select } from "@/components/ui";
-import { ROLE_LABELS, type Role } from "@/lib/utils";
+import { roleLabel } from "@/lib/utils";
 import { usersApi } from "@/lib/api";
+import { useT } from "@/i18n/provider";
+import { fmtDate } from "@/i18n/format";
 import type { PlatformUser } from "@/types";
 
 const roleVariants: Record<string, "default" | "secondary" | "outline" | "destructive" | "success" | "warning"> = {
@@ -16,6 +18,7 @@ const roleVariants: Record<string, "default" | "secondary" | "outline" | "destru
 };
 
 export default function UsersPage() {
+  const t = useT("users");
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
@@ -34,13 +37,13 @@ export default function UsersPage() {
         setError(null);
       })
       .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "تعذر تحميل المستخدمين");
+        if (!cancelled) setError(reason instanceof Error ? reason.message : t("load_failed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [search, role]);
+  }, [search, role, t]);
 
   const activeCount = users.filter((user) => user.isActive).length;
   const adminCount = users.filter((user) => user.role === "super_admin").length;
@@ -48,57 +51,57 @@ export default function UsersPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold">مستخدمو المنصة</h1>
-        <p className="mt-1 text-muted-foreground">كل مستخدمي الشركات وموظفي الصيدليات مع مصدر الحساب والدور الفعلي</p>
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric icon={<UsersIcon className="h-5 w-5 text-primary" />} value={total} label="إجمالي المستخدمين" />
-        <Metric icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} value={activeCount} label="نشطون في النتائج" />
-        <Metric icon={<ShieldCheck className="h-5 w-5 text-amber-600" />} value={adminCount} label="مديرو النظام في النتائج" />
+        <Metric icon={<UsersIcon className="h-5 w-5 text-primary" />} value={total} label={t("metric_total")} />
+        <Metric icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} value={activeCount} label={t("metric_active")} />
+        <Metric icon={<ShieldCheck className="h-5 w-5 text-amber-600" />} value={adminCount} label={t("metric_admins")} />
       </div>
 
       <Card>
-        <CardHeader><CardTitle>دليل المستخدمين</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("guide_title")}</CardTitle></CardHeader>
         <CardContent>
           <div className="mb-5 flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو البريد أو الشركة..." className="h-10 w-full rounded-lg border border-input bg-background pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" dir="rtl" />
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("search_placeholder")} className="h-10 w-full rounded-lg border border-input bg-background ps-10 pe-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div className="w-[190px]">
               <Select
                 value={role}
                 onValueChange={(value) => setRole(value)}
-                aria-label="تصفية بالدور"
+                aria-label={t("filter_role_aria")}
                 options={[
-                  { value: "all", label: "كل الأدوار" },
-                  { value: "super_admin", label: "مدير النظام" },
-                  { value: "company_admin", label: "مدير الشركة" },
-                  { value: "company_manager", label: "مدير العمليات" },
-                  { value: "company_viewer", label: "مشاهد الشركة" },
-                  { value: "employee", label: "موظف صيدلية" },
+                  { value: "all", label: t("role_all") },
+                  { value: "super_admin", label: t("roles.super_admin") },
+                  { value: "company_admin", label: t("roles.company_admin") },
+                  { value: "company_manager", label: t("roles.company_manager") },
+                  { value: "company_viewer", label: t("roles.company_viewer") },
+                  { value: "employee", label: t("account_pharmacy_employee") },
                 ]}
               />
             </div>
           </div>
-          {loading && <p className="py-8 text-center text-muted-foreground">جاري تحميل المستخدمين...</p>}
+          {loading && <p className="py-8 text-center text-muted-foreground">{t("loading")}</p>}
           {error && !loading && <p className="py-8 text-center text-destructive">{error}</p>}
-          {!loading && !error && users.length === 0 && <p className="py-8 text-center text-muted-foreground">لا يوجد مستخدمون مطابقون</p>}
+          {!loading && !error && users.length === 0 && <p className="py-8 text-center text-muted-foreground">{t("no_matches")}</p>}
           <div className="space-y-3">
             {users.map((user) => (
               <div key={`${user.accountType}-${user.id}`} className={`flex flex-col gap-4 rounded-xl border border-border p-4 transition hover:shadow-sm sm:flex-row sm:items-center ${!user.isActive ? "opacity-60" : ""}`}>
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{user.displayName.charAt(0)}</div>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><p className="font-medium">{user.displayName}</p>{!user.isActive && <Badge variant="destructive">معطل</Badge>}</div>
+                    <div className="flex flex-wrap items-center gap-2"><p className="font-medium">{user.displayName}</p>{!user.isActive && <Badge variant="destructive">{t("badge_disabled")}</Badge>}</div>
                     <p className="truncate text-sm text-muted-foreground" dir="ltr">{user.email}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{user.companyName} · {user.accountType === "company_user" ? "حساب شركة" : "موظف صيدلية"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{user.companyName} · {user.accountType === "company_user" ? t("account_company_user") : t("account_pharmacy_employee")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 sm:justify-end">
-                  <div className="text-center"><Badge variant={roleVariants[user.role] || "outline"}>{ROLE_LABELS[user.role as Role] || user.role}</Badge><p className="mt-1 text-xs text-muted-foreground">{user.permissionsCount} صلاحية فعلية</p></div>
-                  <p className="hidden text-xs text-muted-foreground lg:block">{user.lastLoginAt ? `آخر دخول: ${new Date(user.lastLoginAt).toLocaleDateString("ar-EG-u-nu-latn")}` : "لم يسجل الدخول بعد"}</p>
+                  <div className="text-center"><Badge variant={roleVariants[user.role] || "outline"}>{roleLabel(user.role)}</Badge><p className="mt-1 text-xs text-muted-foreground">{t("permissions_count", { count: user.permissionsCount })}</p></div>
+                  <p className="hidden text-xs text-muted-foreground lg:block">{user.lastLoginAt ? t("last_login", { date: fmtDate(user.lastLoginAt) }) : t("never_logged_in")}</p>
                 </div>
               </div>
             ))}

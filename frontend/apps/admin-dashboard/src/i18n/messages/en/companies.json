@@ -1,0 +1,40 @@
+{
+  "title": "Company Management",
+  "subtitle": "Manage all companies registered on the platform",
+  "add_company": "Add new company",
+  "stat_total": "Total companies",
+  "stat_active": "Active companies",
+  "stat_trial": "In trial period",
+  "stat_suspended": "Suspended companies",
+  "search_placeholder": "Search by name or email...",
+  "filter_status_aria": "Filter by status",
+  "filter_all": "All statuses",
+  "loading": "Loading companies...",
+  "load_failed": "Could not load companies",
+  "th_company": "Company",
+  "th_status": "Status",
+  "th_plan": "Plan",
+  "th_users": "Users",
+  "th_registered": "Registered",
+  "th_actions": "Actions",
+  "action_view": "View",
+  "action_edit": "Edit",
+  "action_delete": "Delete",
+  "empty_title": "No companies",
+  "empty_desc": "No companies match your search criteria",
+  "clear_filters": "Clear filters",
+  "pagination": "Showing {shown} of {total} companies",
+  "status": {
+    "active": "Active",
+    "suspended": "Suspended",
+    "trial": "Trial",
+    "cancelled": "Cancelled"
+  },
+  "plans": {
+    "free": "Free",
+    "starter": "Starter",
+    "professional": "Professional",
+    "enterprise": "Enterprise",
+    "custom": "Custom"
+  }
+}

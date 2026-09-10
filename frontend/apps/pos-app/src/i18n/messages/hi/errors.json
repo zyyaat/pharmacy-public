@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "सिस्टम सर्वर से कनेक्ट नहीं हो सका। NEXT_PUBLIC_API_URL और बैकएंड की CORS सेटिंग्स जाँचें।",
+  "template_download_failed": "इंपोर्ट टेम्पलेट डाउनलोड नहीं हो सका"
+}

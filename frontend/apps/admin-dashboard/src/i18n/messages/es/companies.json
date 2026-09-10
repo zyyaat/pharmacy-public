@@ -1,0 +1,40 @@
+{
+  "title": "Gestión de empresas",
+  "subtitle": "Gestiona todas las empresas registradas en la plataforma",
+  "add_company": "Añadir nueva empresa",
+  "stat_total": "Total de empresas",
+  "stat_active": "Empresas activas",
+  "stat_trial": "En periodo de prueba",
+  "stat_suspended": "Empresas suspendidas",
+  "search_placeholder": "Buscar por nombre o correo...",
+  "filter_status_aria": "Filtrar por estado",
+  "filter_all": "Todos los estados",
+  "loading": "Cargando empresas...",
+  "load_failed": "No se pudieron cargar las empresas",
+  "th_company": "Empresa",
+  "th_status": "Estado",
+  "th_plan": "Plan",
+  "th_users": "Usuarios",
+  "th_registered": "Fecha de registro",
+  "th_actions": "Acciones",
+  "action_view": "Ver",
+  "action_edit": "Editar",
+  "action_delete": "Eliminar",
+  "empty_title": "No hay empresas",
+  "empty_desc": "No se encontraron empresas que coincidan con los criterios de búsqueda",
+  "clear_filters": "Limpiar filtros",
+  "pagination": "Mostrando {shown} de {total} empresas",
+  "status": {
+    "active": "Activa",
+    "suspended": "Suspendida",
+    "trial": "Prueba",
+    "cancelled": "Cancelada"
+  },
+  "plans": {
+    "free": "Gratis",
+    "starter": "Básico",
+    "professional": "Profesional",
+    "enterprise": "Corporativo",
+    "custom": "Personalizado"
+  }
+}

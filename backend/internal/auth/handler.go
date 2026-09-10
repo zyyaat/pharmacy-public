@@ -71,6 +71,7 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	platform.GET("/me", h.service.Middleware(PlatformRealm), h.me)
 	platform.POST("/logout-all", h.service.Middleware(PlatformRealm), CSRF(PlatformRealm), h.logoutAllPlatform)
 	platform.POST("/change-password", h.service.Middleware(PlatformRealm), CSRF(PlatformRealm), h.changePassword)
+	platform.PATCH("/locale", h.service.Middleware(PlatformRealm), CSRF(PlatformRealm), h.updateLocale)
 
 	pharmacy := authGroup.Group("/pharmacy")
 	pharmacy.POST("/login", h.loginPharmacy)
@@ -79,6 +80,7 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	pharmacy.GET("/me", h.service.Middleware(PharmacyRealm), h.me)
 	pharmacy.POST("/logout-all", h.service.Middleware(PharmacyRealm), CSRF(PharmacyRealm), h.logoutAllPharmacy)
 	pharmacy.POST("/change-password", h.service.Middleware(PharmacyRealm), CSRF(PharmacyRealm), h.changePassword)
+	pharmacy.PATCH("/locale", h.service.Middleware(PharmacyRealm), CSRF(PharmacyRealm), h.updateLocale)
 
 	authGroup.POST("/forgot-password", h.forgotPassword)
 	authGroup.POST("/reset-password", h.resetPassword)
@@ -431,6 +433,7 @@ func userPayload(p *Principal) map[string]interface{} {
 		"id": p.ID, "email": p.Email, "first_name": p.FirstName, "last_name": p.LastName,
 		"display_name": p.DisplayName, "role": p.Role, "account_type": p.Type,
 		"is_active": p.IsActive, "email_verified": p.EmailVerified,
+		"locale": p.Locale,
 	}
 	if p.CompanyID != "" {
 		payload["company_id"] = p.CompanyID
@@ -488,4 +491,42 @@ func firstNonEmpty(values ...string) string {
 
 func writeError(c *gin.Context, status int, code, message string) {
 	c.JSON(status, gin.H{"error": code, "code": strings.ToUpper(code), "message": message})
+}
+
+// allowedUILocales mirrors the frontend catalog allowlist and the CHECK
+// constraints added by migration 21. Keep the three lists in sync.
+var allowedUILocales = map[string]bool{
+	"ar": true, "en": true, "fr": true, "es": true,
+	"tr": true, "zh": true, "hi": true, "ur": true,
+}
+
+type localeRequest struct {
+	Locale string `json:"locale" binding:"required"`
+}
+
+// updateLocale persists the caller's UI language preference. It is
+// self-service by design: any authenticated principal may change its own
+// locale, no pharmacy permission involved.
+func (h *Handler) updateLocale(c *gin.Context) {
+	principal, ok := PrincipalFromContext(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "authentication_required", "Authentication required")
+		return
+	}
+	var req localeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "validation_error", "A locale value is required")
+		return
+	}
+	req.Locale = strings.ToLower(strings.TrimSpace(req.Locale))
+	if !allowedUILocales[req.Locale] {
+		writeError(c, http.StatusBadRequest, "unsupported_locale", "Unsupported locale")
+		return
+	}
+	if err := h.service.SetLocale(c.Request.Context(), principal, req.Locale); err != nil {
+		log.Printf("locale update failed for principal type %s: %v", principal.Type, err)
+		writeError(c, http.StatusInternalServerError, "locale_update_failed", "Could not update language preference")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"locale": req.Locale})
 }

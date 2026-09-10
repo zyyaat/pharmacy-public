@@ -1,0 +1,18 @@
+{
+  "dashboard": "Dashboard",
+  "companies": "Companies",
+  "users": "Users",
+  "permissions": "Permissions",
+  "accounts": "Accounts",
+  "settings": "Settings",
+  "brand_home_aria": "Pharmacy OS - Home",
+  "avatar_fallback": "U",
+  "default_user": "System Administrator",
+  "logout": "Log out",
+  "search_placeholder": "Search companies, users...",
+  "change_language": "Change language",
+  "light_mode": "Light mode",
+  "dark_mode": "Dark mode",
+  "loading_aria": "Loading",
+  "logo_alt": "App logo"
+}

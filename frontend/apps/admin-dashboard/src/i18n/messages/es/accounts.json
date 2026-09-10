@@ -1,0 +1,16 @@
+{
+  "title": "Cuentas y farmacias",
+  "subtitle": "Consulta las cuentas comerciales, farmacias y sucursales de la plataforma",
+  "stat_total": "Total de cuentas",
+  "stat_pharmacies": "Farmacias en los resultados",
+  "stat_branches": "Sucursales en los resultados",
+  "list_title": "Cuentas registradas",
+  "search_placeholder": "Buscar por cuenta, empresa o correo...",
+  "loading": "Cargando cuentas...",
+  "load_failed": "No se pudieron cargar las cuentas",
+  "no_accounts": "No hay cuentas registradas",
+  "status_active": "Activa",
+  "status_suspended": "Suspendida",
+  "status_inactive": "Inactiva",
+  "pharmacies_branches": "{pharmacies} farmacias · {branches} sucursales"
+}

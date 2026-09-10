@@ -1,0 +1,26 @@
+{
+  "title": "Usuarios de la plataforma",
+  "subtitle": "Todos los usuarios de empresas y empleados de farmacias con origen de cuenta y rol efectivo",
+  "metric_total": "Total de usuarios",
+  "metric_active": "Activos en los resultados",
+  "metric_admins": "Administradores del sistema en los resultados",
+  "guide_title": "Directorio de usuarios",
+  "search_placeholder": "Buscar por nombre, correo o empresa...",
+  "filter_role_aria": "Filtrar por rol",
+  "role_all": "Todos los roles",
+  "loading": "Cargando usuarios...",
+  "load_failed": "No se pudieron cargar los usuarios",
+  "no_matches": "No hay usuarios coincidentes",
+  "badge_disabled": "Desactivado",
+  "account_company_user": "Cuenta de empresa",
+  "account_pharmacy_employee": "Empleado de farmacia",
+  "permissions_count": "{count} permisos efectivos",
+  "last_login": "Último acceso: {date}",
+  "never_logged_in": "Nunca ha iniciado sesión",
+  "roles": {
+    "super_admin": "Administrador del sistema",
+    "company_admin": "Administrador de empresa",
+    "company_manager": "Gerente de operaciones",
+    "company_viewer": "Observador de empresa"
+  }
+}

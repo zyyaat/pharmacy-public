@@ -1,6 +1,7 @@
 // Pharmacies Hook - Real Implementation
 import { useState, useEffect, useCallback } from 'react'
 import { accountsApi } from '@/lib/api'
+import { runtimeTranslator } from '@/i18n/runtime'
 import type { Account } from '@/types'
 
 interface UsePharmaciesReturn {
@@ -31,7 +32,7 @@ export function usePharmacies(): UsePharmaciesReturn {
     } catch (err) {
       setPharmacies([])
       setTotal(0)
-      setError(err instanceof Error ? err.message : 'تعذر تحميل الحسابات')
+      setError(err instanceof Error ? err.message : runtimeTranslator('errors')('accounts_load_failed'))
     } finally {
       setLoading(false)
     }

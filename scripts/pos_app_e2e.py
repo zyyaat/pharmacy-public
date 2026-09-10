@@ -12,6 +12,9 @@
      /inventory و /sales بالرابط المباشر بطاقة «غير متاحة» والـ API يمنع (403)
   7) /sales بالرابط المباشر → بطاقة «غير متاحة» + الـ API يمنع (403) ويسمح للبيع
   8) تطبيق الإدارة على 3000 لم يتأثر
+  9) نظام اللغات (Task 48): /me يعيد locale، PATCH /auth/pharmacy/locale يغيّره
+     ويمنع اللغات غير المدعومة، وصفحة الإعدادات تبدّل الواجهة فورًا (RTL↔LTR)
+     وتلزوم بعد إعادة التحميل (كوكي + حفظ دائم على الحساب) ثم يعود للعربية
 """
 import sys
 import time
@@ -77,6 +80,18 @@ def wait_options(locator, timeout=8.0):
         if locator.count() > 0:
             return True
         time.sleep(0.2)
+    return False
+
+
+def wait_sidebar_contains(page, needle, timeout=12.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            if needle in page.locator("aside").inner_text():
+                return True
+        except Exception:
+            pass
+        time.sleep(0.3)
     return False
 
 
@@ -146,11 +161,12 @@ def main():
         # ============ 4) سجل البيع للمالك ============
         page.goto(f"{POS_APP}/sales", wait_until="networkidle")
         blocked_wait = time.time() + 8
-        while time.time() < blocked_wait and "لا توجد فواتير بعد" in page.content():
+        # ⚠️ نصوص الكتالوج مدمجة في حمولة RSC داخل content() — نتحقق من النص المرئي فقط
+        while time.time() < blocked_wait and "لا توجد فواتير بعد" in page.locator("body").inner_text():
             time.sleep(0.3)
-        content = page.content()
+        body_text = page.locator("body").inner_text()
         check("4a. سجل البيع يفتح ويعرض كروت الفواتير للمالك",
-              "INV-" in content and "لا توجد فواتير بعد" not in content)
+              "INV-" in body_text and "لا توجد فواتير بعد" not in body_text)
 
         # ============ 5) إدارة مخزون كاملة من نفس التطبيق ============
         PROD = "شراب اختبار آي أو إس"
@@ -197,7 +213,8 @@ def main():
         saved = False
         while time.time() < deadline:
             body = page.locator("tbody tr", has_text=PROD).first.inner_text()
-            if "التحكم في المخزون" not in page.content() and "5 عبوة" in body:
+            body_all = page.locator("body").inner_text()
+            if "التحكم في المخزون" not in body_all and "5 عبوة" in body:
                 saved = True
                 break
             time.sleep(0.4)
@@ -234,8 +251,9 @@ def main():
         check("6c. الموظف يصل نقطة البيع بعد دخوله", "/pos" in current_url(staff_page), current_url(staff_page))
         time.sleep(1.5)
         staff_sidebar = staff_page.locator("aside").inner_text()
-        check("6d. الموظف يرى «نقطة البيع» فقط — سجل البيع والمخزون مخفيان",
-              "نقطة البيع" in staff_sidebar and "سجل البيع" not in staff_sidebar and "المخزون" not in staff_sidebar,
+        check("6d. الموظف يرى «نقطة البيع» و«الإعدادات» فقط — سجل البيع والمخزون مخفيان",
+              "نقطة البيع" in staff_sidebar and "الإعدادات" in staff_sidebar
+              and "سجل البيع" not in staff_sidebar and "المخزون" not in staff_sidebar,
               staff_sidebar[:120])
 
         # ============ 7) المسارات الممنوعة + الفرض في الـ API ============
@@ -284,6 +302,68 @@ def main():
         # ============ 8) التطبيق الرئيسي لم يتأثر ============
         r = requests.get(f"{MAIN_APP}/login", timeout=15)
         check("8a. تطبيق الإدارة على 3000 سليم", r.status_code == 200)
+
+        # ============ 9) نظام اللغات (Task 48) ============
+        ls, lstatus = owner_api_session()
+        check("9a. دخول المالك API لفحوص اللغة", lstatus == 200)
+        me = ls.get(f"{BASE}/auth/pharmacy/me", timeout=10).json()
+        check("9b. /me يعيد locale الافتراضي ar", me.get("user", {}).get("locale") == "ar",
+              str(me.get("user", {}).get("locale")))
+
+        # واجهة صفحة الإعدادات بالعربية أولًا (قبل أي تغيير لغة)
+        page.goto(f"{POS_APP}/settings", wait_until="networkidle")
+        lang_section = False
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                if "اللغة" in page.locator("body").inner_text():
+                    lang_section = True
+                    break
+            except Exception:
+                pass
+            time.sleep(0.3)
+        diag = ""
+        if not lang_section:
+            try:
+                diag = f"url={current_url(page)} h2count={page.locator('#language-setting-title').count()} body={page.locator('body').inner_text()[:160]}".replace("\n", " | ")
+            except Exception as exc:
+                diag = f"diag-error: {exc}"
+        check("9c. صفحة الإعدادات تعرض قسم «اللغة» وثماني لغات",
+              lang_section and page.get_by_role("button", name="English").count() > 0, diag)
+
+        # الحفظ الدائم على الحساب عبر الـ API
+        rpatch = ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)
+        check("9d. PATCH locale=en ينجح ويعيد {locale}",
+              rpatch.status_code == 200 and rpatch.json().get("locale") == "en", str(rpatch.status_code))
+        check("9e. لغة غير مدعومة → 400",
+              ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "xx"}, headers=csrf_header(ls), timeout=10).status_code == 400)
+        me2 = ls.get(f"{BASE}/auth/pharmacy/me", timeout=10).json()
+        check("9f. /me يعيد locale=en بعد التغيير", me2.get("user", {}).get("locale") == "en")
+
+        # إعادة تحميل: لغة الحساب تلزوم حتى لو اختلف كوكي المتصفح (مزامنة من قاعدة البيانات)
+        page.reload(wait_until="networkidle")
+        check("9g. لغة الحساب (en) تلزوم بعد إعادة التحميل — حفظ دائم",
+              wait_sidebar_contains(page, "Point of Sale")
+              and page.evaluate("document.documentElement.getAttribute('dir')") == "ltr")
+
+        # العودة للعربية عبر الواجهة نفسها (تبديل فوري RTL + حفظ)
+        arabic_btn = page.get_by_role("button", name="العربية")
+        if arabic_btn.count() > 0:
+            arabic_btn.first.click()
+        else:
+            ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
+        ok_rtl = False
+        deadline = time.time() + 12
+        while time.time() < deadline:
+            if page.evaluate("document.documentElement.getAttribute('dir')") == "rtl":
+                ok_rtl = True
+                break
+            time.sleep(0.3)
+        check("9h. العودة للعربية RTL عبر الواجهة", ok_rtl and wait_sidebar_contains(page, "نقطة البيع"))
+
+        # سلامة الحالة للحسابات اللاحقة: العودة إلى ar نهائيًا من الـ API + الكوكي
+        ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
+        page.evaluate("document.cookie = 'pharmacy_locale=ar; path=/; max-age=31536000; samesite=lax'")
 
         browser.close()
 

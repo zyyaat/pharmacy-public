@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Settings,
   User,
   Bell,
   Shield,
   Palette,
   Globe,
+  Languages,
   Database,
   Key,
   Save,
@@ -16,15 +16,18 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui";
+import { LanguageSetting } from "@/components/settings/language-setting";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Badge } from "@/components/ui";
 import { Select } from "@/components/ui";
 import { platformSettingsApi } from "@/lib/api";
+import { useT } from "@/i18n/provider";
 
-type SettingsTab = "profile" | "notifications" | "security" | "appearance" | "system";
+type SettingsTab = "profile" | "notifications" | "security" | "appearance" | "system" | "language";
 
 export default function SettingsPage() {
+  const t = useT("settings");
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,9 +43,9 @@ export default function SettingsPage() {
         setTrialDays(settings.default_trial_days || 30);
         setTrialSettingsError("");
       })
-      .catch(() => setTrialSettingsError("تعذر تحميل إعداد مدة التجربة"))
+      .catch(() => setTrialSettingsError(t("trial_load_failed")))
       .finally(() => setTrialSettingsLoading(false));
-  }, [activeTab]);
+  }, [activeTab, t]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -56,18 +59,19 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      setTrialSettingsError("تعذر حفظ مدة التجربة");
+      setTrialSettingsError(t("trial_save_failed"));
     } finally {
       setSaving(false);
     }
   };
 
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: "profile", label: "الملف الشخصي", icon: <User className="h-4 w-4" /> },
-    { id: "notifications", label: "الإشعارات", icon: <Bell className="h-4 w-4" /> },
-    { id: "security", label: "الأمان", icon: <Shield className="h-4 w-4" /> },
-    { id: "appearance", label: "المظهر", icon: <Palette className="h-4 w-4" /> },
-    { id: "system", label: "النظام", icon: <Database className="h-4 w-4" /> },
+    { id: "profile", label: t("tab_profile"), icon: <User className="h-4 w-4" /> },
+    { id: "language", label: t("tab_language"), icon: <Languages className="h-4 w-4" /> },
+    { id: "notifications", label: t("tab_notifications"), icon: <Bell className="h-4 w-4" /> },
+    { id: "security", label: t("tab_security"), icon: <Shield className="h-4 w-4" /> },
+    { id: "appearance", label: t("tab_appearance"), icon: <Palette className="h-4 w-4" /> },
+    { id: "system", label: t("tab_system"), icon: <Database className="h-4 w-4" /> },
   ];
 
   return (
@@ -75,28 +79,28 @@ export default function SettingsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">الإعدادات</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground mt-1">
-            إدارة إعدادات النظام والحساب
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
           {saved && (
             <Badge variant="success" className="animate-fade-in">
-              <CheckCircle className="h-3 w-3 ml-1" />
-              تم الحفظ
+              <CheckCircle className="h-3 w-3 me-1" />
+              {t("saved")}
             </Badge>
           )}
           <Button variant="outline" onClick={handleSave} disabled={saving}>
             {saving ? (
               <>
-                <RefreshCw className="h-4 w-4 ml-2 animate-spin" />
-                جاري الحفظ...
+                <RefreshCw className="h-4 w-4 me-2 animate-spin" />
+                {t("saving")}
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 ml-2" />
-                حفظ التغييرات
+                <Save className="h-4 w-4 me-2" />
+                {t("save_changes")}
               </>
             )}
           </Button>
@@ -112,7 +116,7 @@ export default function SettingsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-right ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-start ${
                     activeTab === tab.id
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -132,63 +136,66 @@ export default function SettingsPage() {
           {activeTab === "profile" && (
             <Card>
               <CardHeader>
-                <CardTitle>الملف الشخصي</CardTitle>
-                <CardDescription>معلومات حسابك الشخصية</CardDescription>
+                <CardTitle>{t("profile_title")}</CardTitle>
+                <CardDescription>{t("profile_desc")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Avatar Section */}
                 <div className="flex items-center gap-6">
                   <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold">
-                    م
+                    {t("profile_avatar_letter")}
                   </div>
                   <div className="space-y-2">
                     <Button variant="outline" size="sm">
-                      تغيير الصورة الشخصية
+                      {t("change_photo")}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      JPG, PNG أو GIF. الحد الأقصى 5MB.
+                      {t("photo_hint")}
                     </p>
                   </div>
                 </div>
 
                 {/* Form */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="الاسم الكامل" defaultValue="مدير النظام" />
-                  <Input label="البريد الإلكتروني" type="email" defaultValue="admin@pharmacy.os" dir="ltr" className="text-left" />
-                  <Input label="رقم الهاتف" type="tel" defaultValue="+966 50 000 0000" dir="ltr" className="text-left" />
-                  <Input label="المسمى الوظيفي" defaultValue="مدير النظام" />
+                  <Input label={t("full_name")} defaultValue={t("default_name")} />
+                  <Input label={t("email")} type="email" defaultValue="admin@pharmacy.os" dir="ltr" className="text-left" />
+                  <Input label={t("phone")} type="tel" defaultValue="+966 50 000 0000" dir="ltr" className="text-left" />
+                  <Input label={t("job_title")} defaultValue={t("default_name")} />
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">نبذة شخصية</label>
+                  <label className="text-sm font-medium mb-2 block">{t("bio")}</label>
                   <textarea
                     rows={4}
                     className="w-full px-4 py-3 rounded-lg border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-all"
-                    defaultValue="مدير نظام Pharmacy OS..."
+                    defaultValue={t("default_bio")}
                   />
                 </div>
               </CardContent>
             </Card>
           )}
 
+          {/* Language Tab (Task 48) — متاح دائمًا بلا صلاحيات */}
+          {activeTab === "language" && <LanguageSetting />}
+
           {/* Notifications Tab */}
           {activeTab === "notifications" && (
             <Card>
               <CardHeader>
-                <CardTitle>إعدادات الإشعارات</CardTitle>
-                <CardDescription>تحكم في كيفية استلامك للإشعارات</CardDescription>
+                <CardTitle>{t("notifications_title")}</CardTitle>
+                <CardDescription>{t("notifications_desc")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {[
                   {
-                    title: "إشعارات البريد الإلكتروني",
-                    description: "استلم إشعارات عبر البريد عند حدوث أحداث مهمة",
-                    options: ["شركات جديدة", "مستخدمين جدد", "تقارير أمنية"],
+                    title: t("notif_email_title"),
+                    description: t("notif_email_desc"),
+                    options: [t("notif_email_opt_companies"), t("notif_email_opt_users"), t("notif_email_opt_reports")],
                   },
                   {
-                    title: "إشعارات المتصفح",
-                    description: "إشعارات فورية في المتصفح عند حدوث نشاط",
-                    options: ["تسجيلات دخول جديدة", "تحديثات النظام", "تنبيهات الأمان"],
+                    title: t("notif_browser_title"),
+                    description: t("notif_browser_desc"),
+                    options: [t("notif_browser_opt_logins"), t("notif_browser_opt_updates"), t("notif_browser_opt_alerts")],
                   },
                 ].map((section, idx) => (
                   <div key={idx} className="space-y-4 pb-6 border-b border-border last:border-0">
@@ -203,7 +210,7 @@ export default function SettingsPage() {
                           <input
                             type="switch"
                             defaultChecked
-                            className="w-11 h-6 bg-primary rounded-full appearance-none cursor-pointer relative before:content-[''] before:absolute before:top-0.5 before:right-0.5 before:w-5 before:h-5 before:bg-white before:rounded-full before:transition-transform checked:before:translate-x-5"
+                            className="w-11 h-6 bg-primary rounded-full appearance-none cursor-pointer relative before:content-[''] before:absolute before:top-0.5 before:start-0.5 before:w-5 before:h-5 before:bg-white before:rounded-full before:transition-transform rtl:checked:before:translate-x-5 ltr:checked:before:-translate-x-5"
                           />
                         </label>
                       ))}
@@ -219,55 +226,55 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>تغيير كلمة المرور</CardTitle>
-                  <CardDescription>حدّث كلمة المرور الخاصة بحسابك</CardDescription>
+                  <CardTitle>{t("password_title")}</CardTitle>
+                  <CardDescription>{t("password_desc")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Input label="كلمة المرور الحالية" type="password" />
-                  <Input label="كلمة المرور الجديدة" type="password" />
-                  <Input label="تأكيد كلمة المرور الجديدة" type="password" />
-                  <Button variant="gradient">تحديث كلمة المرور</Button>
+                  <Input label={t("current_password")} type="password" />
+                  <Input label={t("new_password")} type="password" />
+                  <Input label={t("confirm_password")} type="password" />
+                  <Button variant="gradient">{t("update_password")}</Button>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>المصادقة الثنائية</CardTitle>
-                  <CardDescription>أضف طبقة أمان إضافية لحسابك</CardDescription>
+                  <CardTitle>{t("two_fa_title")}</CardTitle>
+                  <CardDescription>{t("two_fa_desc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div className="flex items-center gap-3">
                       <Key className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">مصادقة ثنائية (2FA)</p>
+                        <p className="font-medium">{t("two_fa_label")}</p>
                         <p className="text-sm text-muted-foreground">
-                          غير مفعّل حالياً
+                          {t("two_fa_disabled")}
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline">تفعيل</Button>
+                    <Button variant="outline">{t("two_fa_enable")}</Button>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-destructive/20">
                 <CardHeader>
-                  <CardTitle className="text-destructive">منطقة خطرة</CardTitle>
-                  <CardDescription>إجراءات لا يمكن التراجع عنها</CardDescription>
+                  <CardTitle className="text-destructive">{t("danger_title")}</CardTitle>
+                  <CardDescription>{t("danger_desc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/20 bg-destructive/5">
                     <div className="flex items-center gap-3">
                       <AlertCircle className="h-5 w-5 text-destructive" />
                       <div>
-                        <p className="font-medium">حذف الحساب</p>
+                        <p className="font-medium">{t("delete_account")}</p>
                         <p className="text-sm text-muted-foreground">
-                          حذف نهائي لجميع بياناتك
+                          {t("delete_account_desc")}
                         </p>
                       </div>
                     </div>
-                    <Button variant="destructive">حذف الحساب</Button>
+                    <Button variant="destructive">{t("delete_account")}</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -278,21 +285,21 @@ export default function SettingsPage() {
           {activeTab === "appearance" && (
             <Card>
               <CardHeader>
-                <CardTitle>المظهر</CardTitle>
-                <CardDescription>خصص واجهة المستخدم حسب تفضيلاتك</CardDescription>
+                <CardTitle>{t("appearance_title")}</CardTitle>
+                <CardDescription>{t("appearance_desc")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <h3 className="font-medium mb-3">الوضع</h3>
+                  <h3 className="font-medium mb-3">{t("mode")}</h3>
                   <div className="grid grid-cols-3 gap-4">
                     {[
-                      { id: "light", name: "فاتح", desc: "خلفية فاتحة" },
-                      { id: "dark", name: "داكن", desc: "خلفية داكنة" },
-                      { id: "system", name: "تلقائي", desc: "تبع إعدادات الجهاز" },
+                      { id: "light", name: t("theme_light"), desc: t("theme_light_desc") },
+                      { id: "dark", name: t("theme_dark"), desc: t("theme_dark_desc") },
+                      { id: "system", name: t("theme_system"), desc: t("theme_system_desc") },
                     ].map((theme) => (
                       <button
                         key={theme.id}
-                        className="p-4 rounded-xl border border-border hover:border-primary/50 transition-all text-right group"
+                        className="p-4 rounded-xl border border-border hover:border-primary/50 transition-all text-start group"
                       >
                         <div className={`w-full aspect-video rounded-lg mb-3 ${theme.id === "dark" ? "bg-gray-900" : theme.id === "system" ? "bg-gradient-to-b from-white to-gray-900" : "bg-gray-100"}`} />
                         <p className="font-medium text-sm">{theme.name}</p>
@@ -303,11 +310,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-3">اللغة</h3>
+                  <h3 className="font-medium mb-3">{t("appearance_language")}</h3>
                   <div className="w-full max-w-xs">
                     <Select
                       defaultValue="ar"
-                      aria-label="اللغة"
+                      aria-label={t("language_aria")}
                       options={[
                         { value: "ar", label: "العربية" },
                         { value: "en", label: "English" },
@@ -324,15 +331,15 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>الفترة التجريبية للشركات الجديدة</CardTitle>
+                  <CardTitle>{t("trial_title")}</CardTitle>
                   <CardDescription>
-                    هذه القيمة تُستخدم تلقائيًا عند تسجيل شركة جديدة. القيمة الافتراضية للنظام هي 30 يومًا.
+                    {t("trial_desc")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="max-w-sm">
                     <Input
-                      label="مدة الفترة التجريبية (بالأيام)"
+                      label={t("trial_days_label")}
                       type="number"
                       min={1}
                       max={3650}
@@ -347,30 +354,30 @@ export default function SettingsPage() {
                     <p className="text-sm text-destructive">{trialSettingsError}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    يستطيع مسؤول ومدير الشركة استخدام عمليات الصيدلية كاملة أثناء التجربة، بينما يبقى حساب المشاهدة للقراءة فقط.
+                    {t("trial_note")}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>معلومات النظام</CardTitle>
-                  <CardDescription>معلومات حول النظام والإصدار</CardDescription>
+                  <CardTitle>{t("system_info_title")}</CardTitle>
+                  <CardDescription>{t("system_info_desc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <dl className="space-y-4">
                     {[
-                      { label: "إصدار النظام", value: "v2.1.0" },
-                      { label: "آخر تحديث", value: "2024-01-15" },
-                      { label: "حالة الخادم", value: "نشط", badge: "success" as const },
-                      { label: "قاعدة البيانات", value: "PostgreSQL 16", badge: "success" as const },
-                      { label: "التخزين المستخدم", value: "2.4 GB / 10 GB" },
+                      { label: t("info_version"), value: "v2.1.0" },
+                      { label: t("info_last_update"), value: "2024-01-15" },
+                      { label: t("info_server_status"), value: t("info_server_active"), badge: "success" as const },
+                      { label: t("info_database"), value: "PostgreSQL 16", badge: "success" as const },
+                      { label: t("info_storage"), value: "2.4 GB / 10 GB" },
                     ].map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                         <dt className="text-sm text-muted-foreground">{item.label}</dt>
                         <dd className="flex items-center gap-2 text-sm font-medium">
                           {item.value}
-                          {item.badge && <Badge variant={item.badge}>متصل</Badge>}
+                          {item.badge && <Badge variant={item.badge}>{t("badge_connected")}</Badge>}
                         </dd>
                       </div>
                     ))}
@@ -380,27 +387,27 @@ export default function SettingsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>الصيانة</CardTitle>
-                  <CardDescription>أدوات صيانة النظام</CardDescription>
+                  <CardTitle>{t("maintenance_title")}</CardTitle>
+                  <CardDescription>{t("maintenance_desc")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div>
-                      <p className="font-medium">مسح ذاكرة التخزين المؤقت</p>
+                      <p className="font-medium">{t("clear_cache")}</p>
                       <p className="text-sm text-muted-foreground">
-                        مسح البيانات المؤقتة لتسريع النظام
+                        {t("clear_cache_desc")}
                       </p>
                     </div>
-                    <Button variant="outline">مسح الآن</Button>
+                    <Button variant="outline">{t("clear_now")}</Button>
                   </div>
                   <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div>
-                      <p className="font-medium">تصدير البيانات</p>
+                      <p className="font-medium">{t("export_data")}</p>
                       <p className="text-sm text-muted-foreground">
-                        تصدير جميع بيانات النظام كنسخة احتياطية
+                        {t("export_data_desc")}
                       </p>
                     </div>
-                    <Button variant="outline">تصدير</Button>
+                    <Button variant="outline">{t("export_now")}</Button>
                   </div>
                 </CardContent>
               </Card>

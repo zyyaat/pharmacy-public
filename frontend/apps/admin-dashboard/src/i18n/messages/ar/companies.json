@@ -1,0 +1,40 @@
+{
+  "title": "إدارة الشركات",
+  "subtitle": "إدارة جميع الشركات المسجلة في المنصة",
+  "add_company": "إضافة شركة جديدة",
+  "stat_total": "إجمالي الشركات",
+  "stat_active": "شركات نشطة",
+  "stat_trial": "في الفترة التجريبية",
+  "stat_suspended": "شركات موقوفة",
+  "search_placeholder": "بحث بالاسم أو البريد الإلكتروني...",
+  "filter_status_aria": "تصفية بالحالة",
+  "filter_all": "كل الحالات",
+  "loading": "جاري تحميل الشركات...",
+  "load_failed": "تعذر تحميل الشركات",
+  "th_company": "الشركة",
+  "th_status": "الحالة",
+  "th_plan": "الخطة",
+  "th_users": "المستخدمين",
+  "th_registered": "تاريخ التسجيل",
+  "th_actions": "إجراءات",
+  "action_view": "عرض",
+  "action_edit": "تعديل",
+  "action_delete": "حذف",
+  "empty_title": "لا توجد شركات",
+  "empty_desc": "لم يتم العثور على شركات تطابق معايير البحث",
+  "clear_filters": "مسح الفلاتر",
+  "pagination": "عرض {shown} من {total} شركة",
+  "status": {
+    "active": "نشط",
+    "suspended": "موقوف",
+    "trial": "تجريبي",
+    "cancelled": "ملغي"
+  },
+  "plans": {
+    "free": "مجاني",
+    "starter": "الأساسي",
+    "professional": "احترافي",
+    "enterprise": "المؤسسي",
+    "custom": "مخصص"
+  }
+}

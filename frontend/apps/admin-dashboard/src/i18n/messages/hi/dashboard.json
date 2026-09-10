@@ -1,0 +1,18 @@
+{
+  "title": "डैशबोर्ड",
+  "subtitle": "संपूर्ण Pharmacy OS प्लेटफ़ॉर्म का अवलोकन",
+  "loading": "डैशबोर्ड डेटा लोड हो रहा है...",
+  "companies_error": "कंपनियाँ लोड नहीं हो सकीं",
+  "stat_total_companies": "कुल कंपनियाँ",
+  "stat_active_companies": "सक्रिय कंपनियाँ",
+  "stat_suspended_companies": "निलंबित कंपनियाँ",
+  "stat_total_pharmacies": "कुल फार्मेसियाँ",
+  "stat_total_users": "कुल उपयोगकर्ता",
+  "stat_active_users": "सक्रिय उपयोगकर्ता",
+  "latest_companies": "नवीनतम कंपनियाँ",
+  "view_all": "सभी देखें",
+  "no_companies": "कोई पंजीकृत कंपनी नहीं",
+  "users_count": "{count} उपयोगकर्ता",
+  "recent_activity": "हाल की गतिविधि",
+  "no_activity": "कोई गतिविधि दर्ज नहीं"
+}

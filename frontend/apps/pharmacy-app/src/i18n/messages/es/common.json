@@ -1,0 +1,15 @@
+{
+  "meta_title": "Pharmacy OS | Panel de la farmacia",
+  "meta_description": "Sistema de gestión de farmacia, inventario y personal",
+  "language_change_failed": "No se pudo cambiar el idioma. Inténtalo de nuevo.",
+  "currency_short": "EGP",
+  "loading": "Cargando...",
+  "select_placeholder": "Seleccionar…",
+  "no_options": "Sin opciones",
+  "splash_loading": "Cargando",
+  "app_logo_alt": "Logotipo de la aplicación",
+  "no_access_title": "Esta página no está disponible para tu cuenta",
+  "no_access_body": "El propietario de la farmacia no te ha concedido acceso a esta sección. Si la necesitas para tu trabajo, contacta con él para que te otorgue el permiso adecuado.",
+  "back_home": "Volver al inicio",
+  "context_load_failed": "No se pudieron cargar los datos de la farmacia"
+}

@@ -1,0 +1,19 @@
+{
+  "pos": "बिक्री बिंदु",
+  "sales": "बिक्री रिकॉर्ड",
+  "inventory": "इन्वेंटरी और दवाएँ",
+  "movements": "स्टॉक मूवमेंट",
+  "settings": "सेटिंग्स",
+  "sections": "अनुभाग",
+  "current_pharmacy": "वर्तमान फार्मेसी",
+  "loading_pharmacy": "फार्मेसी लोड हो रही है...",
+  "no_branch": "कोई शाखा निर्धारित नहीं",
+  "avatar_initial": "उ",
+  "user_fallback": "उपयोगकर्ता",
+  "pharmacy_account": "फार्मेसी खाता",
+  "logout": "लॉग आउट",
+  "close_menu": "मेनू बंद करें",
+  "collapse_menu": "मेनू संकुचित करें",
+  "light_mode": "लाइट मोड",
+  "dark_mode": "डार्क मोड"
+}

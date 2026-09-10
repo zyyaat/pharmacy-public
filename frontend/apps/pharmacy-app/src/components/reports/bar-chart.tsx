@@ -5,6 +5,8 @@
 
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/i18n/provider'
+import { fmtNumber } from '@/i18n/format'
 
 export interface BarChartPoint {
   /** تسمية قصيرة تحت العمود (رقم اليوم مثلاً) */
@@ -26,6 +28,7 @@ export function BarChart({
   /** سطر ملخص أعلى الرسم (القيمة القصوى مثلاً) */
   summary?: string
 }) {
+  const t = useT('reports')
   const maxValue = useMemo(
     () => points.reduce((max, point) => Math.max(max, point.value), 0),
     [points],
@@ -36,7 +39,7 @@ export function BarChart({
   if (points.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-muted-foreground">
-        لا توجد بيانات في هذه الفترة
+        {t('no_chart_data')}
       </p>
     )
   }
@@ -44,14 +47,14 @@ export function BarChart({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span className="tabular-nums">الأعلى: {maxValue.toLocaleString('ar-EG-u-nu-latn')}</span>
+        <span className="tabular-nums">{t('chart_max', { value: fmtNumber(maxValue) })}</span>
         {summary && <span>{summary}</span>}
       </div>
       <div
         className="report-chart flex items-end gap-[3px] sm:gap-1.5"
         style={{ height }}
         role="img"
-        aria-label={summary || 'رسم بياني عمودي'}
+        aria-label={summary || t('aria_bar_chart')}
       >
         {points.map((point, index) => {
           const ratio = maxValue > 0 ? point.value / maxValue : 0
@@ -60,7 +63,7 @@ export function BarChart({
             <div
               key={`${point.label}-${index}`}
               className="flex h-full flex-1 flex-col justify-end"
-              title={point.title ?? `${point.label}: ${point.value.toLocaleString('ar-EG-u-nu-latn')}`}
+              title={point.title ?? `${point.label}: ${fmtNumber(point.value)}`}
             >
               <div
                 className={cn(

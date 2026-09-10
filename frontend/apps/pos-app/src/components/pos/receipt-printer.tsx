@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ReceiptTemplate, { type ReceiptData, type ReceiptPharmacy } from './receipt-template'
 import type { ReceiptSettings } from '@/lib/api'
+import { useT } from '@/i18n/provider'
 
 export interface ReceiptPrintJob {
   data: ReceiptData
@@ -28,6 +29,7 @@ export default function ReceiptPrinter({
   onDone?: () => void
 }) {
   const [mounted, setMounted] = useState(false)
+  const t = useT('pos')
   const printedJob = useRef<string | null>(null)
   const doneRef = useRef(onDone)
   doneRef.current = onDone
@@ -69,7 +71,7 @@ export default function ReceiptPrinter({
         <>
           <div className="flex items-center gap-2 px-[3mm] py-[2mm] text-[10px] text-neutral-600">
             <span className="h-px flex-1 border-t border-dashed border-neutral-500" />
-            <span>قص هنا</span>
+            <span>{t('cutHere')}</span>
             <span className="h-px flex-1 border-t border-dashed border-neutral-500" />
           </div>
           <ReceiptTemplate
@@ -78,7 +80,7 @@ export default function ReceiptPrinter({
             cashierName={job.cashierName}
             settings={settings}
             showCopyLabel
-            copyLabel="نسخة الصيدلية"
+            copyLabel={t('copyPharmacy')}
           />
         </>
       )}

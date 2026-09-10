@@ -10,6 +10,7 @@
 import * as React from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/i18n/provider'
 
 export interface SelectOption {
   value: string
@@ -41,7 +42,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       defaultValue,
       onValueChange,
       name,
-      placeholder = 'اختر…',
+      placeholder,
       size = 'default',
       disabled,
       required,
@@ -51,6 +52,8 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     },
     ref,
   ) => {
+    const t = useT('common')
+    const resolvedPlaceholder = placeholder ?? t('select_placeholder')
     const isControlled = controlledValue !== undefined
     const [internalValue, setInternalValue] = React.useState(defaultValue ?? '')
     const value = isControlled ? controlledValue : internalValue
@@ -188,7 +191,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             className,
           )}
         >
-          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <span className="truncate">{selected ? selected.label : resolvedPlaceholder}</span>
           <ChevronDown
             className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-180')}
           />
@@ -207,7 +210,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             )}
           >
             {options.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">لا توجد خيارات</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">{t('no_options')}</p>
             ) : (
               options.map((option, index) => {
                 const isActive = index === activeIndex

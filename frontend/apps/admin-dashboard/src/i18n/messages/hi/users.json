@@ -1,0 +1,26 @@
+{
+  "title": "प्लेटफ़ॉर्म उपयोगकर्ता",
+  "subtitle": "खाते के स्रोत और प्रभावी भूमिका सहित सभी कंपनी उपयोगकर्ता और फार्मेसी कर्मचारी",
+  "metric_total": "कुल उपयोगकर्ता",
+  "metric_active": "परिणामों में सक्रिय",
+  "metric_admins": "परिणामों में सिस्टम व्यवस्थापक",
+  "guide_title": "उपयोगकर्ता निर्देशिका",
+  "search_placeholder": "नाम, ईमेल या कंपनी से खोजें...",
+  "filter_role_aria": "भूमिका के अनुसार फ़िल्टर करें",
+  "role_all": "सभी भूमिकाएँ",
+  "loading": "उपयोगकर्ता लोड हो रहे हैं...",
+  "load_failed": "उपयोगकर्ता लोड नहीं हो सके",
+  "no_matches": "कोई मेल खाता उपयोगकर्ता नहीं",
+  "badge_disabled": "अक्षम",
+  "account_company_user": "कंपनी खाता",
+  "account_pharmacy_employee": "फार्मेसी कर्मचारी",
+  "permissions_count": "{count} प्रभावी अनुमतियाँ",
+  "last_login": "अंतिम लॉग इन: {date}",
+  "never_logged_in": "कभी लॉग इन नहीं",
+  "roles": {
+    "super_admin": "सिस्टम व्यवस्थापक",
+    "company_admin": "कंपनी व्यवस्थापक",
+    "company_manager": "संचालन प्रबंधक",
+    "company_viewer": "कंपनी दर्शक"
+  }
+}

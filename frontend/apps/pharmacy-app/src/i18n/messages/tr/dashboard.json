@@ -1,0 +1,21 @@
+{
+  "title": "Kontrol Paneli",
+  "subtitle": "Veritabanından güncel eczane verileri",
+  "add_product": "Ürün ekle",
+  "loading": "Eczane verileri yükleniyor...",
+  "error_load": "Kontrol paneli verileri yüklenemedi",
+  "total_products": "Toplam ürün",
+  "low_stock_products": "Düşük stoklu ürünler",
+  "sales_units_today": "Bugün satılan birimler",
+  "attendance_today": "Bugünkü yoklama",
+  "inventory_status": "Stok durumu",
+  "inventory_status_desc": "Yeniden sipariş noktasına ulaşan kalemler",
+  "no_low_stock": "Düşük stoklu kalem yok",
+  "reorder_note": "Sipariş noktası: {min} — tek şeritler sayılmaz",
+  "quick_actions": "Hızlı işlemler",
+  "no_quick_actions": "Hesabınız için şu anda kullanılabilir işlem yok",
+  "nav_inventory": "Stok",
+  "nav_employees": "Çalışanlar",
+  "nav_attendance": "Yoklama",
+  "nav_reports": "Raporlar"
+}

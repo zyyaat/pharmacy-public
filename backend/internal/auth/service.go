@@ -69,6 +69,7 @@ type Principal struct {
 	PharmacyID        string
 	BranchID          string
 	PermissionVersion int
+	Locale            string
 	PasswordHash      string
 	IsActive          bool
 	EmailVerified     bool
@@ -470,6 +471,18 @@ func (s *Service) UpdatePasswordFromReset(ctx context.Context, principal *Princi
 	return s.RevokeAll(ctx, principal)
 }
 
+// SetLocale stores the UI language preference for the authenticated
+// principal. The allowlist is validated by the handler and by CHECK
+// constraints, so an unknown value never reaches the database.
+func (s *Service) SetLocale(ctx context.Context, principal *Principal, locale string) error {
+	query := `UPDATE company_users SET locale = $2 WHERE id = $1 AND deleted_at IS NULL`
+	if principal.Type == EmployeePrincipal {
+		query = `UPDATE employees SET locale = $2 WHERE id = $1`
+	}
+	_, err := s.db.Exec(ctx, query, principal.ID, locale)
+	return err
+}
+
 func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail, firstName, lastName, email, password string) (*Principal, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -579,7 +592,7 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 		       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
 		       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
 		       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
-		       cu.permission_version
+		       cu.permission_version, COALESCE(cu.locale, 'ar')
 		FROM company_users cu
 		LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 		LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
@@ -592,7 +605,7 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 	`, email, companyID).Scan(
 		&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
-		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion,
+		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale,
 	)
 	if err != nil {
 		return nil, err
@@ -608,7 +621,7 @@ func (s *Service) findEmployee(ctx context.Context, email, pharmacyID string) (*
 		       role::text, pharmacy_id::text, COALESCE(branch_id::text, ''),
 		       COALESCE(password_hash, ''), is_active,
 		       email_verified_at IS NOT NULL, login_attempts, locked_until,
-		       permission_version
+		       permission_version, COALESCE(locale, 'ar')
 		FROM employees
 		WHERE LOWER(email) = LOWER($1)
 		  AND ($2 = '' OR pharmacy_id::text = $2)
@@ -617,7 +630,7 @@ func (s *Service) findEmployee(ctx context.Context, email, pharmacyID string) (*
 	`, email, pharmacyID).Scan(
 		&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive,
-		&p.EmailVerified, &p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion,
+		&p.EmailVerified, &p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale,
 	)
 	if err != nil {
 		return nil, err
@@ -634,7 +647,7 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 			       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
 			       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
 			       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
-			       cu.permission_version
+			       cu.permission_version, COALESCE(cu.locale, 'ar')
 			FROM company_users cu
 			LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 			LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
@@ -642,7 +655,7 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 			WHERE cu.id = $1 AND cu.deleted_at IS NULL
 		`, id).Scan(&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 			&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified, &p.LoginAttempts,
-			&p.LockedUntil, &p.PermissionVersion)
+			&p.LockedUntil, &p.PermissionVersion, &p.Locale)
 		if err != nil {
 			return nil, err
 		}
@@ -655,11 +668,11 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 		       role::text, pharmacy_id::text, COALESCE(branch_id::text, ''),
 		       COALESCE(password_hash, ''), is_active,
 		       email_verified_at IS NOT NULL, login_attempts, locked_until,
-		       permission_version
+		       permission_version, COALESCE(locale, 'ar')
 		FROM employees WHERE id = $1
 	`, id).Scan(&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
-		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion)
+		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale)
 	if err != nil {
 		return nil, err
 	}

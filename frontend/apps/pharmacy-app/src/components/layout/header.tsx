@@ -9,6 +9,7 @@ import { formatPiastres } from '@/lib/money'
 import { availabilityAr, boxWordAr, extraStrengthLabel } from '@/lib/product'
 import { Button } from '@/components/ui'
 import { useAccess } from '@/components/permissions/gate'
+import { useT } from '@/i18n/provider'
 
 /**
  * جرس الإشعارات الحقيقي: أصناف المخزون المنخفض — حد الطلب يُحسب بالعلبة
@@ -62,6 +63,7 @@ function useCustomerDebts() {
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, setTheme } = useTheme()
+  const t = useT('nav')
   // أقسام الإشعارات وروابطها تختفي كليًا عمن لا يملك صلاحية الصفحة المقصودة
   const { ready, allowed } = useAccess()
   const canSeeInventoryAlerts = ready && allowed('inventory.view')
@@ -90,24 +92,24 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
       <div className="max-w-md flex-1">
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
-            placeholder="بحث عن دواء، موظف..."
-            className="h-10 w-full rounded-lg border border-input bg-background pl-4 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder={t('search_placeholder')}
+            className="h-10 w-full rounded-lg border border-input bg-background pe-4 ps-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" title="تغيير اللغة">
+        <Button variant="ghost" size="icon" title={t('change_language')}>
           <Globe className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title={theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}
+          title={theme === 'dark' ? t('light_mode') : t('dark_mode')}
         >
           <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -117,13 +119,13 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             variant="ghost"
             size="icon"
             className="relative"
-            title="الإشعارات"
-            aria-label={`الإشعارات${alertCount ? ` (${alertCount} تنبيه)` : ''}`}
+            title={t('notifications')}
+            aria-label={alertCount ? t('notifications_with_count', { count: alertCount }) : t('notifications')}
             onClick={() => setPanelOpen((open) => !open)}
           >
             <Bell className="h-5 w-5" />
             {alertCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+              <span className="absolute -start-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                 {alertCount}
               </span>
             )}
@@ -131,19 +133,19 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           {panelOpen && (
             <div className="absolute end-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-card shadow-lg animate-in fade-in-0 zoom-in-95">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <p className="text-sm font-bold">الإشعارات</p>
-                <span className="text-xs text-muted-foreground">{alertCount ? `${alertCount} تنبيه` : 'لا تنبيهات'}</span>
+                <p className="text-sm font-bold">{t('notifications')}</p>
+                <span className="text-xs text-muted-foreground">{alertCount ? t('alerts_count', { count: alertCount }) : t('no_alerts')}</span>
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {alertCount === 0 ? (
                   <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    كل شيء تحت السيطرة — لا ديون على العملاء ولا أصناف تحت حد الطلب.
+                    {t('all_clear')}
                   </p>
                 ) : (
                   <>
                     {canSeeCustomerDebts && debts.length > 0 && (
                       <div>
-                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">ديون العملاء (البيع الآجل)</p>
+                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">{t('customer_debts')}</p>
                         {debts.map((debt) => (
                           <Link
                             key={debt.id}
@@ -153,16 +155,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                           >
                             <span className="min-w-0">
                               <span className="block truncate font-semibold">{debt.name}</span>
-                              <span className="text-xs text-muted-foreground">مستحق عليه {formatPiastres(debt.balance_piastres)}</span>
+                              <span className="text-xs text-muted-foreground">{t('debt_owed', { amount: formatPiastres(debt.balance_piastres) })}</span>
                             </span>
-                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-600">مدين</span>
+                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-600">{t('debtor_badge')}</span>
                           </Link>
                         ))}
                       </div>
                     )}
                     {canSeeInventoryAlerts && lowStock.length > 0 && (
                       <div>
-                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">المخزون المنخفض</p>
+                        <p className="border-b border-border/60 bg-muted/40 px-4 py-1.5 text-[11px] font-bold text-muted-foreground">{t('low_stock')}</p>
                         {lowStock.map((item) => (
                     <Link
                       key={item.pharmacy_product_id}
@@ -179,12 +181,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {item.full_boxes === 0 && item.strips === 0
-                            ? `نفدت الكمية تماماً · حد الطلب ${boxWordAr(item.min_stock_level)}`
-                            : `حد الطلب ${boxWordAr(item.min_stock_level)} · الموجود ${availabilityAr(item.full_boxes, item.strips)}`}
+                            ? t('out_of_stock_line', { min: boxWordAr(item.min_stock_level) })
+                            : t('low_stock_line', { min: boxWordAr(item.min_stock_level), available: availabilityAr(item.full_boxes, item.strips) })}
                         </span>
                       </span>
                       <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-bold text-destructive">
-                        {item.full_boxes === 0 && item.strips === 0 ? 'نفد' : 'منخفض'}
+                        {item.full_boxes === 0 && item.strips === 0 ? t('out_badge') : t('low_badge')}
                       </span>
                     </Link>
                       ))}
@@ -195,12 +197,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               </div>
               {canSeeCustomerDebts && debts.length > 0 && (
                 <Link href="/customers" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
-                  فتح حسابات العملاء للتحصيل
+                  {t('open_customers')}
                 </Link>
               )}
               {canSeeInventoryAlerts && (
                 <Link href="/inventory" className="block border-t border-border px-4 py-2.5 text-center text-xs font-bold text-primary hover:bg-accent" onClick={() => setPanelOpen(false)}>
-                  فتح صفحة المخزون لاتخاذ الإجراء
+                  {t('open_inventory')}
                 </Link>
               )}
             </div>

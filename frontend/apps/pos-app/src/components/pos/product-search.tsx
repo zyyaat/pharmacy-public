@@ -10,6 +10,8 @@ import {
 } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
 import { extraStrengthLabel } from '@/lib/product'
+import { useT } from '@/i18n/provider'
+import type { Translator } from '@/i18n/translator'
 
 const SEARCH_DEBOUNCE_MS = 180
 const MIN_QUERY_RUNES = 2
@@ -19,22 +21,22 @@ const SCANNER_CODE_MIN_DIGITS = 6
 /** ثقة الإضافة التلقائية عند خطأ الماسح: أعلى نتيجة باركود تقريبية */
 const FUZZY_AUTO_ADD_SCORE = 0.72
 
-const matchLabels: Record<string, string> = {
-  barcode_exact: 'باركود مطابق',
-  barcode_prefix: 'باركود تقريبي',
-  barcode_fuzzy: 'باركود مصحح',
-  name_prefix: 'بادئة الاسم',
-  name_substring: 'ضمن الاسم',
-  name_fuzzy: 'تشابه بالاسم',
-  generic_fuzzy: 'المادة الفعالة',
+const matchLabelKeys: Record<string, string> = {
+  barcode_exact: 'matchBarcodeExact',
+  barcode_prefix: 'matchBarcodePrefix',
+  barcode_fuzzy: 'matchBarcodeFuzzy',
+  name_prefix: 'matchNamePrefix',
+  name_substring: 'matchNameSubstring',
+  name_fuzzy: 'matchNameFuzzy',
+  generic_fuzzy: 'matchGenericFuzzy',
 }
 
 function isScannerCode(value: string) {
   return /^[0-9]{6,}$/.test(value.trim())
 }
 
-function stockLabel(stock: number) {
-  return stock <= 0 ? 'نافد' : `متاح ${stock}`
+function stockLabel(stock: number, t: Translator) {
+  return stock <= 0 ? t('outOfStock') : t('inStock', { count: stock })
 }
 
 /** يبرز الجزء المطابق في الاسم للبادئة/الاحتواء فقط (الضبابي ليس نصاً حرفياً) */
@@ -63,6 +65,7 @@ interface ProductSearchProps {
 }
 
 export default function ProductSearch({ onAddProduct, onMessage, onError, disabled, autoFocus }: ProductSearchProps) {
+  const t = useT('pos')
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<POSProductSuggestion[]>([])
   const [open, setOpen] = useState(false)
@@ -153,7 +156,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
     } catch (cause) {
       if (!(cause instanceof ApiError) || cause.status !== 404) {
         setResolving(false)
-        notifyError(cause instanceof ApiError ? cause.message : 'تعذر العثور على المنتج')
+        notifyError(cause instanceof ApiError ? cause.message : t('productNotFound'))
         return
       }
     }
@@ -164,19 +167,19 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
       const topIsBarcodeHit = top && (top.match_type === 'barcode_prefix' || top.match_type === 'barcode_fuzzy')
       if (topIsBarcodeHit && (results.length === 1 || top.score >= FUZZY_AUTO_ADD_SCORE)) {
         pick(top, 'barcode_fuzzy')
-        onMessage?.(`تم التعرف على المنتج رغم خطأ الماسح: ${top.name}`)
+        onMessage?.(t('scannerCorrected', { name: top.name }))
         return
       }
       if (results.length > 0) {
         setSuggestions(results)
         setOpen(true)
         setActiveIndex(0)
-        onMessage?.('الباركود غير مطابق تماماً — اختر المنتج المناسب من القائمة')
+        onMessage?.(t('barcodeNotExact'))
         return
       }
-      notifyError('لا يوجد منتج بهذا الباركود — جرّب البحث بالاسم')
+      notifyError(t('barcodeNoProduct'))
     } catch {
-      notifyError('تعذر البحث عن الباركود')
+      notifyError(t('barcodeSearchFailed'))
     } finally {
       setResolving(false)
     }
@@ -239,7 +242,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
     <div className="relative">
       <div className="flex gap-3">
         <div className="relative flex-1">
-          <ScanLine className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <ScanLine className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -247,11 +250,11 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
             aria-expanded={showList}
             aria-controls="pos-search-listbox"
             aria-autocomplete="list"
-            aria-label="ابحث بالاسم أو امسح الباركود"
+            aria-label={t('searchAria')}
             autoComplete="off"
             enterKeyHint="search"
-            className="h-12 w-full rounded-xl border border-input bg-background pr-9 pl-4 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="امسح الباركود أو اكتب اسم الدواء…"
+            className="h-12 w-full rounded-xl border border-input bg-background ps-9 pe-4 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+            placeholder={t('searchPlaceholder')}
             value={query}
             disabled={disabled}
             autoFocus={autoFocus}
@@ -262,7 +265,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
             }}
             onKeyDown={handleKeyDown}
           />
-          {busy && <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />}
+          {busy && <Loader2 className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />}
         </div>
       </div>
 
@@ -271,7 +274,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
           id="pos-search-listbox"
           ref={listRef}
           role="listbox"
-          aria-label="نتائج البحث عن المنتجات"
+          aria-label={t('resultsAria')}
           className="absolute inset-x-0 top-full z-40 mt-2 max-h-80 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-2xl"
         >
           {suggestions.map((item, index) => {
@@ -304,7 +307,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
               <div className="flex shrink-0 flex-col items-start gap-0.5">
                 <span className="text-sm font-bold text-primary">{formatPiastres(item.selling_price_piastres)}</span>
                 <span className={`text-[11px] ${item.stock <= 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                  {stockLabel(item.stock)}
+                  {stockLabel(item.stock, t)}
                 </span>
               </div>
               <span
@@ -314,7 +317,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
                     : 'border-border bg-muted text-muted-foreground'
                 }`}
               >
-                {matchLabels[item.match_type] ?? item.match_type}
+                {matchLabelKeys[item.match_type] ? t(matchLabelKeys[item.match_type]) : item.match_type}
               </span>
             </li>
             )
@@ -325,7 +328,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
       {open && !searching && suggestions.length === 0 && [...query.trim()].length >= MIN_QUERY_RUNES && !isScannerCode(query) && (
         <div className="absolute inset-x-0 top-full z-40 mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-2xl">
           <PackageSearch className="h-4 w-4 shrink-0" aria-hidden="true" />
-          لا توجد نتائج مطابقة — جرّب جزءاً آخر من الاسم أو المادة الفعالة
+          {t('noResults')}
         </div>
       )}
     </div>

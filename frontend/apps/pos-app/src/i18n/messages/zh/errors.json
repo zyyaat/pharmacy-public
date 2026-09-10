@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "无法连接系统服务器。请检查 NEXT_PUBLIC_API_URL 和后端的 CORS 设置。",
+  "template_download_failed": "无法下载导入模板"
+}

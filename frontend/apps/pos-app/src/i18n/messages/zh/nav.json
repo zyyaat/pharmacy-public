@@ -1,0 +1,19 @@
+{
+  "pos": "销售点",
+  "sales": "销售记录",
+  "inventory": "库存与药品",
+  "movements": "库存记录",
+  "settings": "设置",
+  "sections": "板块",
+  "current_pharmacy": "当前药房",
+  "loading_pharmacy": "正在加载药房...",
+  "no_branch": "未设置分店",
+  "avatar_initial": "用",
+  "user_fallback": "用户",
+  "pharmacy_account": "药房账户",
+  "logout": "退出登录",
+  "close_menu": "关闭菜单",
+  "collapse_menu": "收起菜单",
+  "light_mode": "浅色模式",
+  "dark_mode": "深色模式"
+}

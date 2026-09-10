@@ -1,0 +1,18 @@
+{
+  "dashboard": "Panel",
+  "companies": "Şirketler",
+  "users": "Kullanıcılar",
+  "permissions": "İzinler",
+  "accounts": "Hesaplar",
+  "settings": "Ayarlar",
+  "brand_home_aria": "Pharmacy OS - Ana Sayfa",
+  "avatar_fallback": "K",
+  "default_user": "Sistem Yöneticisi",
+  "logout": "Çıkış yap",
+  "search_placeholder": "Şirket, kullanıcı ara...",
+  "change_language": "Dili değiştir",
+  "light_mode": "Açık mod",
+  "dark_mode": "Koyu mod",
+  "loading_aria": "Yükleniyor",
+  "logo_alt": "Uygulama logosu"
+}

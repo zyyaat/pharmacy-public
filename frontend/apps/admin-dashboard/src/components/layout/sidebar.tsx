@@ -21,6 +21,7 @@ import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useT } from "@/i18n/provider";
 
 interface SidebarItem {
   title: string;
@@ -31,27 +32,27 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   {
-    title: "لوحة التحكم",
+    title: "dashboard",
     href: "/",
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
   {
-    title: "الشركات",
+    title: "companies",
     href: "/companies",
     icon: <Building2 className="h-5 w-5" />,
   },
   {
-    title: "المستخدمين",
+    title: "users",
     href: "/users",
     icon: <Users className="h-5 w-5" />,
   },
   {
-    title: "الصلاحيات",
+    title: "permissions",
     href: "/permissions",
     icon: <Shield className="h-5 w-5" />,
   },
   {
-    title: "الحسابات",
+    title: "accounts",
     href: "/accounts",
     icon: <CreditCard className="h-5 w-5" />,
   },
@@ -59,7 +60,7 @@ const sidebarItems: SidebarItem[] = [
 
 const bottomItems: SidebarItem[] = [
   {
-    title: "الإعدادات",
+    title: "settings",
     href: "/settings",
     icon: <Settings className="h-5 w-5" />,
   },
@@ -75,6 +76,7 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { stats } = useAnalytics();
+  const t = useT("nav");
   const [collapsed, setCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   
@@ -99,7 +101,7 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
   const SidebarContent = (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-l border-border transition-all duration-300",
+        "flex h-full flex-col bg-card border-e border-border transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[260px]",
         className
       )}
@@ -107,7 +109,7 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
-          <Link href="/" className="flex items-center" aria-label="Pharmacy OS - الرئيسية">
+          <Link href="/" className="flex items-center" aria-label={t("brand_home_aria")}>
             <img
               src="/brand/pharmacy-os-logo-light.svg"
               alt="Pharmacy OS"
@@ -144,9 +146,9 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? (
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 rtl-flip" />
           ) : (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 rtl-flip" />
           )}
         </button>
       </div>
@@ -171,14 +173,14 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
                 )}
               >
                 {isActive && (
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full" />
+                  <div className="absolute start-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-e-full" />
                 )}
                 <span className={cn("transition-colors", isActive && "text-primary")}>
                   {item.icon}
                 </span>
                 {!collapsed && (
                   <>
-                    <span className="flex-1">{item.title}</span>
+                    <span className="flex-1">{t(item.title)}</span>
                     {item.badge && (
                       <span className={cn(
                         "px-2 py-0.5 text-xs rounded-full",
@@ -190,9 +192,9 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
                   </>
                 )}
                 {collapsed && (
-                  <div className="absolute right-full mr-2 hidden group-hover:block z-50">
+                  <div className="absolute start-full ms-2 hidden group-hover:block z-50">
                     <div className="bg-popover border border-border rounded-lg shadow-lg px-3 py-2 text-sm whitespace-nowrap">
-                      {item.title}
+                      {t(item.title)}
                     </div>
                   </div>
                 )}
@@ -220,11 +222,11 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
                 )}
               >
                 <span className={cn(isActive && "text-primary")}>{item.icon}</span>
-                {!collapsed && <span>{item.title}</span>}
+                {!collapsed && <span>{t(item.title)}</span>}
                 {collapsed && (
-                  <div className="absolute right-full mr-2 hidden group-hover:block z-50">
+                  <div className="absolute start-full ms-2 hidden group-hover:block z-50">
                     <div className="bg-popover border border-border rounded-lg shadow-lg px-3 py-2 text-sm whitespace-nowrap">
-                      {item.title}
+                      {t(item.title)}
                     </div>
                   </div>
                 )}
@@ -243,17 +245,17 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
           <Avatar className="h-9 w-9">
              <AvatarImage src={user?.avatarUrl} alt={user?.displayName || "User"} />
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-               {(user?.displayName || user?.email || "م").charAt(0).toUpperCase()}
+               {(user?.displayName || user?.email || t("avatar_fallback")).charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-               <p className="text-sm font-medium truncate">{user?.displayName || "مدير النظام"}</p>
+               <p className="text-sm font-medium truncate">{user?.displayName || t("default_user")}</p>
                <p className="text-xs text-muted-foreground truncate" dir="ltr">{user?.email || ""}</p>
             </div>
           )}
           {!collapsed && (
-             <Button variant="ghost" size="icon" onClick={() => void logout()} className="shrink-0 text-muted-foreground hover:text-destructive" title="تسجيل الخروج">
+             <Button variant="ghost" size="icon" onClick={() => void logout()} className="shrink-0 text-muted-foreground hover:text-destructive" title={t("logout")}>
               <LogOut className="h-4 w-4" />
             </Button>
           )}
@@ -274,8 +276,8 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
 
       {/* Mobile Sidebar */}
       <aside className={cn(
-        "fixed right-0 top-0 bottom-0 z-50 lg:hidden transition-transform duration-300",
-        mobileOpen ? "translate-x-0" : "translate-x-full"
+        "fixed start-0 top-0 bottom-0 z-50 lg:hidden transition-transform duration-300",
+        mobileOpen ? "translate-x-0" : "rtl:translate-x-full ltr:-translate-x-full"
       )}>
         {SidebarContent}
       </aside>

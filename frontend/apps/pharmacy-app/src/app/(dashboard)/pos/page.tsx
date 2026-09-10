@@ -19,6 +19,8 @@ import { extraStrengthLabel } from '@/lib/product'
 import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
 import { saleDetailToReceipt } from '@/components/pos/receipt-template'
 import { RequirePermission, useAccess } from '@/components/permissions/gate'
+import { useT } from '@/i18n/provider'
+import type { Translator } from '@/i18n/translator'
 
 type CartLine = {
   product: POSProduct
@@ -54,12 +56,12 @@ function persistParkedInvoices(list: ParkedInvoice[]) {
   }
 }
 
-function unitLabel(line: CartLine) {
-  if (line.unitChoice === 'box') return 'علبة كاملة'
+function unitLabel(line: CartLine, t: Translator) {
+  if (line.unitChoice === 'box') return t('unitBox')
   const total = line.quantity * line.unitChoice
-  if (total === 1) return 'شريط واحد'
-  if (total === 2) return 'شريطان'
-  return `${total} شرائط`
+  if (total === 1) return t('unitStripOne')
+  if (total === 2) return t('unitStripTwo')
+  return t('unitStrips', { count: total })
 }
 
 /** Revenue of one line, exact in integer piastres. */
@@ -71,6 +73,7 @@ function lineTotalPiastres(line: CartLine): number {
 }
 
 export default function POSPage() {
+  const t = useT('pos')
   // البيع الآجل يحتاج بحث/اختيار عملاء — بلا صلاحية العرض نخفي الخيار كليًا
   const { allowed } = useAccess()
   const canUseCreditSales = allowed('customers.view')
@@ -171,7 +174,7 @@ export default function POSPage() {
   async function addNewCustomer() {
     const name = newCustomerName.trim()
     if (!name) {
-      setError('اكتب اسم العميل الجديد أولاً')
+      setError(t('customerNameRequired'))
       return
     }
     setAddingCustomer(true)
@@ -184,7 +187,7 @@ export default function POSPage() {
       setNewCustomerPhone('')
       setMessage(null)
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر إضافة العميل')
+      setError(cause instanceof ApiError ? cause.message : t('customerAddFailed'))
     } finally {
       setAddingCustomer(false)
     }
@@ -195,7 +198,9 @@ export default function POSPage() {
     if (cart.length === 0) return
     const invoice: ParkedInvoice = {
       id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()),
-      label: `${cart.length} ${cart.length === 1 ? 'صنف' : 'أصناف'} · ${formatPiastres(subtotal)}`,
+      label: cart.length === 1
+        ? t('parkedLabelOne', { count: cart.length, total: formatPiastres(subtotal) })
+        : t('parkedLabelMany', { count: cart.length, total: formatPiastres(subtotal) }),
       savedAt: new Date().toISOString(),
       cart,
     }
@@ -214,7 +219,7 @@ export default function POSPage() {
   function resumeParked(id: string) {
     const invoice = parked.find((item) => item.id === id)
     if (!invoice) return
-    if (cart.length > 0 && !window.confirm('الفاتورة الحالية بها أصناف — سيتم استبدالها بالفاتورة المعلّقة. متابعة؟')) return
+    if (cart.length > 0 && !window.confirm(t('resumeConfirm'))) return
     setCart(invoice.cart)
     const next = parked.filter((item) => item.id !== id)
     setParked(next)
@@ -231,11 +236,11 @@ export default function POSPage() {
   async function checkout() {
     if (cart.length === 0 || checkoutLoading) return
     if (discountInvalid) {
-      setError(discountKind === 'percent' ? 'اكتب نسبة خصم بين 0 و 100' : 'اكتب مبلغ خصم صحيحاً بالجنيه')
+      setError(discountKind === 'percent' ? t('discountPercentError') : t('discountAmountError'))
       return
     }
     if (paymentType === 'credit' && !selectedCustomer) {
-      setError('البيع الآجل يتطلب اختيار عميل من القائمة أو إضافة عميل جديد')
+      setError(t('creditRequiresCustomer'))
       return
     }
     setCheckoutLoading(true)
@@ -269,9 +274,9 @@ export default function POSPage() {
       const response = await pharmacyApi.createPOSSale(items, idempotencyKey.current || undefined, options)
       lastSaleId.current = response.data.sale_id
       if (paymentType === 'credit' && selectedCustomer) {
-        setMessage(`تم تسجيل فاتورة آجل على حساب «${selectedCustomer.name}» بمبلغ ${formatPiastres(response.data.total_amount_piastres)} — تابعها من صفحة حسابات العملاء.`)
+        setMessage(t('creditSaleSuccess', { name: selectedCustomer.name, total: formatPiastres(response.data.total_amount_piastres) }))
       } else {
-        setMessage(`تم حفظ الفاتورة بنجاح. الإجمالي ${formatPiastres(response.data.total_amount_piastres)}`)
+        setMessage(t('saleSuccess', { total: formatPiastres(response.data.total_amount_piastres) }))
       }
       setCart([])
       setDiscountInput('')
@@ -283,7 +288,7 @@ export default function POSPage() {
         void prepareReceiptPrint(response.data.sale_id)
       }
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر إتمام البيع')
+      setError(cause instanceof ApiError ? cause.message : t('checkoutFailed'))
     } finally {
       setCheckoutLoading(false)
     }
@@ -297,7 +302,7 @@ export default function POSPage() {
       setPrintJob({
         data: saleDetailToReceipt(detail.data),
         pharmacy: {
-          name: context?.pharmacy.name ?? 'صيدلية',
+          name: context?.pharmacy.name ?? t('fallbackPharmacyName'),
           city: context?.pharmacy.city,
           address: context?.pharmacy.address,
           phone: context?.pharmacy.phone,
@@ -306,7 +311,7 @@ export default function POSPage() {
         jobId: saleId,
       })
     } catch {
-      setError('تم حفظ الفاتورة لكن تعذر تجهيز الطباعة — اضغط «طباعة الفاتورة» لإعادة المحاولة')
+      setError(t('printPrepareFailed'))
     } finally {
       setPrintBusy(false)
     }
@@ -316,14 +321,14 @@ export default function POSPage() {
     <RequirePermission anyOf={['pos.access']}>
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">نقطة البيع</h1>
-        <p className="mt-2 text-sm text-muted-foreground">امسح الباركود أو اكتب اسم الدواء — البحث يصحح الأخطاء ويقترح المنتجات المشابهة.</p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />إضافة منتج للفاتورة</CardTitle>
-          <CardDescription>القائمة المنسدلة تقترح المنتجات أثناء الكتابة، وEnter بعد الفحص يضيف المنتج مباشرة — وإن أخطأ الماسح يصححه تلقائياً.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />{t('addProductTitle')}</CardTitle>
+          <CardDescription>{t('addProductDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <ProductSearch
@@ -338,13 +343,13 @@ export default function POSPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />الفاتورة الحالية</CardTitle>
-            <CardDescription>{cart.length ? `${cart.length} أصناف` : 'لم تتم إضافة أصناف بعد'}</CardDescription>
+            <CardTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />{t('cartTitle')}</CardTitle>
+            <CardDescription>{cart.length ? t('cartCount', { count: cart.length }) : t('cartEmpty')}</CardDescription>
           </div>
           {cart.length > 0 && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={parkInvoice}><PauseCircle className="h-4 w-4" /> إيقاف مؤقت</Button>
-              <Button variant="ghost" onClick={() => { setCart([]); setDiscountInput(''); resetIdempotency() }}>تفريغ الفاتورة</Button>
+              <Button variant="outline" onClick={parkInvoice}><PauseCircle className="h-4 w-4" /> {t('park')}</Button>
+              <Button variant="ghost" onClick={() => { setCart([]); setDiscountInput(''); resetIdempotency() }}>{t('clearCart')}</Button>
             </div>
           )}
         </CardHeader>
@@ -352,13 +357,13 @@ export default function POSPage() {
           {/* الفواتير المعلّقة — استئناف أو حذف */}
           {parked.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3">
-              <span className="text-xs font-semibold text-muted-foreground">فواتير معلّقة:</span>
+              <span className="text-xs font-semibold text-muted-foreground">{t('parkedInvoices')}</span>
               {parked.map((invoice) => (
                 <span key={invoice.id} className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs">
                   <button type="button" className="font-semibold hover:text-primary" onClick={() => resumeParked(invoice.id)}>
                     {invoice.label}
                   </button>
-                  <button type="button" aria-label="حذف الفاتورة المعلقة" onClick={() => deleteParked(invoice.id)}>
+                  <button type="button" aria-label={t('deleteParked')} onClick={() => deleteParked(invoice.id)}>
                     <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                   </button>
                 </span>
@@ -366,7 +371,7 @@ export default function POSPage() {
             </div>
           )}
           {cart.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border py-14 text-center text-muted-foreground">ابدأ بالفحص أو بالبحث بالاسم</div>
+            <div className="rounded-xl border border-dashed border-border py-14 text-center text-muted-foreground">{t('startEmpty')}</div>
           ) : (
             <div className="space-y-3">
               {cart.map((line, index) => {
@@ -381,39 +386,39 @@ export default function POSPage() {
                         {line.product.name}
                         {strengthLabel && <span className="ms-1 text-xs font-normal text-muted-foreground">{strengthLabel}</span>}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{line.product.barcode} · المتاح {line.product.packaging_type === 'BOX_STRIP' ? `${Math.floor(maxBase / line.product.units_per_box)} علبة و${maxBase % line.product.units_per_box} شريط` : `${maxBase} عبوة`}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{line.product.barcode} · {line.product.packaging_type === 'BOX_STRIP' ? t('stockBoxStrip', { boxes: Math.floor(maxBase / line.product.units_per_box), strips: maxBase % line.product.units_per_box }) : t('stockPacks', { count: maxBase })}</p>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">وحدة البيع</label>
+                      <label className="text-xs text-muted-foreground">{t('unitLabel')}</label>
                       <Select
                         value={String(line.unitChoice)}
                         onValueChange={(value) => updateLine(index, { unitChoice: value === 'box' ? 'box' : Number(value), quantity: 1 })}
-                        aria-label="وحدة البيع"
+                        aria-label={t('unitLabel')}
                         options={[
-                          { value: 'box', label: 'علبة كاملة' },
+                          { value: 'box', label: t('unitBox') },
                           ...(line.product.packaging_type === 'BOX_STRIP'
                             ? Array.from({ length: Math.max(1, line.product.units_per_box - 1) }, (_, stripIndex) => {
                                 const strips = stripIndex + 1
-                                return { value: String(strips), label: strips === 1 ? 'شريط واحد' : strips === 2 ? 'شريطان' : `${strips} شرائط` }
+                                return { value: String(strips), label: strips === 1 ? t('unitStripOne') : strips === 2 ? t('unitStripTwo') : t('unitStrips', { count: strips }) }
                               })
                             : []),
                         ]}
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">الكمية</label>
+                      <label className="text-xs text-muted-foreground">{t('quantity')}</label>
                       <div className="flex h-10 items-center rounded-lg border border-input">
-                        <button type="button" onClick={() => updateLine(index, { quantity: Math.max(1, line.quantity - 1) })} className="px-2 text-muted-foreground hover:text-foreground" aria-label="تقليل الكمية"><Minus className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => updateLine(index, { quantity: Math.max(1, line.quantity - 1) })} className="px-2 text-muted-foreground hover:text-foreground" aria-label={t('decreaseQty')}><Minus className="h-4 w-4" /></button>
                         <span className="flex-1 text-center text-sm font-semibold">{line.quantity}</span>
-                        <button type="button" onClick={() => updateLine(index, { quantity: line.quantity + 1 })} className="px-2 text-muted-foreground hover:text-foreground" aria-label="زيادة الكمية"><Plus className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => updateLine(index, { quantity: line.quantity + 1 })} className="px-2 text-muted-foreground hover:text-foreground" aria-label={t('increaseQty')}><Plus className="h-4 w-4" /></button>
                       </div>
                     </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-xs text-muted-foreground">{unitLabel(line)}</p>
+                    <div className="text-start md:text-end">
+                      <p className="text-xs text-muted-foreground">{unitLabel(line, t)}</p>
                       <p className="mt-1 font-semibold">{formatPiastres(lineTotal)}</p>
-                      {requestedBase > maxBase && <p className="mt-1 text-xs text-destructive">الكمية تتجاوز المخزون</p>}
+                      {requestedBase > maxBase && <p className="mt-1 text-xs text-destructive">{t('overStock')}</p>}
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setCart((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label="حذف الصنف"><Trash2 className="h-4 w-4" /></Button>
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setCart((current) => current.filter((_, lineIndex) => lineIndex !== index))} aria-label={t('deleteLine')}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 )
               })}
@@ -421,36 +426,36 @@ export default function POSPage() {
               {/* الخصم + طريقة الدفع */}
               <div className="grid gap-4 rounded-xl border border-border p-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">خصم على الفاتورة</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t('discountLabel')}</label>
                   <div className="flex gap-2">
                     <Input
                       value={discountInput}
                       onChange={(event) => setDiscountInput(event.target.value)}
-                      placeholder={discountKind === 'percent' ? 'نسبة مثل 10' : 'مبلغ مثل 5.00'}
+                      placeholder={discountKind === 'percent' ? t('discountPercentPlaceholder') : t('discountAmountPlaceholder')}
                       inputMode="decimal"
-                      aria-label="قيمة الخصم"
+                      aria-label={t('discountValueAria')}
                       className={discountInvalid ? 'border-destructive' : ''}
                     />
                     <div className="w-28 shrink-0">
                       <Select
                         value={discountKind}
                         onValueChange={(value) => { setDiscountKind(value as 'amount' | 'percent'); setDiscountInput('') }}
-                        aria-label="نوع الخصم"
-                        options={[{ value: 'amount', label: 'جنيه' }, { value: 'percent', label: 'نسبة %' }]}
+                        aria-label={t('discountKindAria')}
+                        options={[{ value: 'amount', label: t('discountKindAmount') }, { value: 'percent', label: t('discountKindPercent') }]}
                       />
                     </div>
                   </div>
-                  {discountInvalid && <p className="text-xs text-destructive">اكتب قيمة صحيحة {discountKind === 'percent' ? 'بين 0 و 100' : 'بالجنيه'}</p>}
+                  {discountInvalid && <p className="text-xs text-destructive">{discountKind === 'percent' ? t('discountInvalidPercent') : t('discountInvalidAmount')}</p>}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">طريقة الدفع</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t('paymentLabel')}</label>
                   <Select
                     value={paymentType}
                     onValueChange={(value) => setPaymentType(value as 'cash' | 'credit')}
-                    aria-label="طريقة الدفع"
+                    aria-label={t('paymentLabel')}
                     options={canUseCreditSales
-                      ? [{ value: 'cash', label: 'نقدي' }, { value: 'credit', label: 'آجل (على الحساب)' }]
-                      : [{ value: 'cash', label: 'نقدي' }]}
+                      ? [{ value: 'cash', label: t('paymentCash') }, { value: 'credit', label: t('paymentCredit') }]
+                      : [{ value: 'cash', label: t('paymentCash') }]}
                   />
                 </div>
               </div>
@@ -465,30 +470,30 @@ export default function POSPage() {
                         <div>
                           <p className="font-semibold">{selectedCustomer.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {selectedCustomer.phone || 'بدون رقم هاتف'}
-                            {selectedCustomer.balance_piastres !== 0 && ` · رصيد سابق ${formatPiastres(selectedCustomer.balance_piastres)}`}
+                            {selectedCustomer.phone || t('noPhone')}
+                            {selectedCustomer.balance_piastres !== 0 && ` ${t('previousBalance', { total: formatPiastres(selectedCustomer.balance_piastres) })}`}
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>تغيير العميل</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>{t('changeCustomer')}</Button>
                     </div>
                   ) : creatingCustomer ? (
                     <div className="space-y-2">
                       <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto_auto]">
-                        <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} placeholder="اسم العميل" aria-label="اسم العميل الجديد" />
-                        <Input value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} placeholder="الهاتف (اختياري)" inputMode="tel" aria-label="هاتف العميل الجديد" />
-                        <Button type="button" size="sm" loading={addingCustomer} onClick={addNewCustomer}>إضافة</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingCustomer(false)}>إلغاء</Button>
+                        <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} placeholder={t('customerNamePlaceholder')} aria-label={t('newCustomerNameAria')} />
+                        <Input value={newCustomerPhone} onChange={(event) => setNewCustomerPhone(event.target.value)} placeholder={t('customerPhonePlaceholder')} inputMode="tel" aria-label={t('newCustomerPhoneAria')} />
+                        <Button type="button" size="sm" loading={addingCustomer} onClick={addNewCustomer}>{t('add')}</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingCustomer(false)}>{t('cancel')}</Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">سيُضاف العميل إلى حسابات العملاء تلقائياً وتُقيّد عليه الفاتورة آجلاً.</p>
+                      <p className="text-xs text-muted-foreground">{t('customerAutoAddedHint')}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <Input
                         value={customerSearch}
                         onChange={(event) => setCustomerSearch(event.target.value)}
-                        placeholder="ابحث عن العميل بالاسم أو الهاتف…"
-                        aria-label="بحث عن العميل"
+                        placeholder={t('customerSearchPlaceholder')}
+                        aria-label={t('customerSearchAria')}
                       />
                       {customerResults.length > 0 && (
                         <div className="max-h-44 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background">
@@ -501,19 +506,19 @@ export default function POSPage() {
                             >
                               <span className="font-semibold">{customer.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {customer.phone || 'بدون رقم'}
-                                {customer.balance_piastres !== 0 && ` · رصيد ${formatPiastres(customer.balance_piastres)}`}
+                                {customer.phone || t('noPhoneShort')}
+                                {customer.balance_piastres !== 0 && ` ${t('balanceShort', { total: formatPiastres(customer.balance_piastres) })}`}
                               </span>
                             </button>
                           ))}
                         </div>
                       )}
                       {customerResults.length === 0 && customerSearch.trim() && (
-                        <p className="text-xs text-muted-foreground">لا نتائج مطابقة — يمكنك إضافة عميل جديد.</p>
+                        <p className="text-xs text-muted-foreground">{t('customerNoResults')}</p>
                       )}
                       {canAddCustomers && (
                         <button type="button" className="text-xs font-bold text-primary hover:underline" onClick={() => setCreatingCustomer(true)}>
-                          + إضافة عميل جديد
+                          {t('addNewCustomer')}
                         </button>
                       )}
                     </div>
@@ -522,19 +527,19 @@ export default function POSPage() {
               )}
 
               <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-muted-foreground">الحساب هنا فوري للعرض، والباك إند يعيد التحقق من الأسعار والمخزون عند الاعتماد.</div>
+                <div className="text-sm text-muted-foreground">{t('totalsHint')}</div>
                 <div className="flex items-center gap-5">
                   <div className="text-end">
                     {discountPiastres > 0 && (
                       <>
-                        <p className="text-xs text-muted-foreground">قبل الخصم {formatPiastres(subtotal)}</p>
-                        <p className="text-xs font-semibold text-destructive">الخصم −{formatPiastres(discountPiastres)}</p>
+                        <p className="text-xs text-muted-foreground">{t('beforeDiscount', { total: formatPiastres(subtotal) })}</p>
+                        <p className="text-xs font-semibold text-destructive">{t('discountLine', { total: formatPiastres(discountPiastres) })}</p>
                       </>
                     )}
-                    <span className="text-sm text-muted-foreground">الإجمالي</span>
+                    <span className="text-sm text-muted-foreground">{t('total')}</span>
                     <p className="text-2xl font-bold text-primary">{formatPiastres(finalTotal)}</p>
                   </div>
-                  <Button onClick={checkout} loading={checkoutLoading}>{paymentType === 'credit' ? 'إتمام البيع الآجل' : 'إتمام البيع'}</Button>
+                  <Button onClick={checkout} loading={checkoutLoading}>{paymentType === 'credit' ? t('checkoutCredit') : t('checkout')}</Button>
                 </div>
               </div>
             </div>
@@ -545,7 +550,7 @@ export default function POSPage() {
               <p className="text-sm text-primary">{message}</p>
               {lastSaleId.current && printSettings.print_mode === 'manual' && (
                 <Button variant="outline" size="sm" className="mt-2" loading={printBusy} onClick={() => lastSaleId.current && void prepareReceiptPrint(lastSaleId.current)}>
-                  <Printer className="h-4 w-4" /> طباعة الفاتورة
+                  <Printer className="h-4 w-4" /> {t('printInvoice')}
                 </Button>
               )}
             </div>

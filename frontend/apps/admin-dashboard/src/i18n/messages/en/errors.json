@@ -1,0 +1,4 @@
+{
+  "dashboard_stats_failed": "Could not load dashboard statistics",
+  "accounts_load_failed": "Could not load accounts"
+}

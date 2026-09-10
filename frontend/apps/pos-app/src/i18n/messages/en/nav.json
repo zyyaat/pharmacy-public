@@ -1,0 +1,19 @@
+{
+  "pos": "Point of Sale",
+  "sales": "Sales Log",
+  "inventory": "Inventory & Medicines",
+  "movements": "Stock Movements",
+  "settings": "Settings",
+  "sections": "Sections",
+  "current_pharmacy": "Current Pharmacy",
+  "loading_pharmacy": "Loading pharmacy...",
+  "no_branch": "No branch set",
+  "avatar_initial": "U",
+  "user_fallback": "User",
+  "pharmacy_account": "Pharmacy account",
+  "logout": "Log out",
+  "close_menu": "Close menu",
+  "collapse_menu": "Collapse menu",
+  "light_mode": "Light mode",
+  "dark_mode": "Dark mode"
+}

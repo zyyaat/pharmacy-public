@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 import { ShieldOff } from 'lucide-react'
 import { Button, LoadingSpinner } from '@/components/ui'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useT } from '@/i18n/provider'
 
 export function useAccess() {
   const { data, loading, can, canAny } = usePermissions()
@@ -50,18 +51,18 @@ export function Can({
 /** بطاقة «الصفحة غير متاحة» — تُعرض عند الدخول المباشر لرابط ممنوع */
 export function NoAccessCard({ title }: { title?: string }) {
   const router = useRouter()
+  const t = useT('common')
   return (
     <div className="flex min-h-[50vh] items-center justify-center py-16">
       <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
           <ShieldOff className="h-7 w-7 text-muted-foreground" />
         </div>
-        <h1 className="text-xl font-bold">{title || 'هذه الصفحة غير متاحة لحسابك'}</h1>
+        <h1 className="text-xl font-bold">{title || t('no_access_title')}</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          لم يمنحك مالك الصيدلية صلاحية الوصول لهذا القسم.
-          إذا كنت تحتاجه في عملك فتواصل معه ليمنحك الصلاحية المناسبة.
+          {t('no_access_body')}
         </p>
-        <Button variant="outline" onClick={() => router.push('/')}>العودة للرئيسية</Button>
+        <Button variant="outline" onClick={() => router.push('/')}>{t('back_home')}</Button>
       </div>
     </div>
   )

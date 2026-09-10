@@ -16,6 +16,8 @@ import {
   movementTypeLabel,
   movementTypeVariant,
 } from '@/lib/movements'
+import { fmtNumber } from '@/i18n/format'
+import { useT } from '@/i18n/provider'
 import {
   Badge,
   Button,
@@ -35,29 +37,32 @@ import { RequirePermission } from '@/components/permissions/gate'
 
 const PAGE_SIZE = 50
 
-const movementTypeOptions: Array<{ value: StockMovementType | 'all'; label: string }> = [
-  { value: 'all', label: 'كل الحركات' },
-  { value: 'sale', label: 'بيع' },
-  { value: 'return_from_customer', label: 'استرجاع من عميل' },
-  { value: 'purchase', label: 'شراء' },
-  { value: 'return_to_supplier', label: 'مرتجع للمورد' },
-  { value: 'adjustment', label: 'تسوية مخزون' },
-  { value: 'transfer_in', label: 'تحويل وارد' },
-  { value: 'transfer_out', label: 'تحويل صادر' },
-  { value: 'expiry_writeoff', label: 'إعدام منتهي الصلاحية' },
-  { value: 'damage_writeoff', label: 'إعدام تالف' },
-  { value: 'theft_loss', label: 'فقد/سرقة' },
-  { value: 'production_input', label: 'استهلاك تصنيع' },
-  { value: 'production_output', label: 'إنتاج' },
+const movementTypeKeys: Array<{ value: StockMovementType | 'all'; key: string }> = [
+  { value: 'all', key: 'filter_all_types' },
+  { value: 'sale', key: 'type_sale' },
+  { value: 'return_from_customer', key: 'type_return_from_customer' },
+  { value: 'purchase', key: 'type_purchase' },
+  { value: 'return_to_supplier', key: 'type_return_to_supplier' },
+  { value: 'adjustment', key: 'type_adjustment' },
+  { value: 'transfer_in', key: 'type_transfer_in' },
+  { value: 'transfer_out', key: 'type_transfer_out' },
+  { value: 'expiry_writeoff', key: 'type_expiry_writeoff' },
+  { value: 'damage_writeoff', key: 'type_damage_writeoff' },
+  { value: 'theft_loss', key: 'type_theft_loss' },
+  { value: 'production_input', key: 'type_production_input' },
+  { value: 'production_output', key: 'type_production_output' },
 ]
 
-const directionOptions = [
-  { value: 'all', label: 'داخل وخارج' },
-  { value: 'in', label: 'داخل فقط (+)' },
-  { value: 'out', label: 'خارج فقط (−)' },
-]
+const directionKeys = [
+  { value: 'all', key: 'direction_all' },
+  { value: 'in', key: 'direction_in' },
+  { value: 'out', key: 'direction_out' },
+] as const
 
 export default function InventoryMovementsPage() {
+  const t = useT('movements')
+  const movementTypeOptions = movementTypeKeys.map((option) => ({ value: option.value, label: t(option.key) }))
+  const directionOptions = directionKeys.map((option) => ({ value: option.value, label: t(option.key) }))
   const [movements, setMovements] = useState<StockMovementRow[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -84,13 +89,13 @@ export default function InventoryMovementsPage() {
         append ? [...current, ...response.data.movements] : response.data.movements,
       )
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'تعذر تحميل سجل حركات المخزون'
+      const message = err instanceof ApiError ? err.message : t('error_load')
       setError(message)
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load(0, {}, false)
@@ -129,14 +134,14 @@ export default function InventoryMovementsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">سجل حركات المخزون</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            كل حركة دخول وخروج: بيع، استرجاع، شراء، تسويات وإعدام — بالتسلسل الزمني
+            {t('subtitle')}
           </p>
         </div>
         {total > 0 && (
           <p className="text-sm text-muted-foreground">
-            {movements.length.toLocaleString('ar-EG-u-nu-latn')} من {total.toLocaleString('ar-EG-u-nu-latn')} حركة
+            {t('count_shown', { shown: fmtNumber(movements.length), total: fmtNumber(total) })}
           </p>
         )}
       </div>
@@ -145,13 +150,13 @@ export default function InventoryMovementsPage() {
       <form onSubmit={submitFilters} className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[220px] flex-1">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="ابحث باسم الدواء أو رقم التشغيلة"
-              className="pr-9"
-              aria-label="بحث في سجل المخزون"
+              placeholder={t('search_placeholder')}
+              className="pe-9"
+              aria-label={t('search_aria')}
             />
           </div>
           <div className="w-[200px]">
@@ -159,7 +164,7 @@ export default function InventoryMovementsPage() {
               value={typeInput}
               onValueChange={(value) => setTypeInput(value as StockMovementType | 'all')}
               options={movementTypeOptions}
-              aria-label="نوع الحركة"
+              aria-label={t('type_aria')}
             />
           </div>
           <div className="w-[170px]">
@@ -167,32 +172,32 @@ export default function InventoryMovementsPage() {
               value={directionInput}
               onValueChange={(value) => setDirectionInput(value as 'all' | 'in' | 'out')}
               options={directionOptions}
-              aria-label="اتجاه الحركة"
+              aria-label={t('direction_aria')}
             />
           </div>
-          <Button type="submit" variant="secondary" size="sm">تطبيق</Button>
+          <Button type="submit" variant="secondary" size="sm">{t('apply')}</Button>
           {hasFilters && (
             <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
-              <RotateCcw className="h-4 w-4" /> مسح الفلاتر
+              <RotateCcw className="h-4 w-4" /> {t('clear_filters')}
             </Button>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">من تاريخ</span>
+          <span className="text-muted-foreground">{t('from_label')}</span>
           <Input
             type="date"
             value={fromInput}
             onChange={(event) => setFromInput(event.target.value)}
             className="w-[150px]"
-            aria-label="من تاريخ"
+            aria-label={t('from_aria')}
           />
-          <span className="text-muted-foreground">إلى</span>
+          <span className="text-muted-foreground">{t('to_label')}</span>
           <Input
             type="date"
             value={toInput}
             onChange={(event) => setToInput(event.target.value)}
             className="w-[150px]"
-            aria-label="إلى تاريخ"
+            aria-label={t('to_aria')}
           />
         </div>
       </form>
@@ -211,9 +216,9 @@ export default function InventoryMovementsPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <ClipboardList className="h-10 w-10 text-muted-foreground" />
-            <p className="font-medium">لا توجد حركات مخزون</p>
+            <p className="font-medium">{t('empty_title')}</p>
             <p className="text-sm text-muted-foreground">
-              {hasFilters ? 'جرب تغيير الفلاتر أو مسحها' : 'أي حركة بيع أو استرجاع أو تعديل مخزون ستظهر هنا تلقائياً'}
+              {hasFilters ? t('empty_filtered') : t('empty_default')}
             </p>
           </CardContent>
         </Card>
@@ -224,14 +229,14 @@ export default function InventoryMovementsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[110px]">التاريخ</TableHead>
-                    <TableHead>الدواء</TableHead>
-                    <TableHead>التشغيلة</TableHead>
-                    <TableHead>النوع</TableHead>
-                    <TableHead className="w-[120px]">الكمية</TableHead>
-                    <TableHead className="w-[100px]">الرصيد بعدها</TableHead>
-                    <TableHead>بواسطة</TableHead>
-                    <TableHead>الفرع</TableHead>
+                    <TableHead className="w-[110px]">{t('th_date')}</TableHead>
+                    <TableHead>{t('th_product')}</TableHead>
+                    <TableHead>{t('th_batch')}</TableHead>
+                    <TableHead>{t('th_type')}</TableHead>
+                    <TableHead className="w-[120px]">{t('th_quantity')}</TableHead>
+                    <TableHead className="w-[100px]">{t('th_balance_after')}</TableHead>
+                    <TableHead>{t('th_by')}</TableHead>
+                    <TableHead>{t('th_branch')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -305,7 +310,7 @@ export default function InventoryMovementsPage() {
             onClick={() => load(movements.length, filters, true)}
             disabled={loadingMore}
           >
-            {loadingMore ? <LoadingSpinner /> : 'تحميل المزيد'}
+            {loadingMore ? <LoadingSpinner /> : t('load_more')}
           </Button>
         </div>
       )}

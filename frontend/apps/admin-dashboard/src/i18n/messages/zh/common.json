@@ -1,0 +1,9 @@
+{
+  "meta_title": "Pharmacy OS | 管理后台",
+  "meta_description": "一体化药房管理系统 - 控股公司管理后台",
+  "language_change_failed": "无法更改语言，请重试。",
+  "loading": "加载中...",
+  "select_placeholder": "请选择…",
+  "select_no_options": "暂无选项",
+  "context_load_failed": "无法加载药房数据"
+}

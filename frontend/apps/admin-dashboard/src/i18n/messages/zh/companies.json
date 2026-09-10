@@ -1,0 +1,40 @@
+{
+  "title": "公司管理",
+  "subtitle": "管理平台上注册的所有公司",
+  "add_company": "添加新公司",
+  "stat_total": "公司总数",
+  "stat_active": "活跃公司",
+  "stat_trial": "试用期内",
+  "stat_suspended": "已停用公司",
+  "search_placeholder": "按名称或邮箱搜索...",
+  "filter_status_aria": "按状态筛选",
+  "filter_all": "所有状态",
+  "loading": "正在加载公司...",
+  "load_failed": "无法加载公司",
+  "th_company": "公司",
+  "th_status": "状态",
+  "th_plan": "套餐",
+  "th_users": "用户",
+  "th_registered": "注册日期",
+  "th_actions": "操作",
+  "action_view": "查看",
+  "action_edit": "编辑",
+  "action_delete": "删除",
+  "empty_title": "暂无公司",
+  "empty_desc": "未找到符合搜索条件的公司",
+  "clear_filters": "清除筛选",
+  "pagination": "显示 {total} 家公司中的 {shown} 家",
+  "status": {
+    "active": "活跃",
+    "suspended": "已停用",
+    "trial": "试用",
+    "cancelled": "已取消"
+  },
+  "plans": {
+    "free": "免费版",
+    "starter": "入门版",
+    "professional": "专业版",
+    "enterprise": "企业版",
+    "custom": "定制版"
+  }
+}

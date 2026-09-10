@@ -2,20 +2,25 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { pharmacyApi, type ReceiptSettings } from '@/lib/api'
+import { runtimeTranslator } from '@/i18n/runtime'
 
-/** الافتراضي في الواجهة — مطابق لافتراضيات الخادم حتى يصل الرد الأول */
-export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
-  paper_width_mm: 80,
-  print_mode: 'auto',
-  copies: 1,
-  name_prefix: '',
-  show_phone: true,
-  show_address: true,
-  show_cashier: true,
-  show_thank_you: true,
-  thank_you_text: 'شكراً لثقتكم — صحتك أمانة عندنا',
-  show_return_policy: true,
-  return_policy_text: 'الاسترجاع خلال 14 يوماً بالإيصال الأصلي',
+/** الافتراضي في الواجهة — مطابق لافتراضيات الخادم حتى يصل الرد الأول.
+ *  نصوص الإيصال الافتراضية تُقرأ من كتالوج pos وقت النداء (تبع لغة الواجهة الحالية). */
+export function defaultReceiptSettings(): ReceiptSettings {
+  const t = runtimeTranslator('pos')
+  return {
+    paper_width_mm: 80,
+    print_mode: 'auto',
+    copies: 1,
+    name_prefix: '',
+    show_phone: true,
+    show_address: true,
+    show_cashier: true,
+    show_thank_you: true,
+    thank_you_text: t('defaultThankYou'),
+    show_return_policy: true,
+    return_policy_text: t('defaultReturnPolicy'),
+  }
 }
 
 // كاش على مستوى الوحدة: نقطة البيع وصفحة الإعدادات يتشاركان نفس الجلب،
@@ -34,10 +39,10 @@ export async function loadReceiptSettings(): Promise<ReceiptSettings> {
     inflight = pharmacyApi
       .getPharmacySettings()
       .then((response) => {
-        cache = { ...DEFAULT_RECEIPT_SETTINGS, ...response.data.receipt }
+        cache = { ...defaultReceiptSettings(), ...response.data.receipt }
         return cache
       })
-      .catch(() => DEFAULT_RECEIPT_SETTINGS)
+      .catch(() => defaultReceiptSettings())
       .finally(() => {
         inflight = null
       })
@@ -46,7 +51,7 @@ export async function loadReceiptSettings(): Promise<ReceiptSettings> {
 }
 
 export function useReceiptSettings() {
-  const [settings, setSettings] = useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS)
+  const [settings, setSettings] = useState<ReceiptSettings>(defaultReceiptSettings)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -64,7 +69,7 @@ export function useReceiptSettings() {
 
   const save = useCallback(async (next: ReceiptSettings) => {
     const response = await pharmacyApi.updatePharmacySettings(next)
-    cache = { ...DEFAULT_RECEIPT_SETTINGS, ...response.data.receipt }
+    cache = { ...defaultReceiptSettings(), ...response.data.receipt }
     setSettings(cache)
     return cache
   }, [])

@@ -1,0 +1,9 @@
+{
+  "meta_title": "Pharmacy OS | Panel de administración",
+  "meta_description": "Gestión integral de farmacias - panel de la matriz corporativa",
+  "language_change_failed": "No se pudo cambiar el idioma. Inténtalo de nuevo.",
+  "loading": "Cargando...",
+  "select_placeholder": "Seleccionar…",
+  "select_no_options": "No hay opciones",
+  "context_load_failed": "No se pudieron cargar los datos de la farmacia"
+}

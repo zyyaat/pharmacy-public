@@ -8,10 +8,12 @@ import { formatPiastres } from '@/lib/money'
 import { formatSaleDate, formatSaleTime, saleStatusLabel, saleStatusVariant } from '@/lib/sales'
 import { Badge, Button, Card, CardContent, Input, LoadingSpinner } from '@/components/ui'
 import { RequirePermission } from '@/components/permissions/gate'
+import { useT } from '@/i18n/provider'
 
 const PAGE_SIZE = 20
 
 export default function SalesHistoryPage() {
+  const t = useT('sales')
   const [sales, setSales] = useState<POSSaleSummary[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -29,13 +31,13 @@ export default function SalesHistoryPage() {
       setTotal(response.data.total)
       setSales((current) => (append ? [...current, ...response.data.sales] : response.data.sales))
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'تعذر تحميل سجل البيع'
+      const message = err instanceof ApiError ? err.message : t('loadError')
       setError(message)
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load(0, '', false)
@@ -55,23 +57,23 @@ export default function SalesHistoryPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">سجل البيع</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            كل الفواتير المسجلة، مع فواتير الاسترجاع المرتبطة بها
+            {t('subtitle')}
           </p>
         </div>
         <form onSubmit={submitSearch} className="flex w-full max-w-sm items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="ابحث برقم الفاتورة أو اسم الدواء"
-              className="pr-9"
-              aria-label="بحث في سجل البيع"
+              placeholder={t('searchPlaceholder')}
+              className="ps-9"
+              aria-label={t('searchLabel')}
             />
           </div>
-          <Button type="submit" variant="secondary" size="sm">بحث</Button>
+          <Button type="submit" variant="secondary" size="sm">{t('searchButton')}</Button>
         </form>
       </div>
 
@@ -89,9 +91,9 @@ export default function SalesHistoryPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <ReceiptText className="h-10 w-10 text-muted-foreground" />
-            <p className="font-medium">لا توجد فواتير بعد</p>
+            <p className="font-medium">{t('emptyTitle')}</p>
             <p className="text-sm text-muted-foreground">
-              {search ? 'جرب البحث بكلمة أخرى' : 'أول فاتورة تبيعها من نقطة البيع ستظهر هنا تلقائياً'}
+              {search ? t('emptySearchHint') : t('emptyFirstHint')}
             </p>
           </CardContent>
         </Card>
@@ -109,24 +111,24 @@ export default function SalesHistoryPage() {
                       </p>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {sale.products_count > 0 ? `${sale.products_count} أصناف · ${sale.total_quantity_base} وحدات` : 'بدون أصناف'}
+                      {sale.products_count > 0 ? t('productsAndUnits', { products: sale.products_count, units: sale.total_quantity_base }) : t('noProducts')}
                     </div>
                     <Badge variant={saleStatusVariant(sale.status)}>{saleStatusLabel(sale.status)}</Badge>
                     {sale.payment_type === 'credit' && (
-                      <Badge variant="warning">آجل{sale.customer_name ? ` · ${sale.customer_name}` : ''}</Badge>
+                      <Badge variant="warning">{sale.customer_name ? t('creditBadgeWithCustomer', { customer: sale.customer_name }) : t('creditBadge')}</Badge>
                     )}
                     {sale.discount_amount_piastres > 0 && (
-                      <span className="text-xs font-semibold text-destructive">خصم {formatPiastres(sale.discount_amount_piastres)}</span>
+                      <span className="text-xs font-semibold text-destructive">{t('discount', { amount: formatPiastres(sale.discount_amount_piastres) })}</span>
                     )}
                     <div className="ms-auto text-end">
                       <p className="font-bold">{formatPiastres(sale.total_amount_piastres)}</p>
                       {sale.returned_amount_piastres > 0 && (
                         <p className="text-xs font-medium text-destructive">
-                          مرتجع: {formatPiastres(sale.returned_amount_piastres)}
+                          {t('returnedAmount', { amount: formatPiastres(sale.returned_amount_piastres) })}
                         </p>
                       )}
                     </div>
-                    <ChevronLeft className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    <ChevronLeft className="rtl-flip h-5 w-5 shrink-0 text-muted-foreground" />
                   </CardContent>
                 </Card>
               </Link>
@@ -135,7 +137,7 @@ export default function SalesHistoryPage() {
                 <div key={ret.id} className="ms-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:ms-8">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                     <RotateCcw className="h-4 w-4 text-destructive" />
-                    <span className="font-semibold text-destructive">فاتورة استرجاع</span>
+                    <span className="font-semibold text-destructive">{t('returnInvoice')}</span>
                     <span className="font-mono text-xs text-muted-foreground" dir="ltr">
                       RET-{String(ret.return_number).padStart(6, '0')}
                     </span>
@@ -147,7 +149,7 @@ export default function SalesHistoryPage() {
                     </span>
                   </div>
                   {ret.reason && (
-                    <p className="mt-1 text-xs text-muted-foreground">السبب: {ret.reason}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('reason', { reason: ret.reason })}</p>
                   )}
                 </div>
               ))}
@@ -161,7 +163,7 @@ export default function SalesHistoryPage() {
                 onClick={() => load(sales.length, search, true)}
                 disabled={loadingMore}
               >
-                {loadingMore ? <LoadingSpinner /> : 'تحميل المزيد'}
+                {loadingMore ? <LoadingSpinner /> : t('loadMore')}
               </Button>
             </div>
           )}

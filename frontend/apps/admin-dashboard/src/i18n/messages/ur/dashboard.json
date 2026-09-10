@@ -1,0 +1,18 @@
+{
+  "title": "ڈیش بورڈ",
+  "subtitle": "مکمل Pharmacy OS پلیٹ فارم کا جائزہ",
+  "loading": "ڈیش بورڈ کا ڈیٹا لوڈ ہو رہا ہے...",
+  "companies_error": "کمپنیاں لوڈ نہیں ہو سکیں",
+  "stat_total_companies": "کل کمپنیاں",
+  "stat_active_companies": "فعال کمپنیاں",
+  "stat_suspended_companies": "معطل کمپنیاں",
+  "stat_total_pharmacies": "کل فارمیسیاں",
+  "stat_total_users": "کل صارفین",
+  "stat_active_users": "فعال صارفین",
+  "latest_companies": "تازہ کمپنیاں",
+  "view_all": "سب دیکھیں",
+  "no_companies": "کوئی رجسٹرڈ کمپنی نہیں",
+  "users_count": "{count} صارفین",
+  "recent_activity": "حالیہ سرگرمی",
+  "no_activity": "کوئی سرگرمی ریکارڈ نہیں"
+}

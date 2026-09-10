@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { runtimeTranslator } from "@/i18n/runtime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -43,31 +44,21 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
-export const ROLE_LABELS: Record<Role, string> = {
-  [ROLES.SUPER_ADMIN]: "مدير النظام",
-  [ROLES.COMPANY_ADMIN]: "مدير الشركة",
-  [ROLES.COMPANY_MANAGER]: "مدير العمليات",
-  [ROLES.VIEWER]: "مشاهد الشركة",
-};
+const KNOWN_ROLES: readonly string[] = Object.values(ROLES);
 
-export const PERMISSION_LABELS: Record<Permission, string> = {
-  [PERMISSIONS.COMPANIES_VIEW]: "عرض الشركات",
-  [PERMISSIONS.COMPANIES_CREATE]: "إنشاء شركة",
-  [PERMISSIONS.COMPANIES_EDIT]: "تعديل شركة",
-  [PERMISSIONS.COMPANIES_DELETE]: "حذف شركة",
-  [PERMISSIONS.COMPANY_USERS_VIEW]: "عرض المستخدمين",
-  [PERMISSIONS.COMPANY_USERS_CREATE]: "إنشاء مستخدم",
-  [PERMISSIONS.COMPANY_USERS_EDIT]: "تعديل مستخدم",
-  [PERMISSIONS.COMPANY_USERS_DELETE]: "حذف مستخدم",
-  [PERMISSIONS.COMPANY_USERS_MANAGE_PERMISSIONS]: "إدارة الصلاحيات",
-  [PERMISSIONS.ACCOUNTS_VIEW]: "عرض الحسابات",
-  [PERMISSIONS.ACCOUNTS_CREATE]: "إنشاء حساب",
-  [PERMISSIONS.ACCOUNTS_EDIT]: "تعديل حساب",
-  [PERMISSIONS.ACCOUNTS_DELETE]: "حذف حساب",
-  [PERMISSIONS.PLATFORM_SETTINGS]: "إعدادات المنصة",
-  [PERMISSIONS.PLATFORM_MANAGEMENT]: "إدارة المنصة",
-  [PERMISSIONS.PLATFORM_ANALYTICS]: "تحليلات المنصة",
-};
+/** Task 48 — تسميات الأدوار من كتالوج users (مع الرجوع للقيمة الخام لغير المعروفة). */
+export function roleLabel(role: string): string {
+  return KNOWN_ROLES.includes(role) ? runtimeTranslator("users")(`roles.${role}`) : role;
+}
+
+const KNOWN_PERMISSIONS: readonly string[] = Object.values(PERMISSIONS);
+
+/** Task 48 — تسميات الصلاحيات من كتالوج permissions. */
+export function permissionLabel(permission: string): string {
+  return KNOWN_PERMISSIONS.includes(permission)
+    ? runtimeTranslator("permissions")(`labels.${permission.replace(/\./g, "_")}`)
+    : permission;
+}
 
 // Company Status
 export const COMPANY_STATUS = {
@@ -79,12 +70,14 @@ export const COMPANY_STATUS = {
 
 export type CompanyStatus = (typeof COMPANY_STATUS)[keyof typeof COMPANY_STATUS];
 
-export const COMPANY_STATUS_LABELS: Record<CompanyStatus, string> = {
-  [COMPANY_STATUS.ACTIVE]: "نشط",
-  [COMPANY_STATUS.SUSPENDED]: "موقوف",
-  [COMPANY_STATUS.TRIAL]: "تجريبي",
-  [COMPANY_STATUS.CANCELLED]: "ملغي",
-};
+const KNOWN_COMPANY_STATUSES: readonly string[] = Object.values(COMPANY_STATUS);
+
+/** Task 48 — تسميات حالة الشركة من كتالوج companies. */
+export function companyStatusLabel(status: string): string {
+  return KNOWN_COMPANY_STATUSES.includes(status)
+    ? runtimeTranslator("companies")(`status.${status}`)
+    : status;
+}
 
 // Company Plans
 export const COMPANY_PLANS = {
@@ -97,10 +90,11 @@ export const COMPANY_PLANS = {
 
 export type CompanyPlan = (typeof COMPANY_PLANS)[keyof typeof COMPANY_PLANS];
 
-export const COMPANY_PLAN_LABELS: Record<CompanyPlan, string> = {
-  [COMPANY_PLANS.FREE]: "مجاني",
-  [COMPANY_PLANS.STARTER]: "الأساسي",
-  [COMPANY_PLANS.PROFESSIONAL]: "احترافي",
-  [COMPANY_PLANS.ENTERPRISE]: "المؤسسي",
-  [COMPANY_PLANS.CUSTOM]: "مخصص",
-};
+const KNOWN_COMPANY_PLANS: readonly string[] = Object.values(COMPANY_PLANS);
+
+/** Task 48 — تسميات خطط الشركة من كتالوج companies. */
+export function companyPlanLabel(plan: string): string {
+  return KNOWN_COMPANY_PLANS.includes(plan)
+    ? runtimeTranslator("companies")(`plans.${plan}`)
+    : plan;
+}

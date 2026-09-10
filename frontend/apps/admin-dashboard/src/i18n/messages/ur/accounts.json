@@ -1,0 +1,16 @@
+{
+  "title": "اکاؤنٹس اور فارمیسیاں",
+  "subtitle": "پلیٹ فارم پر کاروباری اکاؤنٹس، فارمیسیاں اور شاخیں دیکھیں",
+  "stat_total": "کل اکاؤنٹس",
+  "stat_pharmacies": "نتائج میں فارمیسیاں",
+  "stat_branches": "نتائج میں شاخیں",
+  "list_title": "رجسٹرڈ اکاؤنٹس",
+  "search_placeholder": "اکاؤنٹ، کمپنی یا ای میل سے تلاش کریں...",
+  "loading": "اکاؤنٹس لوڈ ہو رہے ہیں...",
+  "load_failed": "اکاؤنٹس لوڈ نہیں ہو سکے",
+  "no_accounts": "کوئی رجسٹرڈ اکاؤنٹ نہیں",
+  "status_active": "فعال",
+  "status_suspended": "معطل",
+  "status_inactive": "غیر فعال",
+  "pharmacies_branches": "{pharmacies} فارمیسیاں · {branches} شاخیں"
+}

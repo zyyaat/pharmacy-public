@@ -1,0 +1,19 @@
+{
+  "pos": "Punto de venta",
+  "sales": "Registro de ventas",
+  "inventory": "Inventario y medicamentos",
+  "movements": "Movimientos de stock",
+  "settings": "Ajustes",
+  "sections": "Secciones",
+  "current_pharmacy": "Farmacia actual",
+  "loading_pharmacy": "Cargando farmacia...",
+  "no_branch": "Sin sucursal definida",
+  "avatar_initial": "U",
+  "user_fallback": "Usuario",
+  "pharmacy_account": "Cuenta de farmacia",
+  "logout": "Cerrar sesión",
+  "close_menu": "Cerrar menú",
+  "collapse_menu": "Contraer menú",
+  "light_mode": "Modo claro",
+  "dark_mode": "Modo oscuro"
+}

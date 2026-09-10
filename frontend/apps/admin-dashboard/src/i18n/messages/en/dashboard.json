@@ -1,0 +1,18 @@
+{
+  "title": "Dashboard",
+  "subtitle": "An overview of the entire Pharmacy OS platform",
+  "loading": "Loading dashboard data...",
+  "companies_error": "Could not load companies",
+  "stat_total_companies": "Total companies",
+  "stat_active_companies": "Active companies",
+  "stat_suspended_companies": "Suspended companies",
+  "stat_total_pharmacies": "Total pharmacies",
+  "stat_total_users": "Total users",
+  "stat_active_users": "Active users",
+  "latest_companies": "Latest companies",
+  "view_all": "View all",
+  "no_companies": "No registered companies",
+  "users_count": "{count} users",
+  "recent_activity": "Recent activity",
+  "no_activity": "No activity recorded"
+}

@@ -1,0 +1,16 @@
+{
+  "title": "Accounts & Pharmacies",
+  "subtitle": "View business accounts, pharmacies and branches across the platform",
+  "stat_total": "Total accounts",
+  "stat_pharmacies": "Pharmacies in results",
+  "stat_branches": "Branches in results",
+  "list_title": "Registered Accounts",
+  "search_placeholder": "Search by account, company or email...",
+  "loading": "Loading accounts...",
+  "load_failed": "Could not load accounts",
+  "no_accounts": "No registered accounts",
+  "status_active": "Active",
+  "status_suspended": "Suspended",
+  "status_inactive": "Inactive",
+  "pharmacies_branches": "{pharmacies} pharmacies · {branches} branches"
+}

@@ -1,0 +1,16 @@
+{
+  "title": "Hesaplar ve Eczaneler",
+  "subtitle": "Platform genelinde ticari hesapları, eczaneleri ve şubeleri görüntüleyin",
+  "stat_total": "Toplam hesap",
+  "stat_pharmacies": "Sonuçlardaki eczaneler",
+  "stat_branches": "Sonuçlardaki şubeler",
+  "list_title": "Kayıtlı Hesaplar",
+  "search_placeholder": "Hesap, şirket veya e-postaya göre ara...",
+  "loading": "Hesaplar yükleniyor...",
+  "load_failed": "Hesaplar yüklenemedi",
+  "no_accounts": "Kayıtlı hesap yok",
+  "status_active": "Aktif",
+  "status_suspended": "Askıda",
+  "status_inactive": "Etkin değil",
+  "pharmacies_branches": "{pharmacies} eczane · {branches} şube"
+}

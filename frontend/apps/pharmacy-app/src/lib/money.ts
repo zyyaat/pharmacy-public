@@ -6,18 +6,18 @@
 // appear. Formatting to "1.00" style strings happens only here, at the
 // display boundary, and parsing user input happens only through
 // parseEGPToPiastres at the entry boundary.
+//
+// Task 48: الترميز يتبع لغة الواجهة عبر i18n/format (عربي = ج.م، والبقية EGP)
+// مع بقاء الأرقام لاتينية دائمًا (قاعدة Task 47).
+
+import { fmtNumber } from '@/i18n/format'
 
 export const PIASTRES_PER_UNIT = 100
 
-const currencyFormatter = new Intl.NumberFormat('ar-EG-u-nu-latn', {
-  style: 'currency',
-  currency: 'EGP',
-})
-
-/** Format an integer piastres amount for display, e.g. 10000 -> "100.00 ج.م". */
+/** Format an integer piastres amount for display, e.g. 10000 -> "100.00 ج.م" (ar) / "EGP 100.00". */
 export function formatPiastres(piastres: number): string {
   const value = Number.isFinite(piastres) ? Math.trunc(piastres) : 0
-  return currencyFormatter.format(value / PIASTRES_PER_UNIT)
+  return fmtNumber(value / PIASTRES_PER_UNIT, { style: 'currency', currency: 'EGP' })
 }
 
 /** Parse a user-entered EGP amount ("105.5") into exact piastres (10550). */

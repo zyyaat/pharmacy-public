@@ -3,6 +3,7 @@
 // منتقي الفترة: قوائم جاهزة عبر قائمة الموقع المخصصة + فترة مخصصة بتاريخين.
 
 import { Button, Input, Select } from '@/components/ui'
+import { useT } from '@/i18n/provider'
 import {
   periodPresetOptions,
   type PeriodPreset,
@@ -32,6 +33,7 @@ export function PeriodPicker({
   loading,
   className,
 }: PeriodPickerProps) {
+  const t = useT('reports')
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center gap-2">
@@ -39,8 +41,8 @@ export function PeriodPicker({
           <Select
             value={preset}
             onValueChange={(value) => onPresetChange(value as PeriodPreset)}
-            options={periodPresetOptions}
-            aria-label="فترة التقرير"
+            options={periodPresetOptions()}
+            aria-label={t('aria_period')}
           />
         </div>
         {preset === 'custom' && (
@@ -51,19 +53,19 @@ export function PeriodPicker({
               max={to || undefined}
               onChange={(event) => onFromChange(event.target.value)}
               className="w-[150px]"
-              aria-label="من تاريخ"
+              aria-label={t('from_date')}
             />
-            <span className="text-sm text-muted-foreground">إلى</span>
+            <span className="text-sm text-muted-foreground">{t('to_word')}</span>
             <Input
               type="date"
               value={to}
               min={from || undefined}
               onChange={(event) => onToChange(event.target.value)}
               className="w-[150px]"
-              aria-label="إلى تاريخ"
+              aria-label={t('to_date')}
             />
             <Button type="button" variant="secondary" onClick={onApply} disabled={loading}>
-              تطبيق
+              {t('apply')}
             </Button>
           </>
         )}

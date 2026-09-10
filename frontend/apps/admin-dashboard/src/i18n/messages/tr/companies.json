@@ -1,0 +1,40 @@
+{
+  "title": "Şirket Yönetimi",
+  "subtitle": "Platforma kayıtlı tüm şirketleri yönetin",
+  "add_company": "Yeni şirket ekle",
+  "stat_total": "Toplam şirket",
+  "stat_active": "Aktif şirketler",
+  "stat_trial": "Deneme döneminde",
+  "stat_suspended": "Askıdaki şirketler",
+  "search_placeholder": "İsim veya e-postaya göre ara...",
+  "filter_status_aria": "Duruma göre filtrele",
+  "filter_all": "Tüm durumlar",
+  "loading": "Şirketler yükleniyor...",
+  "load_failed": "Şirketler yüklenemedi",
+  "th_company": "Şirket",
+  "th_status": "Durum",
+  "th_plan": "Plan",
+  "th_users": "Kullanıcılar",
+  "th_registered": "Kayıt tarihi",
+  "th_actions": "İşlemler",
+  "action_view": "Görüntüle",
+  "action_edit": "Düzenle",
+  "action_delete": "Sil",
+  "empty_title": "Şirket yok",
+  "empty_desc": "Arama kriterlerine uyan şirket bulunamadı",
+  "clear_filters": "Filtreleri temizle",
+  "pagination": "{total} şirketten {shown} tanesi gösteriliyor",
+  "status": {
+    "active": "Aktif",
+    "suspended": "Askıda",
+    "trial": "Deneme",
+    "cancelled": "İptal"
+  },
+  "plans": {
+    "free": "Ücretsiz",
+    "starter": "Başlangıç",
+    "professional": "Profesyonel",
+    "enterprise": "Kurumsal",
+    "custom": "Özel"
+  }
+}

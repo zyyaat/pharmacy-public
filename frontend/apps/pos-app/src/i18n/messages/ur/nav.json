@@ -1,0 +1,19 @@
+{
+  "pos": "سیلز پوائنٹ",
+  "sales": "سیلز ریکارڈ",
+  "inventory": "انوینٹری اور ادویات",
+  "movements": "اسٹاک ریکارڈ",
+  "settings": "ترتیبات",
+  "sections": "حصے",
+  "current_pharmacy": "موجودہ فارمیسی",
+  "loading_pharmacy": "فارمیسی لوڈ ہو رہی ہے...",
+  "no_branch": "کوئی شاخ متعین نہیں",
+  "avatar_initial": "م",
+  "user_fallback": "صارف",
+  "pharmacy_account": "فارمیسی اکاؤنٹ",
+  "logout": "لاگ آؤٹ",
+  "close_menu": "مینو بند کریں",
+  "collapse_menu": "مینو سکیڑیں",
+  "light_mode": "لائٹ موڈ",
+  "dark_mode": "ڈارک موڈ"
+}

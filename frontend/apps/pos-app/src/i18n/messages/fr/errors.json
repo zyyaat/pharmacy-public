@@ -1,0 +1,4 @@
+{
+  "network_unreachable": "Impossible de joindre le serveur du système. Vérifiez NEXT_PUBLIC_API_URL et les paramètres CORS du backend.",
+  "template_download_failed": "Impossible de télécharger le modèle d'importation"
+}

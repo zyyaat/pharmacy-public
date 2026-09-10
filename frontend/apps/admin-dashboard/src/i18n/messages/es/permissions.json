@@ -1,0 +1,33 @@
+{
+  "title": "Roles y permisos",
+  "subtitle": "Roles y permisos reales de la base de datos de la plataforma",
+  "loading": "Cargando permisos...",
+  "load_failed": "No se pudieron cargar los permisos",
+  "metric_permissions": "Permisos registrados",
+  "metric_roles": "Roles del sistema",
+  "metric_users": "Usuarios vinculados a roles",
+  "roles_title": "Roles",
+  "users_count": "{count} usuarios",
+  "permissions_fallback": "Permisos",
+  "role_permissions_count": "{count} permisos en este rol",
+  "search_placeholder": "Buscar permisos...",
+  "no_matches": "No hay permisos coincidentes",
+  "labels": {
+    "companies_view": "Ver empresas",
+    "companies_create": "Crear empresa",
+    "companies_edit": "Editar empresa",
+    "companies_delete": "Eliminar empresa",
+    "company_users_view": "Ver usuarios",
+    "company_users_create": "Crear usuario",
+    "company_users_edit": "Editar usuario",
+    "company_users_delete": "Eliminar usuario",
+    "company_users_manage_permissions": "Gestionar permisos",
+    "accounts_view": "Ver cuentas",
+    "accounts_create": "Crear cuenta",
+    "accounts_edit": "Editar cuenta",
+    "accounts_delete": "Eliminar cuenta",
+    "platform_settings": "Configuración de la plataforma",
+    "platform_management": "Gestión de la plataforma",
+    "platform_analytics": "Analíticas de la plataforma"
+  }
+}

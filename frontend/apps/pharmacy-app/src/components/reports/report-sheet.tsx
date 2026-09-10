@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/i18n/provider'
 import { formatArabicDateTime, formatPeriodRange } from '@/lib/reports'
 
 export interface ReportSheetProps {
@@ -40,6 +41,7 @@ export function ReportSheet({
   className,
   children,
 }: ReportSheetProps) {
+  const t = useT('reports')
   return (
     <section
       className={cn(
@@ -60,11 +62,11 @@ export function ReportSheet({
           <div className="leading-tight">
             <p className="text-base font-bold tracking-tight">Pharmacy OS</p>
             <p className="mt-0.5 text-sm font-medium text-foreground/80">
-              {pharmacy?.name || 'صيدلية'}
+              {pharmacy?.name || t('default_pharmacy_name')}
               {pharmacy?.city ? ` — ${pharmacy.city}` : ''}
             </p>
             {pharmacy?.branchName && (
-              <p className="mt-0.5 text-xs text-muted-foreground">فرع: {pharmacy.branchName}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t('branch_label', { name: pharmacy.branchName })}</p>
             )}
           </div>
         </div>
@@ -88,11 +90,12 @@ export function ReportSheet({
 
       {/* تذييل الهوية */}
       <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-muted/30 px-5 py-3 text-[11px] text-muted-foreground sm:px-6">
-        <span className="font-semibold">Pharmacy OS — نظام إدارة الصيدليات</span>
+        <span className="font-semibold">{t('brand_tagline')}</span>
         {generatedAt && (
           <span className="tabular-nums">
-            تم إنشاء التقرير{pharmacy?.userName ? ` بواسطة ${pharmacy.userName}` : ''} في{' '}
-            {formatArabicDateTime(generatedAt)}
+            {pharmacy?.userName
+              ? t('generated_note_by', { user: pharmacy.userName, datetime: formatArabicDateTime(generatedAt) })
+              : t('generated_note', { datetime: formatArabicDateTime(generatedAt) })}
           </span>
         )}
       </footer>

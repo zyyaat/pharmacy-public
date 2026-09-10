@@ -1,0 +1,33 @@
+{
+  "title": "Roller ve İzinler",
+  "subtitle": "Platform veritabanındaki gerçek roller ve izinler",
+  "loading": "İzinler yükleniyor...",
+  "load_failed": "İzinler yüklenemedi",
+  "metric_permissions": "Kayıtlı izin",
+  "metric_roles": "Sistem rolü",
+  "metric_users": "Rollere bağlı kullanıcılar",
+  "roles_title": "Roller",
+  "users_count": "{count} kullanıcı",
+  "permissions_fallback": "İzinler",
+  "role_permissions_count": "Bu rolde {count} izin",
+  "search_placeholder": "İzinlerde ara...",
+  "no_matches": "Eşleşen izin yok",
+  "labels": {
+    "companies_view": "Şirketleri görüntüle",
+    "companies_create": "Şirket oluştur",
+    "companies_edit": "Şirket düzenle",
+    "companies_delete": "Şirket sil",
+    "company_users_view": "Kullanıcıları görüntüle",
+    "company_users_create": "Kullanıcı oluştur",
+    "company_users_edit": "Kullanıcı düzenle",
+    "company_users_delete": "Kullanıcı sil",
+    "company_users_manage_permissions": "İzinleri yönet",
+    "accounts_view": "Hesapları görüntüle",
+    "accounts_create": "Hesap oluştur",
+    "accounts_edit": "Hesap düzenle",
+    "accounts_delete": "Hesap sil",
+    "platform_settings": "Platform ayarları",
+    "platform_management": "Platform yönetimi",
+    "platform_analytics": "Platform analitiği"
+  }
+}

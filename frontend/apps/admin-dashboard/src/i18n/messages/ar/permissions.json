@@ -1,0 +1,33 @@
+{
+  "title": "الأدوار والصلاحيات",
+  "subtitle": "بيانات الأدوار والصلاحيات الفعلية من قاعدة بيانات المنصة",
+  "loading": "جاري تحميل الصلاحيات...",
+  "load_failed": "تعذر تحميل الصلاحيات",
+  "metric_permissions": "صلاحية مسجلة",
+  "metric_roles": "دور نظامي",
+  "metric_users": "مستخدمون مرتبطون بأدوار",
+  "roles_title": "الأدوار",
+  "users_count": "{count} مستخدم",
+  "permissions_fallback": "الصلاحيات",
+  "role_permissions_count": "{count} صلاحية لهذا الدور",
+  "search_placeholder": "ابحث في الصلاحيات...",
+  "no_matches": "لا توجد صلاحيات مطابقة",
+  "labels": {
+    "companies_view": "عرض الشركات",
+    "companies_create": "إنشاء شركة",
+    "companies_edit": "تعديل شركة",
+    "companies_delete": "حذف شركة",
+    "company_users_view": "عرض المستخدمين",
+    "company_users_create": "إنشاء مستخدم",
+    "company_users_edit": "تعديل مستخدم",
+    "company_users_delete": "حذف مستخدم",
+    "company_users_manage_permissions": "إدارة الصلاحيات",
+    "accounts_view": "عرض الحسابات",
+    "accounts_create": "إنشاء حساب",
+    "accounts_edit": "تعديل حساب",
+    "accounts_delete": "حذف حساب",
+    "platform_settings": "إعدادات المنصة",
+    "platform_management": "إدارة المنصة",
+    "platform_analytics": "تحليلات المنصة"
+  }
+}

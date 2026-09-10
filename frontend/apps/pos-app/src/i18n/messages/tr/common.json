@@ -1,0 +1,15 @@
+{
+  "meta_title": "Pharmacy POS | Satış Noktası",
+  "meta_description": "Eczaneler için hızlı satış noktası — satış, fatura ve fiş yazdırma",
+  "language_change_failed": "Dil değiştirilemedi. Lütfen tekrar deneyin.",
+  "currency_short": "EGP",
+  "loading": "Yükleniyor...",
+  "select_placeholder": "Seçin…",
+  "no_options": "Seçenek yok",
+  "splash_loading": "Yükleniyor",
+  "app_logo_alt": "Uygulama logosu",
+  "no_access_title": "Bu sayfa hesabınıza açık değil",
+  "no_access_body": "Eczane sahibi bu bölüme erişim izninizi vermedi. İşinizde bu bölüme ihtiyacınız varsa, size uygun izni vermesi için eczane sahibiyle iletişime geçin.",
+  "back_home": "Ana sayfaya dön",
+  "context_load_failed": "Eczane verileri yüklenemedi"
+}

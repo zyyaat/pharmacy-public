@@ -1,0 +1,18 @@
+{
+  "dashboard": "Tableau de bord",
+  "companies": "Sociétés",
+  "users": "Utilisateurs",
+  "permissions": "Permissions",
+  "accounts": "Comptes",
+  "settings": "Paramètres",
+  "brand_home_aria": "Pharmacy OS - Accueil",
+  "avatar_fallback": "U",
+  "default_user": "Administrateur système",
+  "logout": "Se déconnecter",
+  "search_placeholder": "Rechercher des sociétés, utilisateurs...",
+  "change_language": "Changer la langue",
+  "light_mode": "Mode clair",
+  "dark_mode": "Mode sombre",
+  "loading_aria": "Chargement",
+  "logo_alt": "Logo de l'application"
+}

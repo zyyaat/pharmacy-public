@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { pharmacyApi, type PharmacyDashboardStats } from '@/lib/api'
+import { runtimeTranslator } from '@/i18n/runtime'
 
 interface PharmacyDashboardState {
   stats: PharmacyDashboardStats | null
@@ -30,7 +31,7 @@ export function usePharmacyDashboard(): PharmacyDashboardState {
     } catch (err) {
       setStats(null)
       setActivity([])
-      setError(err instanceof Error ? err.message : 'تعذر تحميل بيانات لوحة التحكم')
+      setError(err instanceof Error ? err.message : runtimeTranslator('dashboard')('error_load'))
     } finally {
       setLoading(false)
     }

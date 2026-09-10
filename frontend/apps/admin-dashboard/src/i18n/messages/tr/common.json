@@ -1,0 +1,9 @@
+{
+  "meta_title": "Pharmacy OS | Yönetim Paneli",
+  "meta_description": "Bütünleşik eczane yönetimi - ana şirket yönetim paneli",
+  "language_change_failed": "Dil değiştirilemedi. Lütfen tekrar deneyin.",
+  "loading": "Yükleniyor...",
+  "select_placeholder": "Seçin…",
+  "select_no_options": "Seçenek yok",
+  "context_load_failed": "Eczane verileri yüklenemedi"
+}

@@ -273,3 +273,8 @@
     margin: 0;
   }
 }
+
+/* Task 48 — الأيقونات الاتجاهية (أسهم رجوع/تقدم المفترضة RTL) تنعكس تلقائيًا في اللغات LTR */
+html[dir='ltr'] .rtl-flip {
+  transform: scaleX(-1);
+}

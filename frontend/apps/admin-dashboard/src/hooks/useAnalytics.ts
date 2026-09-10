@@ -1,6 +1,7 @@
 // Dashboard Analytics Hook - Real Implementation
 import { useState, useEffect, useCallback } from 'react'
 import { dashboardApi } from '@/lib/api'
+import { runtimeTranslator } from '@/i18n/runtime'
 import type { DashboardStats } from '@/types'
 
 interface UseAnalyticsReturn {
@@ -24,7 +25,7 @@ export function useAnalytics(): UseAnalyticsReturn {
       setStats(data)
     } catch (err) {
       setStats(null)
-      setError(err instanceof Error ? err.message : 'تعذر تحميل إحصاءات لوحة التحكم')
+      setError(err instanceof Error ? err.message : runtimeTranslator('errors')('dashboard_stats_failed'))
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/i18n/provider';
 import './brand-splash.css';
 
 export type BrandSplashVariant = 'wiggle' | 'pulse';
@@ -53,6 +54,7 @@ export function BrandSplash({
   variant = 'wiggle',
   inline = false,
 }: BrandSplashProps) {
+  const t = useT('common');
   const [render, setRender] = useState(show);
   const [exiting, setExiting] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -87,7 +89,7 @@ export function BrandSplash({
     .join(' ');
 
   return (
-    <div className={classes} role="status" aria-live="polite" aria-label="جارٍ التحميل">
+    <div className={classes} role="status" aria-live="polite" aria-label={t('splash_loading')}>
       <span className="bs-orb bs-orb-1" />
       <span className="bs-orb bs-orb-2" />
       <span className="bs-orb bs-orb-3" />
@@ -98,7 +100,7 @@ export function BrandSplash({
         <span className="bs-ring bs-ring-2" />
         <div className="bs-icon">
           {logoSrc ? (
-            <img src={logoSrc} alt={title || 'شعار التطبيق'} />
+            <img src={logoSrc} alt={title || t('app_logo_alt')} />
           ) : (
             <PharmacyOSMark />
           )}

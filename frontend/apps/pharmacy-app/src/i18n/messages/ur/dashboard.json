@@ -1,0 +1,21 @@
+{
+  "title": "ڈیش بورڈ",
+  "subtitle": "ڈیٹا بیس سے فارمیسی کا موجودہ ڈیٹا",
+  "add_product": "پروڈکٹ شامل کریں",
+  "loading": "فارمیسی کا ڈیٹا لوڈ ہو رہا ہے...",
+  "error_load": "ڈیش بورڈ کا ڈیٹا لوڈ نہیں ہو سکا",
+  "total_products": "کل پروڈکٹس",
+  "low_stock_products": "کم اسٹاک پروڈکٹس",
+  "sales_units_today": "آج فروخت شدہ یونٹس",
+  "attendance_today": "آج کی حاضری",
+  "inventory_status": "اسٹاک کی صورت حال",
+  "inventory_status_desc": "وہ اشیاء جنہوں نے دوبارہ آرڈر کی حد تک پہنچ گئیں",
+  "no_low_stock": "کوئی کم اسٹاک آئٹم نہیں",
+  "reorder_note": "آرڈر کی حد: {min} — الگ پٹیاں شمار نہیں ہوتیں",
+  "quick_actions": "فوری اقدامات",
+  "no_quick_actions": "آپ کے اکاؤنٹ کے لیے ابھی کوئی اقدام دستیاب نہیں",
+  "nav_inventory": "اسٹاک",
+  "nav_employees": "عملہ",
+  "nav_attendance": "حاضری",
+  "nav_reports": "رپورٹس"
+}

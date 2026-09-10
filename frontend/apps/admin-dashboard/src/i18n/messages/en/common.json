@@ -1,0 +1,9 @@
+{
+  "meta_title": "Pharmacy OS | Admin Dashboard",
+  "meta_description": "Integrated pharmacy management - holding company dashboard",
+  "language_change_failed": "Could not change the language. Please try again.",
+  "loading": "Loading...",
+  "select_placeholder": "Select…",
+  "select_no_options": "No options",
+  "context_load_failed": "Could not load pharmacy data"
+}

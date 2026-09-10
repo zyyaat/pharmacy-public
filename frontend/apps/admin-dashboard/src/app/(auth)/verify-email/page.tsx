@@ -7,13 +7,15 @@ import { ApiError, authApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import BrandSplash from "@/components/brand-splash";
 import { getSafeRedirectPath } from "@/lib/navigation";
+import { useT } from "@/i18n/provider";
 
 export default function VerifyEmailPage() {
+  const t = useT("auth");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [message, setMessage] = useState("أدخل رمز التحقق المكوّن من 6 أرقام");
+  const [message, setMessage] = useState(t("code_hint"));
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -38,8 +40,8 @@ export default function VerifyEmailPage() {
         setError("");
         setMessage(
           response.sent === false
-            ? "يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني."
-            : "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني.",
+            ? t("resent_existing")
+            : t("resent_new_email"),
         );
       })
       .catch((resendError) => {
@@ -47,7 +49,7 @@ export default function VerifyEmailPage() {
         setError(
           resendError instanceof ApiError
             ? resendError.message
-            : "تعذر إرسال رمز التحقق الآن",
+            : t("resend_failed"),
         );
       })
       .finally(() => {
@@ -56,25 +58,25 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user]);
+  }, [authLoading, user, t]);
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email || !/^\d{6}$/.test(code)) {
-      setError("أدخل البريد الإلكتروني ورمز التحقق المكوّن من 6 أرقام");
+      setError(t("code_hint_with_email"));
       return;
     }
     setVerifying(true);
     setError("");
     try {
       await authApi.verifyEmail(email, code);
-      setMessage("تم تأكيد البريد بنجاح. يمكنك تسجيل الدخول الآن.");
+      setMessage(t("verify_success"));
       setCode("");
     } catch (verificationError) {
       setError(
         verificationError instanceof ApiError
           ? verificationError.message
-          : "تعذر تأكيد البريد الإلكتروني",
+          : t("verify_failed"),
       );
     } finally {
       setVerifying(false);
@@ -89,14 +91,14 @@ export default function VerifyEmailPage() {
       const response = await authApi.resendVerification(email);
       setMessage(
         response.sent === false
-          ? "يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني."
-          : "تم إرسال رمز تحقق جديد. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.",
+          ? t("resent_existing")
+          : t("resent_new_inbox"),
       );
     } catch (resendError) {
       setError(
         resendError instanceof ApiError
           ? resendError.message
-          : "تعذر إرسال رمز التحقق الآن",
+          : t("resend_failed"),
       );
     } finally {
       setSending(false);
@@ -108,22 +110,22 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8" dir="rtl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
       <section className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-12">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-black text-primary">
           ✓
         </div>
         <p className="mt-6 text-sm font-medium text-primary">Pharmacy OS</p>
-        <h1 className="mt-3 text-2xl font-bold leading-relaxed">تأكيد البريد الإلكتروني</h1>
+        <h1 className="mt-3 text-2xl font-bold leading-relaxed">{t("verify_title")}</h1>
         <p className={`mt-3 text-sm leading-7 ${error ? "text-destructive" : "text-muted-foreground"}`}>
           {error || message}
         </p>
 
-        <form className="mt-8 space-y-4 text-right" onSubmit={verifyEmail}>
+        <form className="mt-8 space-y-4 text-start" onSubmit={verifyEmail}>
           <label className="block">
-            <span className="mb-2 block text-sm font-medium">البريد الإلكتروني</span>
+            <span className="mb-2 block text-sm font-medium">{t("email")}</span>
             <input
-              className="h-12 w-full rounded-xl border border-input bg-background px-4 text-left text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="h-12 w-full rounded-xl border border-input bg-background px-4 text-start text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               dir="ltr"
               type="email"
               required
@@ -132,7 +134,7 @@ export default function VerifyEmailPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-medium">رمز التحقق</span>
+            <span className="mb-2 block text-sm font-medium">{t("code_label")}</span>
             <input
               className="h-14 w-full rounded-xl border border-input bg-background px-4 text-center text-2xl font-bold tracking-[0.6em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               dir="ltr"
@@ -151,7 +153,7 @@ export default function VerifyEmailPage() {
             type="submit"
             disabled={verifying}
           >
-            {verifying ? "جاري التأكيد..." : "تأكيد البريد"}
+            {verifying ? t("confirming") : t("confirm_email")}
           </button>
         </form>
 
@@ -161,11 +163,11 @@ export default function VerifyEmailPage() {
           onClick={resendVerification}
           disabled={!email || sending}
         >
-          {sending ? "جاري إرسال الرمز..." : "إعادة إرسال رمز التحقق"}
+          {sending ? t("sending_code") : t("resend_code")}
         </button>
 
         <Link className="mt-8 inline-flex h-11 items-center rounded-xl border border-border px-6 text-sm font-semibold transition hover:bg-muted" href="/login">
-          العودة إلى تسجيل الدخول
+          {t("back_to_login")}
         </Link>
       </section>
     </main>

@@ -1,0 +1,40 @@
+{
+  "title": "Gestion des sociétés",
+  "subtitle": "Gérez toutes les sociétés enregistrées sur la plateforme",
+  "add_company": "Ajouter une société",
+  "stat_total": "Total des sociétés",
+  "stat_active": "Sociétés actives",
+  "stat_trial": "En période d'essai",
+  "stat_suspended": "Sociétés suspendues",
+  "search_placeholder": "Rechercher par nom ou e-mail...",
+  "filter_status_aria": "Filtrer par statut",
+  "filter_all": "Tous les statuts",
+  "loading": "Chargement des sociétés...",
+  "load_failed": "Impossible de charger les sociétés",
+  "th_company": "Société",
+  "th_status": "Statut",
+  "th_plan": "Formule",
+  "th_users": "Utilisateurs",
+  "th_registered": "Date d'enregistrement",
+  "th_actions": "Actions",
+  "action_view": "Voir",
+  "action_edit": "Modifier",
+  "action_delete": "Supprimer",
+  "empty_title": "Aucune société",
+  "empty_desc": "Aucune société ne correspond à vos critères de recherche",
+  "clear_filters": "Réinitialiser les filtres",
+  "pagination": "Affichage de {shown} sur {total} sociétés",
+  "status": {
+    "active": "Active",
+    "suspended": "Suspendue",
+    "trial": "Essai",
+    "cancelled": "Annulée"
+  },
+  "plans": {
+    "free": "Gratuit",
+    "starter": "Starter",
+    "professional": "Professionnel",
+    "enterprise": "Entreprise",
+    "custom": "Personnalisé"
+  }
+}

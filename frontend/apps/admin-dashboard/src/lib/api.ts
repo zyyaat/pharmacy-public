@@ -119,6 +119,14 @@ export const authApi = {
     return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
   },
 
+  /** Task 48 — الحفظ الدائم للغة الواجهة على الحساب (نقطة نهاية platform realm). */
+  async setMyLocale(locale: string) {
+    return apiFetch<{ locale: string }>(`${AUTH_BASE_PATH}/locale`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locale }),
+    })
+  },
+
   async resendVerification(email: string) {
     return apiFetch<{ message: string; sent?: boolean }>('/auth/resend-verification', {
       method: 'POST',
@@ -150,6 +158,7 @@ function normalizeCompanyUser(user: unknown): CompanyUser {
   const raw = (user || {}) as Record<string, unknown>
   return {
     ...(raw as Partial<CompanyUser>),
+    locale: raw.locale ? String(raw.locale) : undefined,
     id: String(raw.id || ''),
     email: String(raw.email || ''),
     displayName: String(raw.displayName || raw.display_name || `${raw.first_name || ''} ${raw.last_name || ''}`.trim() || raw.email),

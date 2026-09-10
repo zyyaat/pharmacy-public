@@ -1,0 +1,16 @@
+{
+  "title": "الحسابات والصيدليات",
+  "subtitle": "عرض الحسابات التجارية والصيدليات والفروع على مستوى المنصة",
+  "stat_total": "إجمالي الحسابات",
+  "stat_pharmacies": "الصيدليات في النتائج",
+  "stat_branches": "الفروع في النتائج",
+  "list_title": "الحسابات المسجلة",
+  "search_placeholder": "ابحث باسم الحساب أو الشركة أو البريد...",
+  "loading": "جاري تحميل الحسابات...",
+  "load_failed": "تعذر تحميل الحسابات",
+  "no_accounts": "لا توجد حسابات مسجلة",
+  "status_active": "نشط",
+  "status_suspended": "موقوف",
+  "status_inactive": "غير نشط",
+  "pharmacies_branches": "{pharmacies} صيدلية · {branches} فرع"
+}

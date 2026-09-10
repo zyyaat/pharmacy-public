@@ -1,0 +1,33 @@
+{
+  "title": "角色与权限",
+  "subtitle": "来自平台数据库的实际角色与权限",
+  "loading": "正在加载权限...",
+  "load_failed": "无法加载权限",
+  "metric_permissions": "已注册权限",
+  "metric_roles": "系统角色",
+  "metric_users": "关联角色的用户",
+  "roles_title": "角色",
+  "users_count": "{count} 位用户",
+  "permissions_fallback": "权限",
+  "role_permissions_count": "该角色包含 {count} 项权限",
+  "search_placeholder": "搜索权限...",
+  "no_matches": "没有匹配的权限",
+  "labels": {
+    "companies_view": "查看公司",
+    "companies_create": "创建公司",
+    "companies_edit": "编辑公司",
+    "companies_delete": "删除公司",
+    "company_users_view": "查看用户",
+    "company_users_create": "创建用户",
+    "company_users_edit": "编辑用户",
+    "company_users_delete": "删除用户",
+    "company_users_manage_permissions": "管理权限",
+    "accounts_view": "查看账户",
+    "accounts_create": "创建账户",
+    "accounts_edit": "编辑账户",
+    "accounts_delete": "删除账户",
+    "platform_settings": "平台设置",
+    "platform_management": "平台管理",
+    "platform_analytics": "平台分析"
+  }
+}

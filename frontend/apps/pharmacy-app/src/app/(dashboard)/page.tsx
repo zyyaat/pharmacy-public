@@ -3,32 +3,33 @@
 import Link from 'next/link'
 import { AlertTriangle, BarChart3, CalendarCheck, Package, Pill, Plus, TrendingUp, Users } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { useT } from '@/i18n/provider'
+import { fmtNumber } from '@/i18n/format'
 import { usePharmacyDashboard } from '@/hooks/usePharmacyDashboard'
 import { availabilityAr, boxWordAr } from '@/lib/product'
 import { Can, RequirePermission, useAccess } from '@/components/permissions/gate'
 import { firstAllowedPage } from '@/lib/permissions'
 
-const formatNumber = (value: number) => new Intl.NumberFormat('ar-EG-u-nu-latn').format(value)
-
 export default function DashboardPage() {
+  const t = useT('dashboard')
   const { stats, loading, error } = usePharmacyDashboard()
   const { ready, allowedAny } = useAccess()
 
   const cards = stats
     ? [
-        { label: 'إجمالي المنتجات', value: formatNumber(stats.totalProducts), icon: Package, tone: 'primary' },
-        { label: 'منتجات منخفضة المخزون', value: formatNumber(stats.lowStockCount), icon: AlertTriangle, tone: 'warning' },
-        { label: 'حركات البيع اليوم', value: formatNumber(stats.salesUnitsToday), icon: TrendingUp, tone: 'success' },
-        { label: 'الحضور اليوم', value: `${formatNumber(stats.activeToday)} / ${formatNumber(stats.activeEmployees)}`, icon: Users, tone: 'info' },
+        { label: t('total_products'), value: fmtNumber(stats.totalProducts), icon: Package, tone: 'primary' },
+        { label: t('low_stock_products'), value: fmtNumber(stats.lowStockCount), icon: AlertTriangle, tone: 'warning' },
+        { label: t('sales_units_today'), value: fmtNumber(stats.salesUnitsToday), icon: TrendingUp, tone: 'success' },
+        { label: t('attendance_today'), value: `${fmtNumber(stats.activeToday)} / ${fmtNumber(stats.activeEmployees)}`, icon: Users, tone: 'info' },
       ]
     : []
 
   // الإجراءات السريعة تختفي إن لم تكن الصفحة نفسها متاحة للموظف
   const quickActions = [
-    { label: 'المخزون', href: '/inventory', icon: Package, anyOf: ['inventory.view'] },
-    { label: 'الموظفون', href: '/employees', icon: Users, anyOf: ['employees.view'] },
-    { label: 'الحضور', href: '/attendance', icon: CalendarCheck, anyOf: ['attendance.view'] },
-    { label: 'التقارير', href: '/reports', icon: BarChart3, anyOf: ['reports.sales', 'reports.inventory', 'reports.movements', 'reports.financial', 'reports.employees'] },
+    { label: t('nav_inventory'), href: '/inventory', icon: Package, anyOf: ['inventory.view'] },
+    { label: t('nav_employees'), href: '/employees', icon: Users, anyOf: ['employees.view'] },
+    { label: t('nav_attendance'), href: '/attendance', icon: CalendarCheck, anyOf: ['attendance.view'] },
+    { label: t('nav_reports'), href: '/reports', icon: BarChart3, anyOf: ['reports.sales', 'reports.inventory', 'reports.movements', 'reports.financial', 'reports.employees'] },
   ].filter((action) => (ready ? allowedAny(action.anyOf) : false))
 
   return (
@@ -36,17 +37,17 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-[1500px] space-y-6 animate-fade-in">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold">لوحة التحكم</h1>
-          <p className="mt-2 text-sm text-muted-foreground">بيانات الصيدلية الحالية من قاعدة البيانات</p>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Can anyOf={['inventory.manage_products']}>
           <Button asChild variant="gradient">
-            <Link href="/inventory"><Plus className="h-4 w-4" />إضافة منتج</Link>
+            <Link href="/inventory"><Plus className="h-4 w-4" />{t('add_product')}</Link>
           </Button>
         </Can>
       </div>
 
-      {loading && <Card><CardContent className="p-8 text-center text-muted-foreground">جاري تحميل بيانات الصيدلية...</CardContent></Card>}
+      {loading && <Card><CardContent className="p-8 text-center text-muted-foreground">{t('loading')}</CardContent></Card>}
       {error && !loading && <Card><CardContent className="p-8 text-center text-destructive">{error}</CardContent></Card>}
 
       {!loading && !error && stats && (
@@ -71,9 +72,9 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.55fr_1fr]">
             <Card>
-              <CardHeader><CardTitle className="text-lg">حالة المخزون</CardTitle><p className="text-xs text-muted-foreground">الأصناف التي وصلت إلى حد إعادة الطلب</p></CardHeader>
+              <CardHeader><CardTitle className="text-lg">{t('inventory_status')}</CardTitle><p className="text-xs text-muted-foreground">{t('inventory_status_desc')}</p></CardHeader>
               <CardContent className="space-y-4">
-                {stats.lowStockItems.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">لا توجد أصناف منخفضة المخزون</p>}
+                {stats.lowStockItems.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{t('no_low_stock')}</p>}
                 {stats.lowStockItems.map((product) => (
                   <div key={`${product.name}-${product.quantity}`} className="rounded-xl border border-border/80 p-3.5">
                     <div className="flex items-center gap-3">
@@ -81,13 +82,13 @@ export default function DashboardPage() {
                       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{product.name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{product.generic_name}</p></div>
                       <Badge variant="warning">{availabilityAr(product.quantity, product.strips)}</Badge>
                     </div>
-                    <p className="mt-2 text-[11px] text-muted-foreground">حد الطلب: {boxWordAr(product.min_stock_level)} — الشرائط المفردة لا تُحسب</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{t('reorder_note', { min: boxWordAr(product.min_stock_level) })}</p>
                   </div>
                 ))}
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-lg">إجراءات سريعة</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-lg">{t('quick_actions')}</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
                 {quickActions.map((action) => (
                   <Link key={action.label} href={action.href} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-4 text-center hover:border-primary/30">
@@ -95,7 +96,7 @@ export default function DashboardPage() {
                   </Link>
                 ))}
                 {quickActions.length === 0 && (
-                  <p className="col-span-2 py-6 text-center text-sm text-muted-foreground">لا إجراءات متاحة لحسابك حاليًا</p>
+                  <p className="col-span-2 py-6 text-center text-sm text-muted-foreground">{t('no_quick_actions')}</p>
                 )}
               </CardContent>
             </Card>

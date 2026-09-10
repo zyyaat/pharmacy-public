@@ -1,0 +1,15 @@
+{
+  "meta_title": "Pharmacy POS | Point of Sale",
+  "meta_description": "Fast pharmacy point of sale — sales, invoices and receipt printing",
+  "language_change_failed": "Could not change the language. Please try again.",
+  "currency_short": "EGP",
+  "loading": "Loading...",
+  "select_placeholder": "Select…",
+  "no_options": "No options",
+  "splash_loading": "Loading",
+  "app_logo_alt": "Application logo",
+  "no_access_title": "This page is not available for your account",
+  "no_access_body": "The pharmacy owner has not granted you access to this section. If you need it for your work, contact them to grant you the appropriate permission.",
+  "back_home": "Back to home",
+  "context_load_failed": "Could not load pharmacy data"
+}

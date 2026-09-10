@@ -1,3 +1,7 @@
+// Task 48 — وحدات عميل فقط: الترجمة وقت الاستدعاء عبر runtime + تنسيق الأرقام اللاتيني.
+import { runtimeTranslator } from '@/i18n/runtime'
+import { fmtNumber } from '@/i18n/format'
+
 /**
  * عرض تركيز الدواء بجانب اسمه (كاربيمازول 200mg) بذكاء:
  * لا يُلحق التركيز إذا كان الاسم المسجّل أصلاً يحمل جرعة
@@ -20,16 +24,17 @@ export function extraStrengthLabel(name: string, strength?: string | null): stri
  * بـ mg/mcg/g، السوائل بالمل، المحاليل والحقن بـ mg/ml، الإنزولين والفيتامينات
  * بوحدات دولية IU، والكريمات والنقط والمحاليل الوريدية بنسبة مئوية %.
  * «أخرى» لإبقاء التركيزات الخاصة نصاً كاملاً (مثل 120mg/5ml أو mEq).
+ * التسميات تُترجم في المكوّن عبر t(unit.key) — هنا مفاتيح محايدة فقط.
  */
 export const strengthUnits = [
-  { value: 'mg', label: 'مليجرام (mg)' },
-  { value: 'mcg', label: 'ميكروجرام (mcg)' },
-  { value: 'g', label: 'جرام (g)' },
-  { value: 'ml', label: 'ملليتر (ml)' },
-  { value: 'mg/ml', label: 'مليجرام لكل مل (mg/ml)' },
-  { value: 'IU', label: 'وحدة دولية (IU)' },
-  { value: '%', label: 'نسبة مئوية (%)' },
-  { value: 'other', label: 'أخرى — يُكتب التركيز كاملاً' },
+  { value: 'mg', key: 'unit_mg' },
+  { value: 'mcg', key: 'unit_mcg' },
+  { value: 'g', key: 'unit_g' },
+  { value: 'ml', key: 'unit_ml' },
+  { value: 'mg/ml', key: 'unit_mg_ml' },
+  { value: 'IU', key: 'unit_iu' },
+  { value: '%', key: 'unit_percent' },
+  { value: 'other', key: 'unit_other_full' },
 ] as const
 
 /** ترجمة صيغ الوحدة المكتوبة (MG / ملجم / µg / iu …) إلى قيمة القائمة */
@@ -75,20 +80,23 @@ export function composeStrength(value: string, unit: string): string {
  * صياغة عدد العلب بالعربية للإشعارات الواضحة:
  * 1 → «علبة واحدة» · 2 → «علبتين» · 3-10 → «N علب» · غير ذلك → «N علبة».
  * حد الطلب يُحسب بالعلبة الكاملة دائماً — الشرائط المفردة لا تُحتسب.
+ * الترجمة وقت الاستدعاء عبر runtimeTranslator (وحدات عميل فقط).
  */
 export function boxWordAr(n: number): string {
-  if (n === 1) return 'علبة واحدة'
-  if (n === 2) return 'علبتين'
-  if (n >= 3 && n <= 10) return `${n} علب`
-  return `${n} علبة`
+  const t = runtimeTranslator('inventory')
+  if (n === 1) return t('box_word_one')
+  if (n === 2) return t('box_word_two')
+  if (n >= 3 && n <= 10) return t('box_word_many', { count: fmtNumber(n) })
+  return t('box_word_other', { count: fmtNumber(n) })
 }
 
-/** صياغة عدد الشرائط بالعربية: 1 → «شريط واحد» · 2 → «شريطين» · 3-10 → «N شرائط» */
+/** صياغة عدد الشرائط: 1 → «شريط واحد» · 2 → «شريطين» · 3-10 → «N شرائط» */
 export function stripWordAr(n: number): string {
-  if (n === 1) return 'شريط واحد'
-  if (n === 2) return 'شريطين'
-  if (n >= 3 && n <= 10) return `${n} شرائط`
-  return `${n} شريط`
+  const t = runtimeTranslator('inventory')
+  if (n === 1) return t('strip_word_one')
+  if (n === 2) return t('strip_word_two')
+  if (n >= 3 && n <= 10) return t('strip_word_many', { count: fmtNumber(n) })
+  return t('strip_word_other', { count: fmtNumber(n) })
 }
 
 /**
@@ -96,7 +104,10 @@ export function stripWordAr(n: number): string {
  * «علبة واحدة» أو «شريطين» — الشرائط تُعرض للعلم فقط ولا تدخل في حد الطلب.
  */
 export function availabilityAr(fullBoxes: number, strips: number): string {
-  if (fullBoxes > 0 && strips > 0) return `${fullBoxes} علبة و${stripWordAr(strips)}`
+  if (fullBoxes > 0 && strips > 0) {
+    const t = runtimeTranslator('inventory')
+    return t('availability_box_and_strip', { boxes: fmtNumber(fullBoxes), strips: stripWordAr(strips) })
+  }
   if (fullBoxes > 0) return boxWordAr(fullBoxes)
   return stripWordAr(strips)
 }

@@ -3,6 +3,9 @@
 import { formatPiastres } from '@/lib/money'
 import { extraStrengthLabel } from '@/lib/product'
 import type { ReceiptSettings, POSSaleDetail } from '@/lib/api'
+import { useT } from '@/i18n/provider'
+import { fmtDateTime } from '@/i18n/format'
+import type { Translator } from '@/i18n/translator'
 
 export interface ReceiptPharmacy {
   name: string
@@ -35,10 +38,10 @@ export interface ReceiptData {
 }
 
 /** كمية مقروءة للعميل: بيع بالعلبة يُقسّم على وحدات العلبة، والشريط كما هو */
-function displayQuantity(item: ReceiptData['items'][number]) {
-  if (item.sale_unit === 'strip') return `${trim(item.quantity_base)} شريط`
+function displayQuantity(item: ReceiptData['items'][number], t: Translator) {
+  if (item.sale_unit === 'strip') return t('qtyStrip', { count: trim(item.quantity_base) })
   const boxes = item.units_per_box > 0 ? item.quantity_base / item.units_per_box : item.quantity_base
-  return `${trim(boxes)} علبة`
+  return t('qtyBox', { count: trim(boxes) })
 }
 
 function trim(value: number) {
@@ -46,7 +49,7 @@ function trim(value: number) {
 }
 
 function receiptDate(iso: string) {
-  return new Date(iso).toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'short', timeStyle: 'short' })
+  return fmtDateTime(iso, { dateStyle: 'short', timeStyle: 'short' })
 }
 
 /**
@@ -77,7 +80,7 @@ export default function ReceiptTemplate({
   cashierName,
   settings,
   showCopyLabel = false,
-  copyLabel = 'نسخة العميل',
+  copyLabel,
 }: {
   data: ReceiptData
   pharmacy: ReceiptPharmacy
@@ -86,19 +89,21 @@ export default function ReceiptTemplate({
   showCopyLabel?: boolean
   copyLabel?: string
 }) {
+  const t = useT('pos')
   const compact = settings.paper_width_mm < 70 // 58mm: الأعمدة تضيق فتتكدد السطور
   const itemsCount = data.items.length
+  const resolvedCopyLabel = copyLabel ?? t('copyCustomer')
 
   return (
     <div className="bg-white px-[3mm] py-[4mm] text-[#111]" style={{ fontSize: compact ? '11px' : '12.5px', lineHeight: 1.55 }}>
       {showCopyLabel && (
-        <p className="mb-2 text-center font-bold tracking-wide text-neutral-600">— {copyLabel} —</p>
+        <p className="mb-2 text-center font-bold tracking-wide text-neutral-600">— {resolvedCopyLabel} —</p>
       )}
 
       {/* الرأس — الاسم المركب من البادئة والاسم المسجّل */}
-      <p className="text-center font-extrabold" style={{ fontSize: compact ? '15px' : '17px' }}>{composePharmacyDisplayName(settings.name_prefix, pharmacy.name) || 'صيدلية'}</p>
+      <p className="text-center font-extrabold" style={{ fontSize: compact ? '15px' : '17px' }}>{composePharmacyDisplayName(settings.name_prefix, pharmacy.name) || t('fallbackPharmacyName')}</p>
       {settings.show_address && (pharmacy.address || pharmacy.city) && (
-        <p className="mt-0.5 text-center text-neutral-700">{[pharmacy.address, pharmacy.city].filter(Boolean).join('، ')}</p>
+        <p className="mt-0.5 text-center text-neutral-700">{[pharmacy.address, pharmacy.city].filter(Boolean).join(t('addressCitySeparator'))}</p>
       )}
       {settings.show_phone && pharmacy.phone && (
         <p className="text-center text-neutral-700" dir="ltr">{pharmacy.phone}</p>
@@ -107,9 +112,9 @@ export default function ReceiptTemplate({
       <Dashed />
 
       {/* بيانات الفاتورة */}
-      <Row label="فاتورة رقم" value={`INV-${data.sale.invoice_number}`} />
-      <Row label="التاريخ" value={<span suppressHydrationWarning>{receiptDate(data.sale.created_at)}</span>} />
-      {settings.show_cashier && cashierName && <Row label="الكاشير" value={cashierName} />}
+      <Row label={t('invoiceNo')} value={`INV-${data.sale.invoice_number}`} />
+      <Row label={t('date')} value={<span suppressHydrationWarning>{receiptDate(data.sale.created_at)}</span>} />
+      {settings.show_cashier && cashierName && <Row label={t('cashier')} value={cashierName} />}
 
       <Dashed />
 
@@ -124,7 +129,7 @@ export default function ReceiptTemplate({
                 {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
               </p>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-neutral-700">{displayQuantity(item)} × {formatPiastres(item.unit_price_piastres)}</span>
+                <span className="text-neutral-700">{displayQuantity(item, t)} × {formatPiastres(item.unit_price_piastres)}</span>
                 <span className="font-bold">{formatPiastres(item.amount_piastres)}</span>
               </div>
             </div>
@@ -134,8 +139,8 @@ export default function ReceiptTemplate({
                 {item.product_name}
                 {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
               </span>
-              <span className="shrink-0 whitespace-nowrap text-neutral-700">{displayQuantity(item)}</span>
-              <span className="w-[22%] shrink-0 whitespace-nowrap text-left font-bold">{formatPiastres(item.amount_piastres)}</span>
+              <span className="shrink-0 whitespace-nowrap text-neutral-700">{displayQuantity(item, t)}</span>
+              <span className="w-[22%] shrink-0 whitespace-nowrap text-start font-bold">{formatPiastres(item.amount_piastres)}</span>
             </div>
           )
         })}
@@ -146,12 +151,12 @@ export default function ReceiptTemplate({
       {/* الخصم ثم الإجمالي — الإجمالي هو الصافي بعد الخصم دائماً */}
       {!!data.sale.discount_amount_piastres && data.sale.discount_amount_piastres > 0 && (
         <div className="flex items-baseline justify-between">
-          <span className="font-semibold text-neutral-700">الخصم</span>
+          <span className="font-semibold text-neutral-700">{t('discount')}</span>
           <span className="font-bold">-{formatPiastres(data.sale.discount_amount_piastres)}</span>
         </div>
       )}
       <div className="flex items-baseline justify-between">
-        <span className="font-bold">الإجمالي ({itemsCount === 1 ? 'صنف واحد' : `${itemsCount} أصناف`})</span>
+        <span className="font-bold">{t('totalWithItems', { items: itemsCount === 1 ? t('totalItemsOne') : t('totalItemsMany', { count: itemsCount }) })}</span>
         <span className="font-extrabold" style={{ fontSize: compact ? '15px' : '16.5px' }}>{formatPiastres(data.sale.total_amount_piastres)}</span>
       </div>
 
@@ -159,7 +164,7 @@ export default function ReceiptTemplate({
 
       {/* فاتورة آجل — تُقيد على حساب العميل في صفحة حسابات العملاء */}
       {data.sale.payment_type === 'credit' && (
-        <p className="mt-1 text-center font-semibold">فاتورة آجل{data.sale.customer_name ? ` — على حساب: ${data.sale.customer_name}` : ''}</p>
+        <p className="mt-1 text-center font-semibold">{data.sale.customer_name ? t('creditInvoiceWithCustomer', { name: data.sale.customer_name }) : t('creditInvoice')}</p>
       )}
 
       {/* الذيل */}

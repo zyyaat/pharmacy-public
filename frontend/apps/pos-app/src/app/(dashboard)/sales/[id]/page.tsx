@@ -23,8 +23,10 @@ import {
 } from '@/lib/sales'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, LoadingSpinner, Modal, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { Can } from '@/components/permissions/gate'
+import { useT } from '@/i18n/provider'
 
 export default function SaleDetailPage() {
+  const t = useT('sales')
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const saleId = params?.id
@@ -51,12 +53,12 @@ export default function SaleDetailPage() {
       const response = await pharmacyApi.getPOSSale(saleId)
       setDetail(response.data)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'تعذر تحميل الفاتورة'
+      const message = err instanceof ApiError ? err.message : t('detailLoadError')
       setError(message)
     } finally {
       setLoading(false)
     }
-  }, [saleId])
+  }, [saleId, t])
 
   useEffect(() => {
     load()
@@ -109,17 +111,20 @@ export default function SaleDetailPage() {
       )
       const refunded = response.data.total_amount_piastres
       setSuccessMessage(
-        `تم إنشاء فاتورة الاسترجاع RET-${String(response.data.return_number).padStart(6, '0')} بمبلغ ${formatPiastres(refunded)} — والكميات رجعت للمخزون`,
+        t('returnSuccess', {
+          number: String(response.data.return_number).padStart(6, '0'),
+          amount: formatPiastres(refunded),
+        }),
       )
       idempotencyKey.current = null
       setReturnOpen(false)
       await load()
     } catch (err) {
       if (err instanceof ApiError && err.code === 'return_exceeds_sold') {
-        setSubmitError('الكمية المطلوبة أكبر من المتاح للاسترجاع (اتغيرت بعد آخر تحديث) — هتم تحديث الفاتورة')
+        setSubmitError(t('returnExceeds'))
         await load()
       } else {
-        setSubmitError(err instanceof ApiError ? err.message : 'تعذر تنفيذ الاسترجاع')
+        setSubmitError(err instanceof ApiError ? err.message : t('returnSubmitError'))
       }
     } finally {
       setSubmitting(false)
@@ -138,10 +143,10 @@ export default function SaleDetailPage() {
     return (
       <div className="space-y-4">
         <Button variant="ghost" size="sm" onClick={() => router.push('/sales')}>
-          <ArrowRight className="h-4 w-4" /> رجوع لسجل البيع
+          <ArrowRight className="rtl-flip h-4 w-4" /> {t('backToHistory')}
         </Button>
         <Card>
-          <CardContent className="p-6 text-sm text-destructive">{error || 'الفاتورة غير موجودة'}</CardContent>
+          <CardContent className="p-6 text-sm text-destructive">{error || t('notFound')}</CardContent>
         </Card>
       </div>
     )
@@ -154,8 +159,8 @@ export default function SaleDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/sales')} aria-label="رجوع">
-            <ArrowRight className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={() => router.push('/sales')} aria-label={t('back')}>
+            <ArrowRight className="rtl-flip h-5 w-5" />
           </Button>
           <div>
             <h1 className="font-mono text-2xl font-bold" dir="ltr">INV-{String(sale.invoice_number).padStart(6, '0')}</h1>
@@ -168,7 +173,7 @@ export default function SaleDetailPage() {
         {returnableRows.length > 0 && (
           <Can perm="sales.returns">
             <Button onClick={openReturnModal}>
-              <RotateCcw className="h-4 w-4" /> استرجاع أصناف
+              <RotateCcw className="h-4 w-4" /> {t('returnItems')}
             </Button>
           </Can>
         )}
@@ -186,13 +191,13 @@ export default function SaleDetailPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">إجمالي الفاتورة</p>
+            <p className="text-xs text-muted-foreground">{t('totalInvoice')}</p>
             <p className="mt-1 text-xl font-bold">{formatPiastres(sale.total_amount_piastres)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">إجمالي المسترجع</p>
+            <p className="text-xs text-muted-foreground">{t('totalReturned')}</p>
             <p className={`mt-1 text-xl font-bold ${sale.returned_amount_piastres > 0 ? 'text-destructive' : ''}`}>
               {formatPiastres(sale.returned_amount_piastres)}
             </p>
@@ -200,7 +205,7 @@ export default function SaleDetailPage() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">الصافي بعد الاسترجاع</p>
+            <p className="text-xs text-muted-foreground">{t('netAfterReturn')}</p>
             <p className="mt-1 text-xl font-bold">{formatPiastres(netAmount)}</p>
           </CardContent>
         </Card>
@@ -208,19 +213,19 @@ export default function SaleDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">أصناف الفاتورة</CardTitle>
+          <CardTitle className="text-base">{t('invoiceItems')}</CardTitle>
         </CardHeader>
         <CardContent className="px-0 pb-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الصنف</TableHead>
-                <TableHead>الدفعة</TableHead>
-                <TableHead>الكمية المبيعة</TableHead>
-                <TableHead>سعر الوحدة</TableHead>
-                <TableHead>الإجمالي</TableHead>
-                <TableHead>المسترجع</TableHead>
-                <TableHead>متاح للاسترجاع</TableHead>
+                <TableHead>{t('colProduct')}</TableHead>
+                <TableHead>{t('colBatch')}</TableHead>
+                <TableHead>{t('colQuantitySold')}</TableHead>
+                <TableHead>{t('colUnitPrice')}</TableHead>
+                <TableHead>{t('colTotal')}</TableHead>
+                <TableHead>{t('colReturned')}</TableHead>
+                <TableHead>{t('colReturnable')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,7 +252,7 @@ export default function SaleDetailPage() {
                   <TableCell>
                     {item.returnable_quantity_base > 0
                       ? formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.returnable_quantity_base)
-                      : <span className="text-xs text-muted-foreground">لا يوجد</span>}
+                      : <span className="text-xs text-muted-foreground">{t('none')}</span>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -259,7 +264,7 @@ export default function SaleDetailPage() {
       {sale.returns.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">فواتير الاسترجاع ({sale.returns.length})</CardTitle>
+            <CardTitle className="text-base">{t('returnsTitle', { count: sale.returns.length })}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {sale.returns.map((ret) => (
@@ -273,13 +278,13 @@ export default function SaleDetailPage() {
                     {formatSaleDate(ret.created_at)} · {formatSaleTime(ret.created_at)}
                   </span>
                   {typeof ret.quantity_base === 'number' && (
-                    <span className="text-xs text-muted-foreground">{ret.quantity_base} وحدات مرتجعة</span>
+                    <span className="text-xs text-muted-foreground">{t('returnedUnits', { count: ret.quantity_base })}</span>
                   )}
                   <span className="ms-auto font-bold text-destructive">
                     -{formatPiastres(ret.total_amount_piastres)}
                   </span>
                 </div>
-                {ret.reason && <p className="mt-1 text-xs text-muted-foreground">السبب: {ret.reason}</p>}
+                {ret.reason && <p className="mt-1 text-xs text-muted-foreground">{t('reason', { reason: ret.reason })}</p>}
               </div>
             ))}
           </CardContent>
@@ -289,15 +294,15 @@ export default function SaleDetailPage() {
       <Modal isOpen={returnOpen} onClose={submitting ? () => {} : () => setReturnOpen(false)}>
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-bold">استرجاع أصناف من الفاتورة</h2>
+            <h2 className="text-lg font-bold">{t('returnModalTitle')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              حدد الكمية المرتجعة من كل صنف (بعدد الشرائط). اتركها صفر إذا لم ترجع شيئاً منه.
+              {t('returnModalHint')}
             </p>
           </div>
 
           {returnableRows.length > 1 && (
             <Button variant="secondary" size="sm" onClick={fillAll} type="button">
-              تعبئة كل الكميات المتاحة (استرجاع الفاتورة بالكامل)
+              {t('fillAllQuantities')}
             </Button>
           )}
 
@@ -316,7 +321,7 @@ export default function SaleDetailPage() {
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        مبيع: {formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base)}
+                        {t('sold', { quantity: formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base) })}
                         {hint ? ` · ${hint}` : ''}
                       </p>
                     </div>
@@ -330,7 +335,7 @@ export default function SaleDetailPage() {
                         placeholder="0"
                         onChange={(event) => setQuantity(item, Number(event.target.value))}
                         className="w-24 text-center"
-                        aria-label={`كمية الاسترجاع من ${item.product_name}`}
+                        aria-label={t('returnQuantityFor', { product: item.product_name })}
                       />
                       <span className="text-xs text-muted-foreground">{baseUnitLabel(item.packaging_type)}</span>
                       <Button
@@ -339,12 +344,12 @@ export default function SaleDetailPage() {
                         size="sm"
                         onClick={() => setQuantity(item, item.returnable_quantity_base)}
                       >
-                        الكل
+                        {t('all')}
                       </Button>
                     </div>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    متاح: {item.returnable_quantity_base} · الإجمالي المبيعة لهذا السطر: {formatPiastres(item.amount_piastres)}
+                    {t('availableLine', { quantity: item.returnable_quantity_base, amount: formatPiastres(item.amount_piastres) })}
                   </p>
                 </div>
               )
@@ -352,12 +357,12 @@ export default function SaleDetailPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="return-reason">سبب الاسترجاع (اختياري)</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="return-reason">{t('returnReasonLabel')}</label>
             <Input
               id="return-reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="مثال: المنتج لم يتناسب مع حالة المريض"
+              placeholder={t('returnReasonPlaceholder')}
               maxLength={500}
             />
           </div>
@@ -366,10 +371,10 @@ export default function SaleDetailPage() {
 
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="ghost" onClick={() => setReturnOpen(false)} disabled={submitting}>
-              إلغاء
+              {t('cancel')}
             </Button>
             <Button onClick={submitReturn} disabled={!hasSelection || submitting}>
-              {submitting ? <LoadingSpinner /> : 'تأكيد الاسترجاع'}
+              {submitting ? <LoadingSpinner /> : t('confirmReturn')}
             </Button>
           </div>
         </div>

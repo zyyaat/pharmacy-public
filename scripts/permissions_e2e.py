@@ -144,8 +144,9 @@ def main():
         check("3c. الموظف يرى «نقطة البيع»", "نقطة البيع" in sidebar_text, sidebar_text)
 
         # ============ 3-د) Task 43: لوحة التحكم بدون أزرار ممنوعة ============
+        # ⚠️ Task 48: نصوص الكتالوج مدمجة في حمولة RSC داخل content() — نتحقق من النص المرئي فقط
         time.sleep(1.0)
-        dash = staff_page.content()
+        dash = staff_page.locator("body").inner_text()
         check("3d. لوحة الموظف بلا «إضافة منتج»", "إضافة منتج" not in dash)
         check("3e. الإجراءات السريعة بلا «الموظفون»", "الموظفون" not in dash)
         check("3f. الإجراءات السريعة بلا «التقارير»", "التقارير" not in dash)
@@ -169,14 +170,14 @@ def main():
         staff_page.fill('input[aria-label="اسم العميل الجديد"]', "عميل الكاشير فحص")
         staff_page.click('button:text-is("إضافة")')
         selected_loaded = wait_staff_text("لا حركات بعد")
-        cust = staff_page.content()
+        cust = staff_page.locator("body").inner_text()
         check("3g. الكاشير (بلا customers.payments): لا «تسجيل دفعة سداد» حتى مع عميل محدد",
               selected_loaded and "تسجيل دفعة سداد" not in cust, f"selected_loaded={selected_loaded}")
 
         # ============ 3-و) صفحة المخزون: أزرار التعديل مخفية ============
         staff_page.goto(f"{APP}/inventory", wait_until="networkidle")
         time.sleep(1.8)
-        inv = staff_page.content()
+        inv = staff_page.locator("body").inner_text()
         check("3i. الكاشير لا يرى «إضافة منتج»", "إضافة منتج" not in inv)
         check("3j. الكاشير يرى «فتح نقطة البيع» (عنده pos.access)", "فتح نقطة البيع" in inv)
         check("3k. عمود الإجراءات مخفي كليًا", "الإجراءات" not in inv)
@@ -201,8 +202,10 @@ def main():
         time.sleep(2.5)
         settings_url = staff_page.evaluate("window.location.href")
         check("3n. مدخل الإعدادات حوّل لأول قسم مسموح (receipts)", "/settings/receipts" in settings_url, settings_url)
-        st = staff_page.content()
-        check("3o. الكاشير يرى «الفواتير والطباعة» فقط", "الفواتير والطباعة" in st and "ترحيل المنتجات" not in st and "قاعدة البيانات" not in st)
+        st = staff_page.locator("body").inner_text()
+        check("3o. الكاشير يرى «الفواتير والطباعة» و«اللغة» فقط (اللغة لكل الحسابات — Task 48)",
+              "الفواتير والطباعة" in st and "اللغة" in st
+              and "ترحيل المنتجات" not in st and "قاعدة البيانات" not in st)
 
         # ============ 4) الـ API يرفض الأقسام غير المصرح بها ============
         es, estatus = employee_api_session()
@@ -235,7 +238,7 @@ def main():
         # ============ 5-هـ) Task 43: المنح الفوري يظهر بطاقة التقرير في الواجهة ============
         staff_page.goto(f"{APP}/reports", wait_until="networkidle")
         time.sleep(2.0)
-        rep = staff_page.content()
+        rep = staff_page.locator("body").inner_text()
         check("5e. بعد المنح: تقرير المبيعات ظهر كبطاقة (لا بطاقة رفض)", "تقرير المبيعات" in rep and "غير متاحة لحسابك" not in rep)
 
         # ============ 6) إيقاف الموظف يمنع دخوله ============

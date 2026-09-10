@@ -12,6 +12,8 @@ import {
 } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
 import { formatArabicDate } from '@/lib/reports'
+import { useT } from '@/i18n/provider'
+import { fmtNumber } from '@/i18n/format'
 import {
   Badge,
   Button,
@@ -28,12 +30,12 @@ import {
 import { RequirePermission } from '@/components/permissions/gate'
 import { KpiCards, ReportSheet, useReportContext } from '@/components/reports'
 
-const statusBadges: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' }> = {
-  normal: { label: 'متوفر', variant: 'success' },
-  low_stock: { label: 'منخفض', variant: 'warning' },
-  out_of_stock: { label: 'نفذ', variant: 'destructive' },
-  expiring_soon: { label: 'قريب الانتهاء', variant: 'warning' },
-  quarantined: { label: 'حجر صحي', variant: 'warning' },
+const statusBadgeKeys: Record<string, { key: string; variant: 'success' | 'warning' | 'destructive' }> = {
+  normal: { key: 'status_normal', variant: 'success' },
+  low_stock: { key: 'status_low', variant: 'warning' },
+  out_of_stock: { key: 'status_out', variant: 'destructive' },
+  expiring_soon: { key: 'status_expiring_soon', variant: 'warning' },
+  quarantined: { key: 'status_quarantined', variant: 'warning' },
 }
 
 /** لون شدة قرب انتهاء الصلاحية */
@@ -44,6 +46,7 @@ function expiryTone(days: number): 'destructive' | 'warning' | 'secondary' {
 }
 
 export default function InventoryReportPage() {
+  const t = useT('reports')
   const { generatedAt } = useReportContext()
   const [report, setReport] = useState<InventoryReport | null>(null)
   const [items, setItems] = useState<PharmacyInventoryItem[]>([])
@@ -67,7 +70,7 @@ export default function InventoryReportPage() {
         setItems(inventoryResponse.data)
         if (contextResponse) setContext(contextResponse)
       } catch (cause) {
-        if (active) setError(cause instanceof ApiError ? cause.message : 'تعذر تحميل تقرير المخزون')
+        if (active) setError(cause instanceof ApiError ? cause.message : t('error_load_inventory'))
       } finally {
         if (active) setLoading(false)
       }
@@ -83,29 +86,32 @@ export default function InventoryReportPage() {
     const { totals } = report
     return [
       {
-        label: 'قيمة المخزون (تكلفة)',
+        label: t('kpi_cost_value'),
         value: formatPiastres(totals.cost_value_piastres),
-        hint: `${totals.batches_count.toLocaleString('ar-EG-u-nu-latn')} تشغيلة · ${totals.products_count.toLocaleString('ar-EG-u-nu-latn')} صنف`,
+        hint: t('hint_batches_products', {
+          batches: fmtNumber(totals.batches_count),
+          products: fmtNumber(totals.products_count),
+        }),
       },
       {
-        label: 'قيمة البيع المتوقعة',
+        label: t('kpi_retail_value'),
         value: formatPiastres(totals.retail_value_piastres),
         tone: 'success' as const,
-        hint: `${totals.units_base.toLocaleString('ar-EG-u-nu-latn')} وحدة أساسية`,
+        hint: t('hint_units_base', { count: fmtNumber(totals.units_base) }),
       },
       {
-        label: 'أصناف منخفضة',
-        value: totals.low_stock_count.toLocaleString('ar-EG-u-nu-latn'),
+        label: t('kpi_low_items'),
+        value: fmtNumber(totals.low_stock_count),
         tone: totals.low_stock_count > 0 ? ('warning' as const) : ('default' as const),
-        hint: 'عند أو تحت الحد الأدنى',
+        hint: t('hint_at_or_below_min'),
       },
       {
-        label: 'أصناف نافدة',
-        value: totals.out_of_stock_count.toLocaleString('ar-EG-u-nu-latn'),
+        label: t('kpi_out_items'),
+        value: fmtNumber(totals.out_of_stock_count),
         tone: totals.out_of_stock_count > 0 ? ('destructive' as const) : ('default' as const),
       },
     ]
-  }, [report])
+  }, [report, t])
 
   const expiryBuckets = useMemo(() => {
     if (!report) return []
@@ -113,34 +119,34 @@ export default function InventoryReportPage() {
     return [
       {
         icon: PackageX,
-        label: 'منتهية الصلاحية',
+        label: t('expiry_expired'),
         count: expiry.expired_count,
         tone: 'text-destructive',
         bg: 'bg-destructive/10',
       },
       {
         icon: CalendarClock,
-        label: 'خلال 30 يوم',
+        label: t('expiry_30'),
         count: expiry.expiring_30_count,
         tone: 'text-amber-600 dark:text-amber-400',
         bg: 'bg-amber-500/10',
       },
       {
         icon: CalendarClock,
-        label: '31 – 60 يوم',
+        label: t('expiry_31_60'),
         count: expiry.expiring_60_count,
         tone: 'text-foreground',
         bg: 'bg-muted',
       },
       {
         icon: CalendarClock,
-        label: '61 – 90 يوم',
+        label: t('expiry_61_90'),
         count: expiry.expiring_90_count,
         tone: 'text-foreground',
         bg: 'bg-muted',
       },
     ]
-  }, [report])
+  }, [report, t])
 
   return (
     <RequirePermission anyOf={['reports.inventory']}>
@@ -149,19 +155,19 @@ export default function InventoryReportPage() {
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
-            <Link href="/reports" aria-label="العودة للتقارير">
-              <ArrowRight className="h-5 w-5" />
+            <Link href="/reports" aria-label={t('back_to_reports')}>
+              <ArrowRight className="h-5 w-5 rtl-flip" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">تقرير المخزون</h1>
+            <h1 className="text-2xl font-bold">{t('inventory_title')}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              قيمة المخزون والنواقص والصلاحيات لحظة الإنشاء
+              {t('inventory_subtitle')}
             </p>
           </div>
         </div>
         <Button onClick={() => window.print()} disabled={loading}>
-          <Printer className="h-4 w-4" /> طباعة PDF
+          <Printer className="h-4 w-4" /> {t('print_pdf')}
         </Button>
       </div>
 
@@ -177,8 +183,8 @@ export default function InventoryReportPage() {
         </div>
       ) : report ? (
         <ReportSheet
-          title="تقرير المخزون"
-          subtitle="حالة المخزون الحالية وقيمته"
+          title={t('inventory_title')}
+          subtitle={t('sheet_inventory_subtitle')}
           icon={<Boxes className="h-5 w-5 text-primary" />}
           period={null}
           pharmacy={
@@ -197,7 +203,7 @@ export default function InventoryReportPage() {
 
           {/* مجموعات الصلاحية */}
           <section className="print-avoid-break">
-            <h3 className="mb-3 text-sm font-bold">الصلاحيات (خلال 90 يوم)</h3>
+            <h3 className="mb-3 text-sm font-bold">{t('expiry_section')}</h3>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {expiryBuckets.map((bucket) => {
                 const Icon = bucket.icon
@@ -213,7 +219,7 @@ export default function InventoryReportPage() {
                       <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
                     </div>
                     <p className={`mt-2 text-xl font-bold tabular-nums ${bucket.tone}`}>
-                      {bucket.count.toLocaleString('ar-EG-u-nu-latn')} تشغيلة
+                      {t('hint_batches', { count: fmtNumber(bucket.count) })}
                     </p>
                   </div>
                 )
@@ -221,11 +227,11 @@ export default function InventoryReportPage() {
             </div>
             {(report.expiry.expired_value_piastres > 0 || report.expiry.expiring_value_piastres > 0) && (
               <p className="mt-2 text-xs text-muted-foreground">
-                قيمة المخزون المنتهي:{' '}
+                {t('expired_value_label')}{' '}
                 <span className="font-semibold text-destructive">
                   {formatPiastres(report.expiry.expired_value_piastres)}
                 </span>{' '}
-                · قيمة المخزون ضمن 90 يوم قادمة:{' '}
+                · {t('expiring_value_label')}{' '}
                 <span className="font-semibold">{formatPiastres(report.expiry.expiring_value_piastres)}</span>
               </p>
             )}
@@ -235,23 +241,23 @@ export default function InventoryReportPage() {
           <section className="print-avoid-break">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              قائمة النواقص (أول 20)
+              {t('low_stock_list')}
             </h3>
             {report.low_stock_items.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
-                لا توجد نواقص — المخزون فوق الحد الأدنى
+                {t('no_low_stock_items')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الصنف</TableHead>
-                      <TableHead>التشغيلة</TableHead>
-                      <TableHead>الفرع</TableHead>
-                      <TableHead className="w-[90px]">المتاح</TableHead>
-                      <TableHead className="w-[110px]">الحد الأدنى</TableHead>
-                      <TableHead className="w-[90px]">الحالة</TableHead>
+                      <TableHead>{t('col_item')}</TableHead>
+                      <TableHead>{t('col_batch')}</TableHead>
+                      <TableHead>{t('col_branch')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_available')}</TableHead>
+                      <TableHead className="w-[110px]">{t('col_min')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_status')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -274,14 +280,14 @@ export default function InventoryReportPage() {
                         </TableCell>
                         <TableCell className="text-xs">{item.branch_name || '—'}</TableCell>
                         <TableCell className="font-semibold tabular-nums">
-                          {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(item.quantity)}
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
-                          {item.threshold.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(item.threshold)}
                         </TableCell>
                         <TableCell>
                           <Badge variant={item.quantity <= 0 ? 'destructive' : 'warning'}>
-                            {item.quantity <= 0 ? 'نفذ' : 'منخفض'}
+                            {item.quantity <= 0 ? t('status_out') : t('status_low')}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -296,22 +302,22 @@ export default function InventoryReportPage() {
           <section className="print-avoid-break">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
               <CalendarClock className="h-4 w-4 text-amber-500" />
-              صلاحيات قريبة أو منتهية (أول 20)
+              {t('expiry_list')}
             </h3>
             {report.expiring_items.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
-                لا توجد تشغيلات منتهية أو قريبة الانتهاء خلال 90 يوم
+                {t('no_expiring_items')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الصنف</TableHead>
-                      <TableHead>التشغيلة</TableHead>
-                      <TableHead className="w-[90px]">المتاح</TableHead>
-                      <TableHead className="w-[130px]">تاريخ الانتهاء</TableHead>
-                      <TableHead className="w-[110px]">الأيام المتبقية</TableHead>
+                      <TableHead>{t('col_item')}</TableHead>
+                      <TableHead>{t('col_batch')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_available')}</TableHead>
+                      <TableHead className="w-[130px]">{t('col_expiry_date')}</TableHead>
+                      <TableHead className="w-[110px]">{t('col_days_left')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -333,7 +339,7 @@ export default function InventoryReportPage() {
                           )}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(item.quantity)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs tabular-nums">
                           {item.extra_date ? formatArabicDate(String(item.extra_date).slice(0, 10)) : '—'}
@@ -341,8 +347,8 @@ export default function InventoryReportPage() {
                         <TableCell>
                           <Badge variant={expiryTone(item.threshold)}>
                             {item.threshold <= 0
-                              ? 'منتهية'
-                              : `${item.threshold.toLocaleString('ar-EG-u-nu-latn')} يوم`}
+                              ? t('batch_expired')
+                              : t('days_left', { count: fmtNumber(item.threshold) })}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -356,33 +362,33 @@ export default function InventoryReportPage() {
           {/* تفاصيل المخزون الحالي */}
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-bold">تفاصيل المخزون الحالي</h3>
+              <h3 className="text-sm font-bold">{t('current_inventory')}</h3>
               {items.length >= 500 && (
-                <p className="text-xs text-muted-foreground">تُعرض أول 500 تشغيلة</p>
+                <p className="text-xs text-muted-foreground">{t('first_500')}</p>
               )}
             </div>
             {items.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-                لا يوجد مخزون حالياً
+                {t('no_inventory')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الصنف</TableHead>
-                      <TableHead>التشغيلة</TableHead>
-                      <TableHead>الفرع</TableHead>
-                      <TableHead className="w-[90px]">المتاح</TableHead>
-                      <TableHead className="w-[120px]">سعر البيع</TableHead>
-                      <TableHead className="w-[130px]">إجمالي التكلفة</TableHead>
-                      <TableHead className="w-[120px]">الصلاحية</TableHead>
-                      <TableHead className="w-[90px]">الحالة</TableHead>
+                      <TableHead>{t('col_item')}</TableHead>
+                      <TableHead>{t('col_batch')}</TableHead>
+                      <TableHead>{t('col_branch')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_available')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_sale_price')}</TableHead>
+                      <TableHead className="w-[130px]">{t('col_total_cost')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_expiry')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_status')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {items.map((item) => {
-                      const status = statusBadges[item.status] ?? statusBadges.normal
+                      const status = statusBadgeKeys[item.status] ?? statusBadgeKeys.normal
                       return (
                         <TableRow key={item.batch_id}>
                           <TableCell className="max-w-[240px]">
@@ -406,7 +412,7 @@ export default function InventoryReportPage() {
                           </TableCell>
                           <TableCell className="text-xs">{item.branch_name || '—'}</TableCell>
                           <TableCell className="font-semibold tabular-nums">
-                            {item.quantity.toLocaleString('ar-EG-u-nu-latn')}
+                            {fmtNumber(item.quantity)}
                           </TableCell>
                           <TableCell className="tabular-nums">
                             {formatPiastres(item.selling_price_piastres)}
@@ -418,7 +424,7 @@ export default function InventoryReportPage() {
                             {item.expiry_date ? formatArabicDate(item.expiry_date.slice(0, 10)) : '—'}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={status.variant}>{status.label}</Badge>
+                            <Badge variant={status.variant}>{t(status.key)}</Badge>
                           </TableCell>
                         </TableRow>
                       )

@@ -17,6 +17,8 @@ import {
   movementTypeVariant,
 } from '@/lib/movements'
 import { presetRange, type PeriodPreset } from '@/lib/reports'
+import { useT } from '@/i18n/provider'
+import { fmtNumber, fmtDate, fmtDateTime } from '@/i18n/format'
 import {
   Badge,
   Button,
@@ -42,29 +44,8 @@ import {
 
 const DETAILS_LIMIT = 200
 
-const movementTypeOptions: Array<{ value: StockMovementType | 'all'; label: string }> = [
-  { value: 'all', label: 'كل الأنواع' },
-  { value: 'sale', label: 'بيع' },
-  { value: 'return_from_customer', label: 'استرجاع من عميل' },
-  { value: 'purchase', label: 'شراء' },
-  { value: 'return_to_supplier', label: 'مرتجع للمورد' },
-  { value: 'adjustment', label: 'تسوية مخزون' },
-  { value: 'transfer_in', label: 'تحويل وارد' },
-  { value: 'transfer_out', label: 'تحويل صادر' },
-  { value: 'expiry_writeoff', label: 'إعدام منتهي الصلاحية' },
-  { value: 'damage_writeoff', label: 'إعدام تالف' },
-  { value: 'theft_loss', label: 'فقد/سرقة' },
-  { value: 'production_input', label: 'استهلاك تصنيع' },
-  { value: 'production_output', label: 'إنتاج' },
-]
-
-const directionOptions = [
-  { value: 'all', label: 'داخل وخارج' },
-  { value: 'in', label: 'داخل فقط (+)' },
-  { value: 'out', label: 'خارج فقط (−)' },
-]
-
 export default function MovementsReportPage() {
+  const t = useT('reports')
   const { generatedAt, refreshTimestamp } = useReportContext()
   const [preset, setPreset] = useState<PeriodPreset>('last30')
   const [fromInput, setFromInput] = useState('')
@@ -79,6 +60,29 @@ export default function MovementsReportPage() {
   const [context, setContext] = useState<PharmacyContext | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // خيارات الفلاتر تُبنى لحظة الرسم بلغة الواجهة الحالية
+  const movementTypeOptions: Array<{ value: StockMovementType | 'all'; label: string }> = [
+    { value: 'all', label: t('type_all') },
+    { value: 'sale', label: t('type_sale') },
+    { value: 'return_from_customer', label: t('type_return_from_customer') },
+    { value: 'purchase', label: t('type_purchase') },
+    { value: 'return_to_supplier', label: t('type_return_to_supplier') },
+    { value: 'adjustment', label: t('type_adjustment') },
+    { value: 'transfer_in', label: t('type_transfer_in') },
+    { value: 'transfer_out', label: t('type_transfer_out') },
+    { value: 'expiry_writeoff', label: t('type_expiry_writeoff') },
+    { value: 'damage_writeoff', label: t('type_damage_writeoff') },
+    { value: 'theft_loss', label: t('type_theft_loss') },
+    { value: 'production_input', label: t('type_production_input') },
+    { value: 'production_output', label: t('type_production_output') },
+  ]
+
+  const directionOptions = [
+    { value: 'all', label: t('dir_all') },
+    { value: 'in', label: t('dir_in') },
+    { value: 'out', label: t('dir_out') },
+  ]
 
   const load = useCallback(
     async (range: { from: string; to: string }, type: StockMovementType | 'all', direction: 'all' | 'in' | 'out') => {
@@ -103,12 +107,12 @@ export default function MovementsReportPage() {
         setDetailsTotal(detailsResponse.data.total)
         refreshTimestamp()
       } catch (cause) {
-        setError(cause instanceof ApiError ? cause.message : 'تعذر تحميل تقرير حركات المخزون')
+        setError(cause instanceof ApiError ? cause.message : t('error_load_movements'))
       } finally {
         setLoading(false)
       }
     },
-    [refreshTimestamp],
+    [refreshTimestamp, t],
   )
 
   useEffect(() => {
@@ -167,29 +171,29 @@ export default function MovementsReportPage() {
     const net = totals.quantity_in - totals.quantity_out
     return [
       {
-        label: 'عدد الحركات',
-        value: totals.transactions.toLocaleString('ar-EG-u-nu-latn'),
-        hint: 'حركة مخزون ضمن الفترة',
+        label: t('kpi_transactions'),
+        value: fmtNumber(totals.transactions),
+        hint: t('hint_movement_in_period'),
       },
       {
-        label: 'إجمالي الوارد',
-        value: `+${totals.quantity_in.toLocaleString('ar-EG-u-nu-latn')}`,
+        label: t('kpi_total_in'),
+        value: `+${fmtNumber(totals.quantity_in)}`,
         tone: 'success' as const,
-        hint: 'وحدة أساسية',
+        hint: t('hint_base_unit'),
       },
       {
-        label: 'إجمالي الصادر',
-        value: `−${totals.quantity_out.toLocaleString('ar-EG-u-nu-latn')}`,
+        label: t('kpi_total_out'),
+        value: `−${fmtNumber(totals.quantity_out)}`,
         tone: 'destructive' as const,
-        hint: 'وحدة أساسية',
+        hint: t('hint_base_unit'),
       },
       {
-        label: 'صافي التغير',
-        value: `${net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString('ar-EG-u-nu-latn')}`,
+        label: t('kpi_net_change'),
+        value: `${net >= 0 ? '+' : '−'}${fmtNumber(Math.abs(net))}`,
         tone: net >= 0 ? ('success' as const) : ('destructive' as const),
       },
     ]
-  }, [report])
+  }, [report, t])
 
   return (
     <RequirePermission anyOf={['reports.movements']}>
@@ -198,14 +202,14 @@ export default function MovementsReportPage() {
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
-            <Link href="/reports" aria-label="العودة للتقارير">
-              <ArrowRight className="h-5 w-5" />
+            <Link href="/reports" aria-label={t('back_to_reports')}>
+              <ArrowRight className="h-5 w-5 rtl-flip" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">تقرير حركات المخزون</h1>
+            <h1 className="text-2xl font-bold">{t('movements_title')}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              ملخص الدخول والخروج حسب النوع مع تفاصيل الحركات
+              {t('movements_subtitle')}
             </p>
           </div>
         </div>
@@ -221,7 +225,7 @@ export default function MovementsReportPage() {
             loading={loading}
           />
           <Button onClick={() => window.print()} disabled={loading}>
-            <Printer className="h-4 w-4" /> طباعة PDF
+            <Printer className="h-4 w-4" /> {t('print_pdf')}
           </Button>
         </div>
       </div>
@@ -238,8 +242,8 @@ export default function MovementsReportPage() {
         </div>
       ) : report ? (
         <ReportSheet
-          title="تقرير حركات المخزون"
-          subtitle="كل حركة دخول وخروج خلال الفترة"
+          title={t('movements_title')}
+          subtitle={t('sheet_movements_subtitle')}
           icon={<ArrowLeftRight className="h-5 w-5 text-primary" />}
           period={report.period}
           pharmacy={
@@ -258,21 +262,21 @@ export default function MovementsReportPage() {
 
           {/* الملخص حسب النوع */}
           <section className="print-avoid-break">
-            <h3 className="mb-3 text-sm font-bold">الملخص حسب نوع الحركة</h3>
+            <h3 className="mb-3 text-sm font-bold">{t('summary_by_type')}</h3>
             {report.by_type.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-                لا توجد حركات في هذه الفترة
+                {t('no_movements_in_period')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>نوع الحركة</TableHead>
-                      <TableHead className="w-[110px]">عدد الحركات</TableHead>
-                      <TableHead className="w-[130px]">وارد</TableHead>
-                      <TableHead className="w-[130px]">صادر</TableHead>
-                      <TableHead className="w-[130px]">الصافي</TableHead>
+                      <TableHead>{t('col_movement_type')}</TableHead>
+                      <TableHead className="w-[110px]">{t('col_transactions')}</TableHead>
+                      <TableHead className="w-[130px]">{t('col_in')}</TableHead>
+                      <TableHead className="w-[130px]">{t('col_out')}</TableHead>
+                      <TableHead className="w-[130px]">{t('col_net')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -286,16 +290,16 @@ export default function MovementsReportPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {row.transactions.toLocaleString('ar-EG-u-nu-latn')}
+                            {fmtNumber(row.transactions)}
                           </TableCell>
                           <TableCell className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                            {row.quantity_in > 0 ? `+${row.quantity_in.toLocaleString('ar-EG-u-nu-latn')}` : '—'}
+                            {row.quantity_in > 0 ? `+${fmtNumber(row.quantity_in)}` : '—'}
                           </TableCell>
                           <TableCell className="font-semibold tabular-nums text-destructive">
-                            {row.quantity_out > 0 ? `−${row.quantity_out.toLocaleString('ar-EG-u-nu-latn')}` : '—'}
+                            {row.quantity_out > 0 ? `−${fmtNumber(row.quantity_out)}` : '—'}
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {net >= 0 ? `+${net.toLocaleString('ar-EG-u-nu-latn')}` : `−${Math.abs(net).toLocaleString('ar-EG-u-nu-latn')}`}
+                            {net >= 0 ? `+${fmtNumber(net)}` : `−${fmtNumber(Math.abs(net))}`}
                           </TableCell>
                         </TableRow>
                       )
@@ -305,7 +309,7 @@ export default function MovementsReportPage() {
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              الكميات بالوحدة الأساسية (شريط للأدوية المعبأة بشرائط، عبوة لغير ذلك).
+              {t('base_units_note')}
             </p>
           </section>
 
@@ -313,14 +317,14 @@ export default function MovementsReportPage() {
           <section>
             {/* فلاتر التفاصيل — لا تُطبع */}
             <div className="print-hidden mb-3 flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-bold">تفاصيل الحركات</h3>
+              <h3 className="text-sm font-bold">{t('details_title')}</h3>
               <div className="ms-auto flex flex-wrap items-center gap-2">
                 <div className="w-[190px]">
                   <Select
                     value={typeInput}
                     onValueChange={(value) => setTypeInput(value as StockMovementType | 'all')}
                     options={movementTypeOptions}
-                    aria-label="نوع الحركة"
+                    aria-label={t('col_movement_type')}
                   />
                 </div>
                 <div className="w-[160px]">
@@ -328,15 +332,15 @@ export default function MovementsReportPage() {
                     value={directionInput}
                     onValueChange={(value) => setDirectionInput(value as 'all' | 'in' | 'out')}
                     options={directionOptions}
-                    aria-label="اتجاه الحركة"
+                    aria-label={t('aria_direction')}
                   />
                 </div>
                 <Button type="button" variant="secondary" size="sm" onClick={applyDetailFilters} disabled={loading}>
-                  تطبيق
+                  {t('apply')}
                 </Button>
                 {(typeInput !== 'all' || directionInput !== 'all') && (
                   <Button type="button" variant="ghost" size="sm" onClick={resetDetailFilters}>
-                    <RotateCcw className="h-4 w-4" /> مسح
+                    <RotateCcw className="h-4 w-4" /> {t('clear')}
                   </Button>
                 )}
               </div>
@@ -344,27 +348,27 @@ export default function MovementsReportPage() {
 
             <p className="print-hidden mb-3 text-xs text-muted-foreground">
               {detailsTotal > DETAILS_LIMIT
-                ? `تُعرض أحدث ${DETAILS_LIMIT.toLocaleString('ar-EG-u-nu-latn')} من ${detailsTotal.toLocaleString('ar-EG-u-nu-latn')} حركة`
-                : `${detailsTotal.toLocaleString('ar-EG-u-nu-latn')} حركة`}
+                ? t('details_showing', { limit: fmtNumber(DETAILS_LIMIT), total: fmtNumber(detailsTotal) })
+                : t('details_count', { count: fmtNumber(detailsTotal) })}
             </p>
 
             {details.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-                لا توجد حركات مطابقة
+                {t('no_matching_movements')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[110px]">التاريخ</TableHead>
-                      <TableHead>الدواء</TableHead>
-                      <TableHead>التشغيلة</TableHead>
-                      <TableHead>النوع</TableHead>
-                      <TableHead className="w-[120px]">الكمية</TableHead>
-                      <TableHead className="w-[100px]">الرصيد بعدها</TableHead>
-                      <TableHead>بواسطة</TableHead>
-                      <TableHead>الفرع</TableHead>
+                      <TableHead className="w-[110px]">{t('col_date')}</TableHead>
+                      <TableHead>{t('col_medication')}</TableHead>
+                      <TableHead>{t('col_batch')}</TableHead>
+                      <TableHead>{t('col_type')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_quantity')}</TableHead>
+                      <TableHead className="w-[100px]">{t('col_balance_after')}</TableHead>
+                      <TableHead>{t('col_by')}</TableHead>
+                      <TableHead>{t('col_branch')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -375,14 +379,14 @@ export default function MovementsReportPage() {
                           <TableCell className="whitespace-nowrap">
                             <span className="flex flex-col leading-tight">
                               <span className="text-xs text-foreground/80">
-                                {new Date(movement.created_at).toLocaleDateString('ar-EG-u-nu-latn', {
+                                {fmtDate(movement.created_at, {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
                                 })}
                               </span>
                               <span className="text-[11px] tabular-nums text-muted-foreground">
-                                {new Date(movement.created_at).toLocaleTimeString('ar-EG-u-nu-latn', {
+                                {fmtDateTime(movement.created_at, {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}

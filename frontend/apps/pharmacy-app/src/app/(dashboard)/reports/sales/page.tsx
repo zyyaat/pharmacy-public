@@ -13,6 +13,8 @@ import {
 import { formatPiastres } from '@/lib/money'
 import { saleStatusLabel, saleStatusVariant, formatSaleDate, formatSaleTime } from '@/lib/sales'
 import { dayLabel, presetRange, type PeriodPreset } from '@/lib/reports'
+import { useT } from '@/i18n/provider'
+import { fmtNumber } from '@/i18n/format'
 import {
   Badge,
   Button,
@@ -38,6 +40,7 @@ import {
 const INVOICES_LIMIT = 100
 
 export default function SalesReportPage() {
+  const t = useT('reports')
   const { generatedAt, refreshTimestamp } = useReportContext()
   const [preset, setPreset] = useState<PeriodPreset>('last30')
   const [fromInput, setFromInput] = useState('')
@@ -64,12 +67,12 @@ export default function SalesReportPage() {
         setInvoicesTotal(invoicesResponse.data.total)
         refreshTimestamp()
       } catch (cause) {
-        setError(cause instanceof ApiError ? cause.message : 'تعذر تحميل تقرير المبيعات')
+        setError(cause instanceof ApiError ? cause.message : t('error_load_sales'))
       } finally {
         setLoading(false)
       }
     },
-    [refreshTimestamp],
+    [refreshTimestamp, t],
   )
 
   // أول تحميل: آخر 30 يوم + بيانات الترويسة
@@ -117,45 +120,48 @@ export default function SalesReportPage() {
     const { sales } = report
     return [
       {
-        label: 'إجمالي المبيعات',
+        label: t('kpi_gross_sales'),
         value: formatPiastres(sales.gross_piastres),
-        hint: `${sales.invoices_count.toLocaleString('ar-EG-u-nu-latn')} فاتورة`,
+        hint: t('hint_invoices', { count: fmtNumber(sales.invoices_count) }),
       },
       {
-        label: 'المرتجعات',
+        label: t('kpi_returns'),
         value: formatPiastres(sales.returned_piastres),
-        hint: `${sales.returns_count.toLocaleString('ar-EG-u-nu-latn')} إشعار مرتجع`,
+        hint: t('hint_return_notes', { count: fmtNumber(sales.returns_count) }),
         tone: sales.returned_piastres > 0 ? ('destructive' as const) : ('default' as const),
       },
       {
-        label: 'صافي المبيعات',
+        label: t('kpi_net_sales'),
         value: formatPiastres(sales.net_piastres),
         tone: 'success' as const,
       },
       {
-        label: 'الوحدات المبيعة',
-        value: sales.units_base.toLocaleString('ar-EG-u-nu-latn'),
-        hint: 'وحدة أساسية (شريط/عبوة)',
+        label: t('kpi_units_sold'),
+        value: fmtNumber(sales.units_base),
+        hint: t('hint_base_units'),
       },
       {
-        label: 'متوسط الفاتورة',
+        label: t('kpi_avg_invoice'),
         value: formatPiastres(sales.avg_invoice_piastres),
         hint:
           sales.invoices_count > 0
-            ? `كل فاتورة ${Math.round(sales.units_base / sales.invoices_count).toLocaleString('ar-EG-u-nu-latn')} وحدة تقريباً`
+            ? t('hint_avg_invoice', { count: fmtNumber(Math.round(sales.units_base / sales.invoices_count)) })
             : undefined,
       },
     ]
-  }, [report])
+  }, [report, t])
 
   const chartPoints = useMemo(
     () =>
       (report?.daily ?? []).map((point) => ({
         label: dayLabel(point.day),
         value: Math.max(0, point.net_piastres),
-        title: `${formatSaleDate(point.day)} — صافي ${formatPiastres(point.net_piastres)}`,
+        title: t('chart_point_title', {
+          date: formatSaleDate(point.day),
+          value: formatPiastres(point.net_piastres),
+        }),
       })),
-    [report],
+    [report, t],
   )
 
   return (
@@ -165,14 +171,14 @@ export default function SalesReportPage() {
       <div className="print-hidden flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
-            <Link href="/reports" aria-label="العودة للتقارير">
-              <ArrowRight className="h-5 w-5" />
+            <Link href="/reports" aria-label={t('back_to_reports')}>
+              <ArrowRight className="h-5 w-5 rtl-flip" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">تقرير المبيعات</h1>
+            <h1 className="text-2xl font-bold">{t('sales_title')}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              مؤشرات البيع والمرتجعات خلال الفترة المختارة
+              {t('sales_subtitle')}
             </p>
           </div>
         </div>
@@ -188,7 +194,7 @@ export default function SalesReportPage() {
             loading={loading}
           />
           <Button onClick={() => window.print()} disabled={loading}>
-            <Printer className="h-4 w-4" /> طباعة PDF
+            <Printer className="h-4 w-4" /> {t('print_pdf')}
           </Button>
         </div>
       </div>
@@ -205,8 +211,8 @@ export default function SalesReportPage() {
         </div>
       ) : report ? (
         <ReportSheet
-          title="تقرير المبيعات"
-          subtitle="ملخص أداء البيع خلال الفترة"
+          title={t('sales_title')}
+          subtitle={t('sheet_sales_subtitle')}
           icon={<ReceiptText className="h-5 w-5 text-primary" />}
           period={report.period}
           pharmacy={
@@ -225,19 +231,19 @@ export default function SalesReportPage() {
 
           {/* المبيعات اليومية */}
           <section className="print-avoid-break">
-            <h3 className="mb-3 text-sm font-bold">المبيعات اليومية (الصافي)</h3>
+            <h3 className="mb-3 text-sm font-bold">{t('daily_net_sales')}</h3>
             <BarChart
               points={chartPoints}
-              summary={`${report.daily.length.toLocaleString('ar-EG-u-nu-latn')} يوم ضمن الفترة`}
+              summary={t('chart_summary_days', { count: fmtNumber(report.daily.length) })}
             />
           </section>
 
           {/* المنتجات الأكثر بيعاً */}
           <section className="print-avoid-break">
-            <h3 className="mb-3 text-sm font-bold">المنتجات الأكثر بيعاً</h3>
+            <h3 className="mb-3 text-sm font-bold">{t('top_products')}</h3>
             {report.top_products.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-                لا توجد مبيعات في هذه الفترة
+                {t('no_sales_in_period')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
@@ -245,16 +251,16 @@ export default function SalesReportPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead>الصنف</TableHead>
-                      <TableHead className="w-[120px]">الكمية</TableHead>
-                      <TableHead className="w-[140px]">الإيراد</TableHead>
+                      <TableHead>{t('col_item')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_quantity')}</TableHead>
+                      <TableHead className="w-[140px]">{t('col_revenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {report.top_products.map((product, index) => (
                       <TableRow key={product.product_id}>
                         <TableCell className="text-xs tabular-nums text-muted-foreground">
-                          {(index + 1).toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(index + 1)}
                         </TableCell>
                         <TableCell>
                           <p className="font-medium">{product.name}</p>
@@ -263,7 +269,7 @@ export default function SalesReportPage() {
                           )}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {product.quantity_base.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(product.quantity_base)}
                         </TableCell>
                         <TableCell className="font-semibold tabular-nums">
                           {formatPiastres(product.amount_piastres)}
@@ -279,29 +285,29 @@ export default function SalesReportPage() {
           {/* فواتير الفترة */}
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-bold">فواتير الفترة</h3>
+              <h3 className="text-sm font-bold">{t('period_invoices')}</h3>
               <p className="text-xs text-muted-foreground">
                 {invoicesTotal > INVOICES_LIMIT
-                  ? `تُعرض أحدث ${INVOICES_LIMIT.toLocaleString('ar-EG-u-nu-latn')} من ${invoicesTotal.toLocaleString('ar-EG-u-nu-latn')} فاتورة`
-                  : `${invoicesTotal.toLocaleString('ar-EG-u-nu-latn')} فاتورة`}
+                  ? t('invoices_showing', { limit: fmtNumber(INVOICES_LIMIT), total: fmtNumber(invoicesTotal) })
+                  : t('invoices_count', { count: fmtNumber(invoicesTotal) })}
               </p>
             </div>
             {invoices.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-                لا توجد فواتير في هذه الفترة
+                {t('no_invoices_in_period')}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الفاتورة</TableHead>
-                      <TableHead>التاريخ</TableHead>
-                      <TableHead>الحالة</TableHead>
-                      <TableHead className="w-[90px]">الأصناف</TableHead>
-                      <TableHead className="w-[110px]">الوحدات</TableHead>
-                      <TableHead className="w-[120px]">الإجمالي</TableHead>
-                      <TableHead className="w-[120px]">المسترجع</TableHead>
+                      <TableHead>{t('col_invoice')}</TableHead>
+                      <TableHead>{t('col_date')}</TableHead>
+                      <TableHead>{t('col_status')}</TableHead>
+                      <TableHead className="w-[90px]">{t('col_items')}</TableHead>
+                      <TableHead className="w-[110px]">{t('col_units')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_total')}</TableHead>
+                      <TableHead className="w-[120px]">{t('col_returned')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -328,10 +334,10 @@ export default function SalesReportPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {sale.products_count.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(sale.products_count)}
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {sale.total_quantity_base.toLocaleString('ar-EG-u-nu-latn')}
+                          {fmtNumber(sale.total_quantity_base)}
                         </TableCell>
                         <TableCell className="font-semibold tabular-nums">
                           {formatPiastres(sale.total_amount_piastres)}

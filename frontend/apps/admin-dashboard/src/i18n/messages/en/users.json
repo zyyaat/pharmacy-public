@@ -1,0 +1,26 @@
+{
+  "title": "Platform Users",
+  "subtitle": "All company users and pharmacy employees with account source and effective role",
+  "metric_total": "Total users",
+  "metric_active": "Active in results",
+  "metric_admins": "System admins in results",
+  "guide_title": "User Directory",
+  "search_placeholder": "Search by name, email or company...",
+  "filter_role_aria": "Filter by role",
+  "role_all": "All roles",
+  "loading": "Loading users...",
+  "load_failed": "Could not load users",
+  "no_matches": "No matching users",
+  "badge_disabled": "Disabled",
+  "account_company_user": "Company account",
+  "account_pharmacy_employee": "Pharmacy employee",
+  "permissions_count": "{count} effective permissions",
+  "last_login": "Last sign-in: {date}",
+  "never_logged_in": "Never signed in",
+  "roles": {
+    "super_admin": "System Administrator",
+    "company_admin": "Company Administrator",
+    "company_manager": "Operations Manager",
+    "company_viewer": "Company Viewer"
+  }
+}

@@ -12,19 +12,22 @@ import {
 import { formatPiastres, parseEGPToPiastres } from '@/lib/money'
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/ui'
 import { Can } from '@/components/permissions/gate'
+import { useT } from '@/i18n/provider'
+import { fmtDate } from '@/i18n/format'
+import type { Translator } from '@/i18n/translator'
 
 function entryDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' })
+  return fmtDate(iso, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function entryTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
+  return fmtDate(iso, { hour: '2-digit', minute: '2-digit' })
 }
 
-function balanceBadge(balance: number) {
-  if (balance > 0) return <Badge variant="destructive">مستحق عليه {formatPiastres(balance)}</Badge>
-  if (balance < 0) return <Badge variant="success">له رصيد {formatPiastres(-balance)}</Badge>
-  return <Badge variant="success">الحساب مسدد</Badge>
+function balanceBadge(balance: number, t: Translator) {
+  if (balance > 0) return <Badge variant="destructive">{t('owedBadge', { amount: formatPiastres(balance) })}</Badge>
+  if (balance < 0) return <Badge variant="success">{t('creditBadge', { amount: formatPiastres(-balance) })}</Badge>
+  return <Badge variant="success">{t('settledBadge')}</Badge>
 }
 
 /**
@@ -33,6 +36,7 @@ function balanceBadge(balance: number) {
  * الرصيد مشتق دائماً من الفواتير والمرتجعات والدفعات — لا يُخزن يدوياً.
  */
 export default function CustomersPage() {
+  const t = useT('customers')
   const [customers, setCustomers] = useState<PharmacyCustomer[]>([])
   const [search, setSearch] = useState('')
   const [listLoading, setListLoading] = useState(true)
@@ -59,13 +63,13 @@ export default function CustomersPage() {
       .then((response) => setCustomers(response.data.customers))
       .catch((cause) => {
         if (controller.signal.aborted) return
-        setError(cause instanceof ApiError ? cause.message : 'تعذر قراءة حسابات العملاء')
+        setError(cause instanceof ApiError ? cause.message : t('loadError'))
       })
       .finally(() => {
         if (!controller.signal.aborted) setListLoading(false)
       })
     return () => controller.abort()
-  }, [])
+  }, [t])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -83,14 +87,14 @@ export default function CustomersPage() {
     setStatementLoading(true)
     pharmacyApi.getCustomerStatement(customer.id)
       .then((response) => setStatement(response.data))
-      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'تعذر قراءة كشف الحساب'))
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : t('statementError')))
       .finally(() => setStatementLoading(false))
-  }, [])
+  }, [t])
 
   async function addCustomer() {
     const name = newName.trim()
     if (!name) {
-      setError('اكتب اسم العميل أولاً')
+      setError(t('nameRequired'))
       return
     }
     setCreatingCustomer(true)
@@ -103,7 +107,7 @@ export default function CustomersPage() {
       setCustomers((current) => [response.data.customer, ...current])
       selectCustomer(response.data.customer)
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر إضافة العميل')
+      setError(cause instanceof ApiError ? cause.message : t('createError'))
     } finally {
       setCreatingCustomer(false)
     }
@@ -113,7 +117,7 @@ export default function CustomersPage() {
     if (!selected || !statement) return
     const piastres = parseEGPToPiastres(paymentInput)
     if (piastres === null || piastres <= 0) {
-      setError('اكتب مبلغ الدفعة بالجنيه مثل 50.00')
+      setError(t('amountInvalid'))
       return
     }
     setSavingPayment(true)
@@ -127,7 +131,7 @@ export default function CustomersPage() {
       setStatement(refreshed.data)
       loadCustomers(search)
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'تعذر تسجيل الدفعة')
+      setError(cause instanceof ApiError ? cause.message : t('paymentError'))
     } finally {
       setSavingPayment(false)
     }
@@ -138,9 +142,9 @@ export default function CustomersPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><NotebookPen className="h-6 w-6 text-primary" />حسابات العملاء</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><NotebookPen className="h-6 w-6 text-primary" />{t('title')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          سجّل فواتير الآجل على حساب العميل من نقطة البيع، وتابع المستحقات هنا وسجّل دفعات السداد — الرصيد يُحسب تلقائياً من الفواتير والمرتجعات والدفعات.
+          {t('subtitle')}
         </p>
       </div>
 
@@ -151,32 +155,32 @@ export default function CustomersPage() {
         <Card className="self-start">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-base">العملاء</CardTitle>
+              <CardTitle className="text-base">{t('customersTitle')}</CardTitle>
               <Can perm="customers.create">
                 <Button variant="outline" size="sm" onClick={() => setCreating((value) => !value)}>
-                  <Plus className="h-4 w-4" /> عميل جديد
+                  <Plus className="h-4 w-4" /> {t('newCustomer')}
                 </Button>
               </Can>
             </div>
-            <CardDescription>ابحث بالاسم أو رقم الهاتف</CardDescription>
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث…" aria-label="بحث في العملاء" />
+            <CardDescription>{t('searchHint')}</CardDescription>
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('searchPlaceholder')} aria-label={t('searchLabel')} />
           </CardHeader>
           <CardContent className="space-y-2">
             {creating && (
               <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <Input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="اسم العميل" aria-label="اسم العميل الجديد" />
-                <Input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="الهاتف (اختياري)" inputMode="tel" aria-label="هاتف العميل الجديد" />
+                <Input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder={t('namePlaceholder')} aria-label={t('newNameLabel')} />
+                <Input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder={t('phonePlaceholder')} inputMode="tel" aria-label={t('newPhoneLabel')} />
                 <div className="flex gap-2">
-                  <Button size="sm" loading={creatingCustomer} onClick={addCustomer}>إضافة</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>إلغاء</Button>
+                  <Button size="sm" loading={creatingCustomer} onClick={addCustomer}>{t('add')}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>{t('cancel')}</Button>
                 </div>
               </div>
             )}
             {listLoading && customers.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t('listLoading')}</p>
             ) : customers.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                لا يوجد عملاء بعد — أضف عميلاً أو سجّل فاتورة آجل من نقطة البيع.
+                {t('emptyList')}
               </p>
             ) : (
               customers.map((customer) => (
@@ -188,7 +192,7 @@ export default function CustomersPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2 font-semibold"><UserRound className="h-4 w-4 text-muted-foreground" />{customer.name}</span>
-                    {balanceBadge(customer.balance_piastres)}
+                    {balanceBadge(customer.balance_piastres, t)}
                   </div>
                   {customer.phone && (
                     <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground" dir="ltr"><Phone className="h-3 w-3" />{customer.phone}</span>
@@ -202,10 +206,10 @@ export default function CustomersPage() {
         {/* كشف الحساب */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{statement ? `كشف حساب: ${statement.customer.name}` : 'كشف الحساب'}</CardTitle>
+            <CardTitle className="text-base">{statement ? t('statementTitleFor', { name: statement.customer.name }) : t('statementTitle')}</CardTitle>
             {statement && (
               <CardDescription>
-                {statement.customer.phone || 'بدون رقم هاتف'} · الرصيد الحالي{' '}
+                {statement.customer.phone || t('noPhone')} · {t('currentBalance')}{' '}
                 <span className={statement.balance_piastres > 0 ? 'font-bold text-destructive' : 'font-bold text-emerald-600 dark:text-emerald-400'}>
                   {formatPiastres(statement.balance_piastres)}
                 </span>
@@ -214,23 +218,23 @@ export default function CustomersPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             {!selected ? (
-              <p className="py-14 text-center text-sm text-muted-foreground">اختر عميلاً من القائمة لعرض كشف حسابه وتسجيل دفعات السداد.</p>
+              <p className="py-14 text-center text-sm text-muted-foreground">{t('pickHint')}</p>
             ) : statementLoading ? (
-              <p className="py-14 text-center text-sm text-muted-foreground">جاري تحميل الكشف…</p>
+              <p className="py-14 text-center text-sm text-muted-foreground">{t('statementLoading')}</p>
             ) : (
               <>
                 {entries.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">لا حركات بعد — أول فاتورة آجل لهذا العميل ستظهر هنا.</p>
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t('emptyStatement')}</p>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border border-border">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50 text-xs text-muted-foreground">
                         <tr>
-                          <th className="p-3 text-start font-semibold">التاريخ</th>
-                          <th className="p-3 text-start font-semibold">البيان</th>
-                          <th className="p-3 text-start font-semibold">عليه</th>
-                          <th className="p-3 text-start font-semibold">سداد</th>
-                          <th className="p-3 text-start font-semibold">الرصيد</th>
+                          <th className="p-3 text-start font-semibold">{t('colDate')}</th>
+                          <th className="p-3 text-start font-semibold">{t('colDescription')}</th>
+                          <th className="p-3 text-start font-semibold">{t('colDue')}</th>
+                          <th className="p-3 text-start font-semibold">{t('colPaid')}</th>
+                          <th className="p-3 text-start font-semibold">{t('colBalance')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -243,15 +247,15 @@ export default function CustomersPage() {
                             <td className="p-3">
                               {entry.kind === 'credit_sale' ? (
                                 <>
-                                  <span className="font-semibold">فاتورة آجل <span dir="ltr" className="font-mono text-xs">INV-{String(entry.invoice_number ?? 0).padStart(6, '0')}</span></span>
+                                  <span className="font-semibold">{t('creditSale')} <span dir="ltr" className="font-mono text-xs">INV-{String(entry.invoice_number ?? 0).padStart(6, '0')}</span></span>
                                   {!!entry.returned_amount_piastres && entry.returned_amount_piastres > 0 && (
                                     <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                                      <RotateCcw className="h-3 w-3" /> مرتجع {formatPiastres(entry.returned_amount_piastres)}
+                                      <RotateCcw className="h-3 w-3" /> {t('returnedAmount', { amount: formatPiastres(entry.returned_amount_piastres) })}
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="font-semibold">سداد نقدي{entry.note ? ` — ${entry.note}` : ''}</span>
+                                <span className="font-semibold">{entry.note ? `${t('paymentEntry')} — ${entry.note}` : t('paymentEntry')}</span>
                               )}
                             </td>
                             <td className="p-3 font-semibold text-destructive">
@@ -271,24 +275,24 @@ export default function CustomersPage() {
                 {/* تسجيل دفعة */}
                 <Can perm="customers.payments">
                 <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
-                  <p className="text-sm font-bold">تسجيل دفعة سداد</p>
+                  <p className="text-sm font-bold">{t('paymentsTitle')}</p>
                   <div className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
                     <Input
                       value={paymentInput}
                       onChange={(event) => setPaymentInput(event.target.value)}
-                      placeholder="المبلغ مثل 50.00"
+                      placeholder={t('amountPlaceholder')}
                       inputMode="decimal"
-                      aria-label="مبلغ الدفعة بالجنيه"
+                      aria-label={t('amountLabel')}
                     />
                     <Input
                       value={paymentNote}
                       onChange={(event) => setPaymentNote(event.target.value)}
-                      placeholder="ملاحظة (اختياري)"
-                      aria-label="ملاحظة الدفعة"
+                      placeholder={t('notePlaceholder')}
+                      aria-label={t('noteLabel')}
                     />
-                    <Button loading={savingPayment} onClick={recordPayment}>تسجيل الدفعة</Button>
+                    <Button loading={savingPayment} onClick={recordPayment}>{t('recordPayment')}</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">المبلغ بالجنيه ويُحوَّل داخلياً إلى قروش — يظهر في الكشف فوراً ويخصم من رصيد العميل.</p>
+                  <p className="text-xs text-muted-foreground">{t('paymentsHint')}</p>
                 </div>
                 </Can>
               </>
