@@ -539,10 +539,10 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 
 	var branchID string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO branches (pharmacy_id, name, code, country)
-		VALUES ($1, 'الفرع الرئيسي', 'MAIN', 'EG')
+		INSERT INTO branches (pharmacy_id, name, code, country, email)
+		VALUES ($1, 'الفرع الرئيسي', 'MAIN', 'EG', $2)
 		RETURNING id::text
-	`, pharmacyID).Scan(&branchID); err != nil {
+	`, pharmacyID, normalizeEmail(companyEmail)).Scan(&branchID); err != nil {
 		return nil, fmt.Errorf("create main branch: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `

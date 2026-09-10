@@ -50,6 +50,15 @@ func main() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 
+	// Task 53: self-heal the pharmacy email from its registration source
+	// (accounts.contact_email) on every startup. Old edit flows wiped
+	// pharmacies.email, hiding the email the owner entered at registration
+	// from the branch card and the edit form. Idempotent; see
+	// database.HealPharmacyRegistrationEmail for the full story.
+	if err := database.HealPharmacyRegistrationEmail(migrationCtx, db); err != nil {
+		log.Printf("Warning: pharmacy email self-heal skipped: %v", err)
+	}
+
 	if cfg.IsProduction() {
 		// The shared startup context may already be spent after a long cold
 		// migration run against a fresh database, so the super admin bootstrap

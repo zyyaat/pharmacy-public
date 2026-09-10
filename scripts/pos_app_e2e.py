@@ -428,6 +428,35 @@ def main():
         dbcur.close()
         dbconn.close()
 
+        # Task 53 — شكوى «البريد اللي دخلته وقت التسجيل مجاش بشكل تلقائي للبطاقة
+        # او للحقول في التعديل»: التسجيل نفسه يجب أن يكتب بريد الصيدلية في
+        # pharmacies.email (المصدر الذي تقرأه البطاقة وحقول التعديل عبر القائمة)
+        # وفي صف الفرع الرئيسي المزروع — فإذا فُقد أحدهما فُتح باب المسح من
+        # نماذج التعديل. تسجيل حي عبر الـ API ثم تحقق مباشر من قاعدة البيانات.
+        import uuid as _uuid
+        import psycopg2 as _psycopg2
+        _reg_email = f"reg-{_uuid.uuid4().hex[:10]}@test.io"
+        _reg = requests.post(f"{BASE}/auth/register", json={
+            "company_name": "صيدلية بريد التسجيل", "company_email": _reg_email,
+            "first_name": "صاحب", "last_name": "التسجيل",
+            "email": f"owner-{_uuid.uuid4().hex[:10]}@test.io",
+            "password": "Str0ng!Pass2026",
+        }, timeout=15)
+        _regconn = _psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        _regconn.autocommit = True
+        _regcur = _regconn.cursor()
+        _regcur.execute(
+            "SELECT COALESCE(p.email,''), COALESCE((SELECT b.email FROM branches b"
+            " WHERE b.pharmacy_id = p.id AND b.is_active = true LIMIT 1),'')"
+            " FROM pharmacies p JOIN accounts a ON a.id = p.account_id WHERE a.contact_email = %s",
+            (_reg_email,))
+        _regrow = _regcur.fetchone() or ("", "")
+        _regcur.close()
+        _regconn.close()
+        check("10a5. التسجيل يكتب بريد الصيدلية في pharmacies.email وصف الفرع الرئيسي مباشرة",
+              _reg.status_code == 201 and _regrow == (_reg_email, _reg_email),
+              f"status={_reg.status_code} row={_regrow}")
+
         create = ps.post(f"{BASE}/pharmacy/branches", json={
             "name": "فرع التجارب E2E", "city": "الجيزة", "phone": "01111111112",
         }, headers=csrf_header(ps), timeout=10)
@@ -447,9 +476,15 @@ def main():
               str(put_new.status_code))
 
         ctx_before = ps.get(f"{BASE}/pharmacy/context", timeout=10).json().get("pharmacy", {})
+        # Task 53 — النموذج الحقيقي يرسل المسودة كاملة (البريد/العنوان/المدينة كما
+        # عادت من القائمة). حمولة ناقصة كانت تمسح البريد من pharmacies عبر
+        # NULLIF('') — وهذا جذر شكوى «البريد اللي دخلته وقت التسجيل مجاش للبطاقة».
         put_main = ps.put(f"{BASE}/pharmacy/branches/{main_branch['id']}", json={
             "name": "الفرع الرئيسي", "pharmacy_name": "صيدلية التجارب الموحدة",
             "phone": ctx_before.get("phone") or "01000000000",
+            "email": main_branch.get("email") or "",
+            "address": main_branch.get("address") or "",
+            "city": main_branch.get("city") or "",
         }, headers=csrf_header(ps), timeout=10)
         ctx_after = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
         check("10e. تعديل الفرع الرئيسي يحدّث معلومات الصيدلية (الاسم في السياق)",
@@ -483,11 +518,14 @@ def main():
               del_new.status_code == 200 and blist3_resp.status_code == 200 and all(b.get("id") != new_id or not b.get("is_active") for b in blist3),
               f"del={del_new.status_code} list={blist3_resp.status_code}")
 
-        # استعادة اسم الصيدلية الأصلي عبر تعديل الفرع الرئيسي
+        # استعادة اسم الصيدلية الأصلي عبر تعديل الفرع الرئيسي (مسودة كاملة كما يفعل النموذج)
         restore = ps.put(f"{BASE}/pharmacy/branches/{main_branch['id']}", json={
             "name": main_branch.get("name") or "الفرع الرئيسي",
             "pharmacy_name": ctx_before.get("name"),
-            "phone": ctx_before.get("phone"),
+            "phone": main_branch.get("phone") or "",
+            "email": main_branch.get("email") or "",
+            "address": main_branch.get("address") or "",
+            "city": main_branch.get("city") or "",
         }, headers=csrf_header(ps), timeout=10)
         ctx_restored = ps.get(f"{BASE}/pharmacy/context", timeout=10).json().get("pharmacy", {})
         check("10k. استعادة اسم الصيدلية الأصلي",
@@ -498,6 +536,47 @@ def main():
         check("10k2. بعد الاستعادة مصدر تعبية النموذج يعيد الاسم الأصلي",
               main_restored.get("pharmacy_name") == ctx_before.get("name"),
               repr(main_restored.get("pharmacy_name")))
+
+        # Task 53 — الشفاء الذاتي عند الإقلاع: الحلقة التاريخية التي مسحت بريد
+        # الصيدلية (نماذج تعديل قديمة تفتح فارغة ثم تحفظ) عالجها شفاء إقلاع
+        # دائم (database.HealPharmacyRegistrationEmail): عند كل إقلاع يُستعاد
+        # البريد الفارغ من accounts.contact_email — مصدر التسجيل الذي لا يكتبه
+        # سوى التسجيل. المحاكاة الحرفية: مسح البريد من pharmacies وصف الفرع ثم
+        # إعادة تشغيل الباكند والقائمة — مصدر البطاقة وحقول التعديل — تعيد
+        # بريد التسجيل الأصلي.
+        dbconn = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        dbconn.autocommit = True
+        dbcur = dbconn.cursor()
+        dbcur.execute("SELECT a.contact_email FROM pharmacies p JOIN accounts a ON a.id = p.account_id WHERE p.id = %s", (_pid,))
+        _heal_source = dbcur.fetchone()[0]
+        dbcur.execute("UPDATE pharmacies SET email = NULL WHERE id = %s", (_pid,))
+        dbcur.execute("UPDATE branches SET email = NULL WHERE pharmacy_id = %s AND is_active = true", (_pid,))
+        _lost = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        _lost_main = next((b for b in _lost.json().get("data", []) if b.get("is_main")), {}) if _lost.status_code == 200 else {}
+        check("10a6a. بعد المسح المتعمد للبريد من الصيدلية والفرع، القائمة فقدته فعلًا (بيئة قبل الشفاء)",
+              _lost.status_code == 200 and _lost_main.get("email") == "", repr(_lost_main.get("email")))
+        dbcur.close()
+        dbconn.close()
+
+        import subprocess as _sub
+        _sub.run(["pkill", "-f", "pharmacy-backend"], check=False)
+        time.sleep(1.5)
+        with open("/tmp/backend.log", "ab") as _blog:
+            _sub.Popen(["/tmp/pharmacy-backend"], stdout=_blog, stderr=_sub.STDOUT, start_new_session=True)
+        _healed = False
+        for _ in range(60):
+            time.sleep(0.5)
+            try:
+                if requests.get(f"{BASE}/health", timeout=2).status_code == 200:
+                    _healed = True
+                    break
+            except Exception:
+                pass
+        _heal_resp = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
+        _heal_main = next((b for b in _heal_resp.json().get("data", []) if b.get("is_main")), {}) if _heal_resp.status_code == 200 else {}
+        check("10a6b. إعادة تشغيل الباكند تستعيد بريد التسجيل من accounts.contact_email (شفاء الإقلاع الذاتي) فتعود للبطاقة وحقول التعديل",
+              _healed and _heal_resp.status_code == 200 and _heal_main.get("email") == _heal_source and _heal_source != "",
+              f"health={_healed} status={_heal_resp.status_code} email={_heal_main.get('email')!r} source={_heal_source!r}")
 
         # ============ 11) اللغة تتبع الحساب من متصفح جديد (Task 50) ============
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)
