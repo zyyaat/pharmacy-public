@@ -73,6 +73,7 @@
   "branchCodeLabel": "Code:",
   "branchManagerLabel": "Manager:",
   "branchPhoneLabel": "Phone:",
+  "branchEmailCardLabel": "Email:",
   "unspecified": "Unspecified",
   "attendanceTitle": "Attendance",
   "attendanceSubtitle": "Real attendance records of the current pharmacy",

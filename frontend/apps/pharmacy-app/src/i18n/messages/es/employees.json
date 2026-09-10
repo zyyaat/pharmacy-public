@@ -73,6 +73,7 @@
   "branchCodeLabel": "Código:",
   "branchManagerLabel": "Encargado:",
   "branchPhoneLabel": "Teléfono:",
+  "branchEmailCardLabel": "Correo:",
   "unspecified": "Sin especificar",
   "attendanceTitle": "Asistencia",
   "attendanceSubtitle": "Registros de asistencia reales de la farmacia actual",
