@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -32,9 +34,49 @@ func (m *mailer) configured() bool {
 	return m.apiKey != "" && m.fromEmail != ""
 }
 
-func (m *mailer) send(ctx context.Context, recipient, subject, html, text string) error {
+// deliveryEvents queries Brevo's transactional event log for one recipient
+// address and returns the raw event objects (newest first). This is the only
+// source of truth for what actually happened AFTER Brevo accepted a message:
+// delivered / deferred / blocked / softBounce / hardBounce / spam, plus the
+// provider's SMTP reason string (e.g. Microsoft's 550 5.7.1 block-list
+// response). Brevo retains events for a limited window, so an empty result
+// means "no record in the retention window", not "never sent".
+func (m *mailer) deliveryEvents(ctx context.Context, email string) ([]map[string]interface{}, error) {
 	if !m.configured() {
-		return fmt.Errorf("transactional email is not configured")
+		return nil, fmt.Errorf("transactional email is not configured")
+	}
+	endpoint := "https://api.brevo.com/v3/smtp/statistics/events?limit=10&sort=desc&email=" + url.QueryEscape(email)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("api-key", m.apiKey)
+	response, err := m.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(response.Body, 65536))
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		detail := strings.TrimSpace(string(body))
+		if detail == "" {
+			detail = fmt.Sprintf("status %d", response.StatusCode)
+		}
+		return nil, fmt.Errorf("brevo events returned %d: %s", response.StatusCode, detail)
+	}
+	var parsed struct {
+		Events []map[string]interface{} `json:"events"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, fmt.Errorf("brevo events unparsable: %w", err)
+	}
+	return parsed.Events, nil
+}
+
+func (m *mailer) send(ctx context.Context, recipient, subject, html, text string) (string, error) {
+	if !m.configured() {
+		return "", fmt.Errorf("transactional email is not configured")
 	}
 	body, err := json.Marshal(map[string]interface{}{
 		"sender":      map[string]string{"email": m.fromEmail, "name": m.fromName},
@@ -44,32 +86,44 @@ func (m *mailer) send(ctx context.Context, recipient, subject, html, text string
 		"textContent": text,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.brevo.com/v3/smtp/email", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("accept", "application/json")
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("api-key", m.apiKey)
 	response, err := m.client.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer response.Body.Close()
+	body, _ = io.ReadAll(io.LimitReader(response.Body, 4096))
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		details, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		detail := strings.TrimSpace(string(details))
+		detail := strings.TrimSpace(string(body))
 		if detail == "" {
-			return fmt.Errorf("brevo returned status %d", response.StatusCode)
+			return "", fmt.Errorf("brevo returned status %d", response.StatusCode)
 		}
-		return fmt.Errorf("brevo returned status %d: %s", response.StatusCode, detail)
+		return "", fmt.Errorf("brevo returned status %d: %s", response.StatusCode, detail)
 	}
-	return nil
+	// A 2xx means Brevo ACCEPTED the message for delivery — it does NOT
+	// mean the recipient's provider (Microsoft is notorious for this)
+	// actually accepted it. Keep the messageId so operators can correlate
+	// with Brevo's async event log.
+	var accepted struct {
+		MessageID string `json:"messageId"`
+	}
+	if err := json.Unmarshal(body, &accepted); err != nil || accepted.MessageID == "" {
+		log.Printf("[mailer] brevo accepted send to %s but messageId was unparsable: %v", recipient, err)
+		return "", nil
+	}
+	log.Printf("[mailer] brevo accepted send: message_id=%s to=%s from=%s", accepted.MessageID, recipient, m.fromEmail)
+	return accepted.MessageID, nil
 }
 
-func (m *mailer) verificationEmail(ctx context.Context, email, code string) error {
+func (m *mailer) verificationEmail(ctx context.Context, email, code string) (string, error) {
 	logoURL := html.EscapeString(m.assetURL("brand/pharmacy-os-icon.png"))
 	logo := `<span style="display:inline-block;width:46px;height:46px;border-radius:14px;background:#00d084;color:#06100d;font-size:20px;line-height:46px;text-align:center;font-weight:800;">P</span>`
 	if logoURL != "" {
@@ -120,9 +174,9 @@ func (m *mailer) assetURL(path string) string {
 	return strings.TrimRight(m.appURL, "/") + "/" + strings.TrimLeft(path, "/")
 }
 
-func (m *mailer) resetEmail(ctx context.Context, email, token string) error {
+func (m *mailer) resetEmail(ctx context.Context, email, token string) (string, error) {
 	if m.appURL == "" {
-		return fmt.Errorf("public app URL is not configured")
+		return "", fmt.Errorf("public app URL is not configured")
 	}
 	link := fmt.Sprintf("%s/reset-password?token=%s", m.appURL, token)
 	html := fmt.Sprintf(

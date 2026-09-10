@@ -59,7 +59,11 @@ func main() {
 		log.Printf("Warning: pharmacy email self-heal skipped: %v", err)
 	}
 
-	if cfg.IsProduction() {
+	// Bootstrap whenever super-admin credentials are configured: mandatory
+	// in production, honored in any environment so test harnesses can
+	// exercise the platform realm without faking APP_ENV=production
+	// (which would force Secure cookies over plain HTTP).
+	if cfg.IsProduction() || cfg.BootstrapSuperAdminEmail != "" {
 		// The shared startup context may already be spent after a long cold
 		// migration run against a fresh database, so the super admin bootstrap
 		// gets its own time budget instead of reusing the ping context.

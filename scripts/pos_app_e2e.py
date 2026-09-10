@@ -20,6 +20,10 @@
      تحقق المدخلات (اسم فارغ/بريد غير صحيح) والموظف المقيّد يُمنع (403)
  11) اللغة تتبع الحساب (Task 50): بمتصفح جديد تمامًا (صفر كوكيز) بعد الدخول
      مباشرة تُفرش واجهة بلغة الحساب من قاعدة البيانات — بلا إعادة تحميل
+ 12) تشخيص تسليم بريد OTP (Task 56): «نجاح الإرسال» يعني فقط أن Brevo قبلت
+     الرسالة؛ GET /auth/platform/email-delivery-status (محمي بجلسة المنصة)
+     يكشف الحقيقة: محمي 401 بلا جلسة/بنطاق خاطئ، تحقق مدخلات 400، وبلا
+     إعداد Brevo يعيد 503 email_not_configured
 """
 import sys
 import time
@@ -31,6 +35,7 @@ POS_APP = "http://localhost:3001"
 MAIN_APP = "http://localhost:3000"
 OWNER = ("print-test@test.io", "Str0ng!Pass2026")
 STAFF = ("pos-only@test.io", "PosOnly!2026")
+PLATFORM = ("e2e-admin@pharmacyos.test", "E2eAdmin#2026")
 
 checks = []
 
@@ -674,6 +679,40 @@ def main():
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
 
         browser.close()
+
+    # ============ 12) تشخيص تسليم بريد OTP عبر Brevo (Task 56) ============
+    # شكوى المستخدم: رمز التحقق يصل gmail دائمًا لكنه لا يصل outlook.sa/outlook.com
+    # إطلاقًا مع أن التطبيق يقول «نجح الإرسال». السبب: النجاح المعلن يعني فقط
+    # قبول Brevo للرسالة — Microsoft يسقطها لاحقًا بصمت. نقطة النهاية الجديدة
+    # تقرأ سجل أحداث Brevo لتكشف (delivered/blocked/bounce + سبب SMTP).
+    r = requests.get(f"{BASE}/auth/platform/email-delivery-status",
+                     params={"email": "probe@outlook.sa"}, timeout=10)
+    check("12a. حالة تسليم البريد بلا جلسة → 401", r.status_code == 401, str(r.status_code))
+
+    _plat_probe, _ = owner_api_session()
+    r = _plat_probe.get(f"{BASE}/auth/platform/email-delivery-status",
+                        params={"email": "probe@outlook.sa"}, timeout=10)
+    check("12b. جلسة نطاق صيدلية على مسار المنصة → 401", r.status_code == 401, str(r.status_code))
+
+    plat = requests.Session()
+    r = plat.post(f"{BASE}/auth/platform/login",
+                  json={"email": PLATFORM[0], "password": PLATFORM[1]}, timeout=10)
+    check("12c. دخول مدير المنصة (bootstrap) → 200",
+          r.status_code == 200, f"{r.status_code} {r.text[:150]}")
+
+    r = plat.get(f"{BASE}/auth/platform/email-delivery-status", timeout=10)
+    check("12d. بدون معامل البريد → 400", r.status_code == 400, str(r.status_code))
+
+    r = plat.get(f"{BASE}/auth/platform/email-delivery-status",
+                 params={"email": "probe@outlook.sa"}, timeout=15)
+    _body = {}
+    try:
+        _body = r.json()
+    except Exception:
+        pass
+    check("12e. استعلام سجل التسليم بلا إعداد Brevo → 503 email_not_configured",
+          r.status_code == 503 and _body.get("error") == "email_not_configured",
+          f"{r.status_code} {r.text[:150]}")
 
     failed = checks.count(False)
     print(f"\n==== {len(checks) - failed}/{len(checks)} checks passed ====")

@@ -187,7 +187,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // code state is verifiable from outside without credentials (Task 53: the
 // pharmacy-email startup self-heal ships with api_level 53 — if /health
 // reports a lower value, the running backend predates the deploy).
-const APILevel = 55
+const APILevel = 56
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

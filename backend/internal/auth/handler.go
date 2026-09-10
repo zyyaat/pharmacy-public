@@ -86,6 +86,16 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	authGroup.POST("/reset-password", h.resetPassword)
 	authGroup.POST("/verify-email", h.verifyEmail)
 	authGroup.POST("/resend-verification", h.resendVerification)
+
+	// GET /auth/platform/email-delivery-status?email=<address>
+	// Platform-admin-only delivery forensics: asks Brevo what actually
+	// happened to the transactional mail sent to this address after the
+	// API accepted it (delivered / deferred / blocked / bounced + the
+	// provider's SMTP reason). Exists because "the app said sending
+	// succeeded" only reflects Brevo acceptance — Microsoft-hosted
+	// recipients (outlook.com / outlook.sa / hotmail) routinely get
+	// silently dropped from ESP shared IPs.
+	platform.GET("/email-delivery-status", h.service.Middleware(PlatformRealm), h.emailDeliveryStatus)
 }
 
 func (h *Handler) register(c *gin.Context) {
@@ -290,10 +300,12 @@ func (h *Handler) forgotPassword(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "reset_failed", "Could not create reset request")
 			return
 		}
-		if err := h.mailer.resetEmail(c.Request.Context(), principal.Email, token); err != nil {
+		if messageID, err := h.mailer.resetEmail(c.Request.Context(), principal.Email, token); err != nil {
 			log.Printf("password reset email failed for principal type %s: %v", principal.Type, err)
 			writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Email service is not configured")
 			return
+		} else if messageID != "" {
+			log.Printf("password reset email accepted: to=%s message_id=%s", principal.Email, messageID)
 		}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		log.Printf("password reset lookup failed: %v", err)
@@ -330,13 +342,125 @@ func (h *Handler) sendVerificationEmail(ctx context.Context, principal *Principa
 	if err != nil || !sent {
 		return sent, err
 	}
-	if err := h.mailer.verificationEmail(ctx, principal.Email, code); err != nil {
+	messageID, err := h.mailer.verificationEmail(ctx, principal.Email, code)
+	if err != nil {
 		if invalidateErr := h.service.InvalidateEmailToken(ctx, principal, VerifyEmailPurpose); invalidateErr != nil {
 			log.Printf("verification token cleanup failed for principal type %s: %v", principal.Type, invalidateErr)
 		}
 		return false, err
 	}
+	if messageID != "" {
+		log.Printf("verification code email accepted: to=%s message_id=%s", principal.Email, messageID)
+	}
 	return true, nil
+}
+
+// emailDeliveryStatus is the delivery-truth endpoint behind
+// GET /auth/platform/email-delivery-status?email=<address>. Brevo event
+// names arrive in camelCase (softBounce, hardBounce); they are normalized
+// to snake_case for the summary while the raw name is preserved per event.
+func (h *Handler) emailDeliveryStatus(c *gin.Context) {
+	email := strings.ToLower(strings.TrimSpace(c.Query("email")))
+	if email == "" || len(email) > 254 || !strings.Contains(email, "@") || strings.HasPrefix(email, "@") || strings.HasSuffix(email, "@") {
+		writeError(c, http.StatusBadRequest, "validation_error", "A valid email query parameter is required")
+		return
+	}
+	if !h.mailer.configured() {
+		writeError(c, http.StatusServiceUnavailable, "email_not_configured", "Transactional email is not configured on this deployment")
+		return
+	}
+	events, err := h.mailer.deliveryEvents(c.Request.Context(), email)
+	if err != nil {
+		log.Printf("brevo delivery events query failed for %s: %v", email, err)
+		writeError(c, http.StatusBadGateway, "brevo_query_failed", "Could not query the email delivery log")
+		return
+	}
+	normalized := make([]gin.H, 0, len(events))
+	summary := gin.H{
+		"delivered": 0, "deferred": 0, "blocked": 0,
+		"soft_bounce": 0, "hard_bounce": 0, "spam": 0, "other": 0,
+	}
+	delivered := false
+	rejected := ""
+	for _, ev := range events {
+		rawEvent, _ := ev["event"].(string)
+		rawDate, _ := ev["date"].(string)
+		rawReason, _ := ev["reason"].(string)
+		key := snakeCaseEvent(rawEvent)
+		switch key {
+		case "delivered":
+			summary["delivered"] = summary["delivered"].(int) + 1
+			delivered = true
+		case "deferred":
+			summary["deferred"] = summary["deferred"].(int) + 1
+			rejected = firstNonEmptyStr(rawReason, rejected)
+		case "blocked":
+			summary["blocked"] = summary["blocked"].(int) + 1
+			rejected = firstNonEmptyStr(rawReason, rejected)
+		case "soft_bounce":
+			summary["soft_bounce"] = summary["soft_bounce"].(int) + 1
+			rejected = firstNonEmptyStr(rawReason, rejected)
+		case "hard_bounce":
+			summary["hard_bounce"] = summary["hard_bounce"].(int) + 1
+			rejected = firstNonEmptyStr(rawReason, rejected)
+		case "spam":
+			summary["spam"] = summary["spam"].(int) + 1
+			rejected = firstNonEmptyStr(rawReason, rejected)
+		default:
+			summary["other"] = summary["other"].(int) + 1
+		}
+		item := gin.H{"event": rawEvent, "date": rawDate}
+		if strings.TrimSpace(rawReason) != "" {
+			item["reason"] = rawReason
+		}
+		normalized = append(normalized, item)
+	}
+	verdict := "no_events"
+	hint := "لا يوجد أي سجل لهذا العنوان — إما أن الرسالة أُرسلت قبل أطول من مدة الاحتفاظ في Brevo، أو لم يحدث إرسال لهذا العنوان أصلًا. أعد إرسال الرمز ثم افحص هذه الصفحة مرة أخرى."
+	if len(events) > 0 {
+		verdict = "no_delivery_evidence"
+		hint = "توجد أحداث لكن بلا دليل تسليم واضح — راجع الأحداث أدناه."
+	}
+	if rejected != "" {
+		verdict = "rejected_or_deferred"
+		hint = "مزوّد المستلم (غالبًا Microsoft لـ outlook.com/outlook.sa/hotmail) رفض الرسالة أو أخّرها. الإصلاح: فعّل مصادقة النطاق (SPF/DKIM/DMARC) في إعدادات Brevo، واستخدم مُرسِلًا بنطاق خاص لا بريد مجاني، وتواصل مع دعم Brevo بشأن سمعة الـ IP المشترك مع Microsoft."
+	}
+	if delivered {
+		verdict = "delivered"
+		hint = "الرسالة وصلت فعلًا إلى خادم المستلم. اطلب فحص مجلد البريد غير الهام مرة أخرى أو تأكد من صياغة العنوان."
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"email":        email,
+		"total_events": len(events),
+		"events":       normalized,
+		"summary":      summary,
+		"verdict":      verdict,
+		"hint":         hint,
+	})
+}
+
+func snakeCaseEvent(raw string) string {
+	var b strings.Builder
+	for i, r := range raw {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r - 'A' + 'a')
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func firstNonEmptyStr(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (h *Handler) resetPassword(c *gin.Context) {

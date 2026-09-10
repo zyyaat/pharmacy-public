@@ -7,6 +7,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export PATH="/home/z/.venv/bin:$PATH"
 export GOTOOLCHAIN=auto CGO_ENABLED=0 GOFLAGS=-mod=vendor
 export DATABASE_URL="${E2E_DATABASE_URL:-postgresql://postgres@127.0.0.1:54329/reports_test?sslmode=disable}"
+# Task 56: bootstrap مدير المنصة (يستخدمه قسم 12 لاختبار نقطة تشخيص تسليم
+# البريد المحمية بجلسة المنصة). bootstrap idempotent — آمن مع قاعدة fresh.
+export BOOTSTRAP_SUPER_ADMIN_EMAIL="${BOOTSTRAP_SUPER_ADMIN_EMAIL:-e2e-admin@pharmacyos.test}"
+export BOOTSTRAP_SUPER_ADMIN_PASSWORD="${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-E2eAdmin#2026}"
 
 echo "== PostgreSQL =="
 LD_LIBRARY_PATH=/tmp/pg17/lib /tmp/pg17/bin/pg_ctl -D /home/z/pgdata status >/dev/null 2>&1 \
