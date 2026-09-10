@@ -551,6 +551,16 @@ def main():
         _heal_source = dbcur.fetchone()[0]
         dbcur.execute("UPDATE pharmacies SET email = NULL WHERE id = %s", (_pid,))
         dbcur.execute("UPDATE branches SET email = NULL WHERE pharmacy_id = %s AND is_active = true", (_pid,))
+        # سيناريو ثانٍ — بيانات الحقب الأولى: تسجيل-era قديم أنشأ companies فقط
+        # فبريد التسجيل يسكن companies.email وcontact_email فارغ/NULL. الشفاء
+        # يجب أن يأخذ أول قيمة غير فارغة من (contact_email، companies.email).
+        dbcur.execute(
+            "SELECT p.id::text, a.id::text, COALESCE(c.email,'') FROM pharmacies p "
+            "JOIN accounts a ON a.id = p.account_id JOIN companies c ON c.id = a.company_id "
+            "WHERE a.contact_email = %s", (_reg_email,))
+        _reg_pid, _reg_aid, _reg_companies_email = dbcur.fetchone()
+        dbcur.execute("UPDATE pharmacies SET email = NULL WHERE id = %s", (_reg_pid,))
+        dbcur.execute("UPDATE accounts SET contact_email = '' WHERE id = %s", (_reg_aid,))
         _lost = ps.get(f"{BASE}/pharmacy/branches", timeout=10)
         _lost_main = next((b for b in _lost.json().get("data", []) if b.get("is_main")), {}) if _lost.status_code == 200 else {}
         check("10a6a. بعد المسح المتعمد للبريد من الصيدلية والفرع، القائمة فقدته فعلًا (بيئة قبل الشفاء)",
@@ -577,6 +587,25 @@ def main():
         check("10a6b. إعادة تشغيل الباكند تستعيد بريد التسجيل من accounts.contact_email (شفاء الإقلاع الذاتي) فتعود للبطاقة وحقول التعديل",
               _healed and _heal_resp.status_code == 200 and _heal_main.get("email") == _heal_source and _heal_source != "",
               f"health={_healed} status={_heal_resp.status_code} email={_heal_main.get('email')!r} source={_heal_source!r}")
+
+        # السيناريو الثاني: بعد نفس إعادة التشغيل، صيدلية 10a5 (contact_email
+        # فيها NULL) يجب أن تكون شُفيت من companies.email — تغطية بيانات الحقب
+        # الأولى التي أنشأت companies فقط عند التسجيل.
+        _hconn = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        _hconn.autocommit = True
+        _hcur = _hconn.cursor()
+        _hcur.execute("SELECT COALESCE(email,'') FROM pharmacies WHERE id = %s", (_reg_pid,))
+        _reg_healed = _hcur.fetchone()[0]
+        _hcur.close()
+        _hconn.close()
+        check("10a6c. صيدلية التسجيل (10a5) شُفيت من companies.email عندما يكون contact_email فارغًا (تغطية كل الحقب)",
+              _reg_healed == _reg_companies_email and _reg_companies_email != "",
+              f"healed={_reg_healed!r} companies_email={_reg_companies_email!r}")
+
+        _health = requests.get(f"{BASE}/health", timeout=5).json()
+        check("10a6d. /health يعلن api_level (التحقق الفوري من نشر الباكند بلا بيانات دخول)",
+              _health.get("status") == "healthy" and isinstance(_health.get("api_level"), int) and _health.get("api_level") >= 53,
+              str(_health))
 
         # ============ 11) اللغة تتبع الحساب من متصفح جديد (Task 50) ============
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)

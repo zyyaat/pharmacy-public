@@ -14,14 +14,19 @@ import (
 // pharmacy email into pharmacies.email (auth service/bootstrap) — but the
 // pre-Task-52 branch list read the seeded branch row's contact columns (NULL
 // since registration), so edit forms opened with an empty email and every
-// main-branch save wiped pharmacies.email via NULLIF(”::...).
+// main-branch save wiped pharmacies.email via NULLIF(''::...).
 //
-// The registration-time value survives untouched in accounts.contact_email
-// (written once by register/bootstrap, never updated anywhere else), so an
-// empty pharmacies.email is restored from it on every application startup —
-// healing databases already damaged by the old wipe loop and guarding against
-// any future wipe, per the user's expectation that the email entered at
-// registration stays authoritative for the card and the edit form.
+// The registration-time value survives in the company records, which nothing
+// updates after registration:
+//   - accounts.contact_email (written by the current register/bootstrap flows)
+//   - companies.email        (written by every registration era, including the
+//     earliest workspace code that predated the accounts table)
+//
+// so an empty pharmacies.email is restored from the first non-empty source on
+// every application startup — healing databases already damaged by the old
+// wipe loop and guarding against any future wipe, per the user's expectation
+// that the email entered at registration stays authoritative for the card and
+// the edit form.
 //
 // The statement is idempotent and cheap: it only fills rows whose email is
 // empty and only from non-empty registration emails. Runs before the HTTP
@@ -29,13 +34,13 @@ import (
 func HealPharmacyRegistrationEmail(ctx context.Context, db *pgxpool.Pool) error {
 	_, err := db.Exec(ctx, `
 		UPDATE pharmacies p
-		SET    email = a.contact_email,
+		SET    email = COALESCE(NULLIF(btrim(a.contact_email), ''), NULLIF(btrim(c.email), '')),
 		       updated_at = NOW()
 		FROM   accounts a
+		JOIN   companies c ON c.id = a.company_id
 		WHERE  p.account_id = a.id
-		  AND  a.contact_email IS NOT NULL
-		  AND  btrim(a.contact_email) <> ''
 		  AND  COALESCE(p.email, '') = ''
+		  AND  COALESCE(NULLIF(btrim(a.contact_email), ''), NULLIF(btrim(c.email), '')) IS NOT NULL
 	`)
 	return err
 }

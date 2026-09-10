@@ -183,11 +183,18 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
         }
 }
 
+// APILevel is bumped with every behavioral backend change so a deployment's
+// code state is verifiable from outside without credentials (Task 53: the
+// pharmacy-email startup self-heal ships with api_level 53 — if /health
+// reports a lower value, the running backend predates the deploy).
+const APILevel = 53
+
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
         c.JSON(200, gin.H{
-                "status":  "healthy",
-                "service": "pharmacy-os-api",
+                "status":    "healthy",
+                "service":   "pharmacy-os-api",
+                "api_level": APILevel,
         })
 }
 
