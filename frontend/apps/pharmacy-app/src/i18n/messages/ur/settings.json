@@ -1,7 +1,6 @@
 {
   "language_title": "زبان",
   "language_desc": "انٹرفیس کی زبان منتخب کریں — آپ کا انتخاب ہمیشہ آپ کے اکاؤنٹ میں محفوظ ہوتا ہے",
-
   "backToHome": "ہوم پر واپس جائیں",
   "breadcrumb": "ترتیبات",
   "navAria": "ترتیبات کے حصے",
@@ -14,7 +13,6 @@
   "databaseNavDesc": "اسکیمہ کی حالت اور مائیگریشن ہسٹری",
   "languageNavLabel": "زبان",
   "languageNavDesc": "انٹرفیس کی زبان منتخب کریں",
-
   "receiptsTitle": "رسیدیں اور پرنٹنگ",
   "receiptsSubtitle": "رسید کے خاکے اور پرنٹنگ کے رویے پر مکمل کنٹرول — ترتیبات فارمیسی کے مطابق محفوظ ہوتی ہیں اور تمام devices پر لاگو ہوتی ہیں۔",
   "loadingSettings": "ترتیبات لوڈ ہو رہی ہیں…",
@@ -67,7 +65,6 @@
   "discardChanges": "تبدیلیات منسوخ کریں",
   "savedFlash": "ترتیبات محفوظ ہو گئیں اور تمام devices پر لاگو ہو گئیں",
   "livePreviewHint": "فارم کی کوئی بھی تبدیلی محفوظ کرنے سے پہلے پریویو کو فوراً اپڈیٹ کر دیتی ہے",
-
   "databaseTitle": "ڈیٹابیس",
   "databaseSubtitle": "ڈیٹابیس اسکیمہ کی حالت اور لاگو مائیگریشنز کی ہسٹری — ڈھانچے کی تبدیلیوں میں مکمل شفافیت۔",
   "schemaStatusTitle": "اسکیمہ کی حالت",
@@ -87,14 +84,13 @@
   "thAppliedAt": "اطلاق کی تاریخ",
   "noMigrationsYet": "ابھی کوئی مائیگریشن درج نہیں۔",
   "autoMigrationsNote": "نئے فیچرز شامل ہونے پر نمبر والی مائیگریشنز زنجیر میں شامل ہوتی ہیں اور اپ ڈیٹ پر آپ کے ڈیٹابیس پر خودکار لاگو ہوتی ہیں — بغیر کسی دستی اقدام اور بغیر ڈیٹا کے نقصان کے۔",
-
   "importTitle": "پروڈکٹ امپورٹ",
   "importSubtitle": "اسپریڈشیٹ فائل (xlsx Excel یا CSV) سے پرانے پروگرام کی اشیاء درآید کریں — امپورٹ سے پہلے اور بعد میں پریویو، کالم میپنگ اور تفصیلی رپورٹ۔",
   "stepsAria": "امپورٹ کے مراحل",
   "stepUpload": "فائل اپلوڈ کریں",
   "stepPreview": "پریویو اور میپنگ",
   "stepReport": "رپورٹ",
-  "fieldName": "پروڈکٹ کا نام",
+  "fieldName": "فارمیسی کا نام",
   "fieldBarcode": "بارکوڈ",
   "fieldSellingPrice": "فروخت قیمت (EGP)",
   "fieldCostPrice": "خریداری قیمت (EGP)",
@@ -168,5 +164,27 @@
   "sampleProductPanadol": "پیناڈول ایکسٹرا",
   "sampleProductCarbimazole": "کاربیمازول 200mg",
   "sampleProductCongestal": "کنگسٹال ٹیبلٹ",
-  "templateFileName": "پروڈکٹ-امپورٹ-ٹیمپلیٹ.csv"
+  "templateFileName": "پروڈکٹ-امپورٹ-ٹیمپلیٹ.csv",
+  "pharmacyInfoNavLabel": "فارمیسی کی معلومات",
+  "pharmacyInfoNavDesc": "فارمیسی کا نام، مرکزی برانچ اور رابطے کی تفصیلات",
+  "pharmacyInfoTitle": "فارمیسی کی معلومات",
+  "pharmacyInfoSubtitle": "آپ کی رجسٹرڈ فارمیسی کا ڈیٹا — سائیڈبار، رسید کے سرے اور رپورٹس میں دکھتا ہے۔ زبان بدلنے سے یہ نہیں بدلتا، کیونکہ یہ حقیقی ڈیٹا ہے، انٹرفیس کا متن نہیں۔",
+  "loadingProfile": "فارمیسی کی معلومات لوڈ ہو رہی ہیں…",
+  "dataNote": "یہ معلومات فارمیسی کی رجسٹریشن کے وقت درج کی گئی تھیں (یہ ڈیٹا ہیں، انٹرفیس کا متن نہیں)، اس لیے ہر زبان میں یکسان رہتی ہیں — انہیں کبھی بھی یہاں سے ترتیب دیں۔",
+  "fieldNamePlaceholder": "مثلاً: النور فارمیسیز",
+  "fieldNameHint": "سائیڈبار اور رسید کے سرے میں دکھتا ہے",
+  "fieldBranchName": "مرکزی برانچ کا نام",
+  "fieldBranchNamePlaceholder": "مثلاً: مرکزی برانچ",
+  "fieldBranchNameHint": "رجسٹریشن کے وقت خودکار طور پر «الفرع الرئيسي» نام سے بنی — یہاں سے نام تبدیل کریں",
+  "fieldPhone": "فون نمبر",
+  "fieldPhonePlaceholder": "مثلاً: 01000000000",
+  "fieldEmail": "ای میل",
+  "fieldEmailPlaceholder": "مثلاً: info@pharmacy.com",
+  "fieldAddress": "پتہ",
+  "fieldAddressPlaceholder": "مثلاً: 15، ایل-گومہوریہ اسٹریٹ",
+  "fieldCity": "شہر",
+  "fieldCityPlaceholder": "مثلاً: قاہرہ",
+  "profileSaved": "فارمیسی کی معلومات محفوظ ہو گئیں",
+  "profileSaveError": "فارمیسی کی معلومات محفوظ نہیں ہو سکیں",
+  "profileCancel": "تبدیلیات منسوخ کریں"
 }

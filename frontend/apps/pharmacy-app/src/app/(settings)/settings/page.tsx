@@ -24,7 +24,7 @@ export default function SettingsIndexPage() {
     if (!ready) return
     // السلوك القديم: الفواتير والطباعة هي المدخل الافتراضي لمن يملكها،
     // وإلا فأول قسم مسموح — وإن لا شيء حوّل للرئيسية.
-    const order = ['/settings/receipts', '/settings/import', '/settings/database', '/settings/language']
+    const order = ['/settings/receipts', '/settings/pharmacy-info', '/settings/import', '/settings/database', '/settings/language']
     const first = order.find((href) => sectionAllowed(href))
     router.replace(first ?? '/')
     // eslint-disable-next-line react-hooks/exhaustive-deps

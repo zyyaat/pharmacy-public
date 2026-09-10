@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowRight, Database, FileSpreadsheet, Languages, ReceiptText } from 'lucide-react'
+import { ArrowRight, Building2, Database, FileSpreadsheet, Languages, ReceiptText } from 'lucide-react'
 import BrandSplash from '@/components/brand-splash'
 import { useT } from '@/i18n/provider'
 import { useAuth } from '@/hooks/useAuth'
@@ -21,6 +21,7 @@ import { SETTINGS_SECTION_PERMISSIONS } from '@/lib/permissions'
  * Task 48: قسم «اللغة» ظاهر دائمًا لكل المستخدمين (تغيير لغة الواجهة).
  */
 const SECTIONS = [
+  { key: 'pharmacyInfo', href: '/settings/pharmacy-info', icon: Building2 },
   { key: 'import', href: '/settings/import', icon: FileSpreadsheet },
   { key: 'receipts', href: '/settings/receipts', icon: ReceiptText },
   { key: 'database', href: '/settings/database', icon: Database },

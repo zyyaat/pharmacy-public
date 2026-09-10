@@ -1,7 +1,6 @@
 {
   "language_title": "Dil",
   "language_desc": "Arayüz dilini seçin — seçim her zaman hesabınıza kaydedilir",
-
   "backToHome": "Ana sayfaya dön",
   "breadcrumb": "Ayarlar",
   "navAria": "Ayarlar bölümleri",
@@ -14,7 +13,6 @@
   "databaseNavDesc": "Şema durumu ve geçiş geçmişi",
   "languageNavLabel": "Dil",
   "languageNavDesc": "Arayüz dilini seçin",
-
   "receiptsTitle": "Fişler ve yazdırma",
   "receiptsSubtitle": "Fiş düzeni ve yazdırma davranışı üzerinde tam kontrol — ayarlar eczane bazında kaydedilir ve tüm cihazlarda uygulanır.",
   "loadingSettings": "Ayarlar yükleniyor…",
@@ -67,7 +65,6 @@
   "discardChanges": "Değişiklikleri geri al",
   "savedFlash": "Ayarlar kaydedildi ve tüm cihazlara uygulandı",
   "livePreviewHint": "Formdaki her değişiklik, kaydetmeden önce önizlemeyi anında günceller",
-
   "databaseTitle": "Veritabanı",
   "databaseSubtitle": "Veritabanı şema durumu ve uygulanan geçiş geçmişi — yapısal değişikliklerde tam şeffaflık.",
   "schemaStatusTitle": "Şema durumu",
@@ -87,14 +84,13 @@
   "thAppliedAt": "Uygulama tarihi",
   "noMigrationsYet": "Henüz kayıtlı geçiş yok.",
   "autoMigrationsNote": "Yeni özellikler eklendiğinde numaralı geçişler zincire katılır ve güncellemede veritabanınıza otomatik uygulanır — manuel adım olmadan ve veri kaybı olmadan.",
-
   "importTitle": "Ürün içe aktarma",
   "importSubtitle": "Eski program kayıtlarını bir elektronik tablo dosyasından (xlsx Excel veya CSV) içe aktarın — içe aktarmadan önce ve sonra önizleme, sütun eşleme ve ayrıntılı rapor.",
   "stepsAria": "İçe aktarma adımları",
   "stepUpload": "Dosya yükle",
   "stepPreview": "Önizleme ve eşleme",
   "stepReport": "Rapor",
-  "fieldName": "Ürün adı",
+  "fieldName": "Eczane adı",
   "fieldBarcode": "Barkod",
   "fieldSellingPrice": "Satış fiyatı (EGP)",
   "fieldCostPrice": "Alış fiyatı (EGP)",
@@ -168,5 +164,27 @@
   "sampleProductPanadol": "Panadol Extra",
   "sampleProductCarbimazole": "Karbimazol 200mg",
   "sampleProductCongestal": "Congestal tablet",
-  "templateFileName": "urun-aktarim-sablonu.csv"
+  "templateFileName": "urun-aktarim-sablonu.csv",
+  "pharmacyInfoNavLabel": "Eczane Bilgileri",
+  "pharmacyInfoNavDesc": "Eczane adı, ana şube ve iletişim bilgileri",
+  "pharmacyInfoTitle": "Eczane Bilgileri",
+  "pharmacyInfoSubtitle": "Kayıtlı eczane bilgileriniz — kenar çubuğunda, fiş başlığında ve raporlarda görünür. Dil değiştirmek bunları değiştirmez; bunlar arayüz metni değil, gerçek verilerdir.",
+  "loadingProfile": "Eczane bilgileri yükleniyor…",
+  "dataNote": "Bu bilgiler eczane kaydı sırasında girildi (verilerdir, arayüz metni değildir) ve her dilde aynı kalır — dilediğiniz zaman buradan düzenleyin.",
+  "fieldNamePlaceholder": "örn. Al-Nour Eczaneleri",
+  "fieldNameHint": "Kenar çubuğunda ve fiş başlığında görünür",
+  "fieldBranchName": "Ana şube adı",
+  "fieldBranchNamePlaceholder": "örn. Ana şube",
+  "fieldBranchNameHint": "Kayıt sırasında otomatik olarak «الفرع الرئيسي» adıyla oluşturuldu — buradan yeniden adlandırın",
+  "fieldPhone": "Telefon numarası",
+  "fieldPhonePlaceholder": "örn. 01000000000",
+  "fieldEmail": "E-posta",
+  "fieldEmailPlaceholder": "örn. info@pharmacy.com",
+  "fieldAddress": "Adres",
+  "fieldAddressPlaceholder": "örn. El-Gomhouria Cad. 15",
+  "fieldCity": "Şehir",
+  "fieldCityPlaceholder": "örn. Kahire",
+  "profileSaved": "Eczane bilgileri kaydedildi",
+  "profileSaveError": "Eczane bilgileri kaydedilemedi",
+  "profileCancel": "Değişiklikleri geri al"
 }

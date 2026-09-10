@@ -1,7 +1,6 @@
 {
   "language_title": "Language",
   "language_desc": "Choose the interface language — saved permanently to your account",
-
   "backToHome": "Back to home",
   "breadcrumb": "Settings",
   "navAria": "Settings sections",
@@ -14,7 +13,6 @@
   "databaseNavDesc": "Schema status and migration history",
   "languageNavLabel": "Language",
   "languageNavDesc": "Choose the interface language",
-
   "receiptsTitle": "Receipts & printing",
   "receiptsSubtitle": "Full control over receipt layout and printing behavior — settings are saved per pharmacy and apply on every device.",
   "loadingSettings": "Loading settings…",
@@ -67,7 +65,6 @@
   "discardChanges": "Discard changes",
   "savedFlash": "Settings saved and applied on every device",
   "livePreviewHint": "Any form change updates the preview instantly before saving",
-
   "databaseTitle": "Database",
   "databaseSubtitle": "Database schema status and applied migration history — full transparency of structural changes.",
   "schemaStatusTitle": "Schema status",
@@ -87,14 +84,13 @@
   "thAppliedAt": "Applied at",
   "noMigrationsYet": "No migrations recorded yet.",
   "autoMigrationsNote": "When new features are added, numbered migrations join the chain and apply to your database automatically on update — with no manual steps and no data loss.",
-
   "importTitle": "Product import",
   "importSubtitle": "Import legacy-program items from a spreadsheet file (xlsx Excel or CSV) — preview, column mapping, and a detailed report before and after the import.",
   "stepsAria": "Import steps",
   "stepUpload": "Upload file",
   "stepPreview": "Preview & mapping",
   "stepReport": "Report",
-  "fieldName": "Product name",
+  "fieldName": "Pharmacy name",
   "fieldBarcode": "Barcode",
   "fieldSellingPrice": "Selling price (EGP)",
   "fieldCostPrice": "Cost price (EGP)",
@@ -168,5 +164,27 @@
   "sampleProductPanadol": "Panadol Extra",
   "sampleProductCarbimazole": "Carbimazole 200mg",
   "sampleProductCongestal": "Congestal tablets",
-  "templateFileName": "product-import-template.csv"
+  "templateFileName": "product-import-template.csv",
+  "pharmacyInfoNavLabel": "Pharmacy Information",
+  "pharmacyInfoNavDesc": "Pharmacy name, main branch and contact details",
+  "pharmacyInfoTitle": "Pharmacy Information",
+  "pharmacyInfoSubtitle": "Your registered pharmacy data — shown in the sidebar, receipt header and reports. Changing the language never changes it, because it is real data, not interface text.",
+  "loadingProfile": "Loading pharmacy information…",
+  "dataNote": "This information was entered when the pharmacy was registered (it is data, not interface text), so it stays the same in every language — edit it here anytime.",
+  "fieldNamePlaceholder": "e.g. Al-Nour Pharmacies",
+  "fieldNameHint": "Shown in the sidebar and on the receipt header",
+  "fieldBranchName": "Main branch name",
+  "fieldBranchNamePlaceholder": "e.g. Main branch",
+  "fieldBranchNameHint": "Created automatically at signup as «الفرع الرئيسي» — rename it here",
+  "fieldPhone": "Phone number",
+  "fieldPhonePlaceholder": "e.g. 01000000000",
+  "fieldEmail": "Email",
+  "fieldEmailPlaceholder": "e.g. info@pharmacy.com",
+  "fieldAddress": "Address",
+  "fieldAddressPlaceholder": "e.g. 15 El-Gomhouria St.",
+  "fieldCity": "City",
+  "fieldCityPlaceholder": "e.g. Cairo",
+  "profileSaved": "Pharmacy information saved",
+  "profileSaveError": "Could not save pharmacy information",
+  "profileCancel": "Discard changes"
 }

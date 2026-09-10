@@ -152,6 +152,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // mutation guard + CSRF as every other mutating endpoint.
                 pharmacy.GET("/settings", h.GetPharmacySettings)
                 pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacySettings)
+                // Pharmacy profile: the editable core tenant information
+                // (pharmacy name/contact + main branch name). Same guard
+                // contract as /settings — read open, write settings.general.
+                pharmacy.GET("/profile", h.GetPharmacyProfile)
+                pharmacy.PUT("/profile", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacyProfile)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.

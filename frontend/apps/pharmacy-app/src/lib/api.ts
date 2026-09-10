@@ -154,6 +154,16 @@ export interface PharmacyContext {
   }
 }
 
+/** بيانات الصيدلية القابلة للتعديل (بيانات حقيقية في قاعدة البيانات — لا تتأثر بلغة الواجهة) */
+export interface PharmacyProfile {
+  name: string
+  phone: string
+  email: string
+  address: string
+  city: string
+  branch_name: string
+}
+
 export interface PharmacyInventoryItem {
   batch_id: string
   pharmacy_product_id: string
@@ -275,6 +285,15 @@ export interface PharmacyAttendance {
 export const pharmacyApi = {
   getContext() {
     return apiFetch<PharmacyContext>('/pharmacy/context')
+  },
+  getProfile() {
+    return apiFetch<{ data: PharmacyProfile }>('/pharmacy/profile')
+  },
+  updateProfile(input: PharmacyProfile) {
+    return apiFetch<{ data: PharmacyProfile }>('/pharmacy/profile', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
   },
   getDashboardStats() {
     return apiFetch<PharmacyDashboardStats>('/pharmacy/dashboard/stats')

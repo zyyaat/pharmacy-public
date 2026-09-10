@@ -1,7 +1,6 @@
 {
   "language_title": "Langue",
   "language_desc": "Choisissez la langue de l'interface — enregistrée définitivement sur votre compte",
-
   "backToHome": "Retour à l'accueil",
   "breadcrumb": "Paramètres",
   "navAria": "Sections des paramètres",
@@ -14,7 +13,6 @@
   "databaseNavDesc": "État du schéma et historique des migrations",
   "languageNavLabel": "Langue",
   "languageNavDesc": "Choisissez la langue de l'interface",
-
   "receiptsTitle": "Reçus & impression",
   "receiptsSubtitle": "Contrôle total de la mise en page du reçu et du comportement d'impression — les paramètres sont enregistrés par pharmacie et s'appliquent à tous les appareils.",
   "loadingSettings": "Chargement des paramètres…",
@@ -67,7 +65,6 @@
   "discardChanges": "Annuler les modifications",
   "savedFlash": "Paramètres enregistrés et appliqués sur tous les appareils",
   "livePreviewHint": "Toute modification du formulaire met à jour l'aperçu instantanément avant l'enregistrement",
-
   "databaseTitle": "Base de données",
   "databaseSubtitle": "État du schéma de la base et historique des migrations appliquées — transparence totale des changements de structure.",
   "schemaStatusTitle": "État du schéma",
@@ -87,14 +84,13 @@
   "thAppliedAt": "Appliquée le",
   "noMigrationsYet": "Aucune migration enregistrée pour le moment.",
   "autoMigrationsNote": "Lors de l'ajout de nouvelles fonctionnalités, des migrations numérotées rejoignent la chaîne et s'appliquent automatiquement à votre base lors de la mise à jour — sans intervention manuelle ni perte de données.",
-
   "importTitle": "Import de produits",
   "importSubtitle": "Importez les articles de l'ancien logiciel depuis un fichier tableur (Excel xlsx ou CSV) — aperçu, correspondance des colonnes et rapport détaillé avant et après l'import.",
   "stepsAria": "Étapes de l'import",
   "stepUpload": "Téléverser le fichier",
   "stepPreview": "Aperçu & correspondance",
   "stepReport": "Rapport",
-  "fieldName": "Nom du produit",
+  "fieldName": "Nom de la pharmacie",
   "fieldBarcode": "Code-barres",
   "fieldSellingPrice": "Prix de vente (EGP)",
   "fieldCostPrice": "Prix d'achat (EGP)",
@@ -168,5 +164,27 @@
   "sampleProductPanadol": "Panadol Extra",
   "sampleProductCarbimazole": "Carbimazole 200mg",
   "sampleProductCongestal": "Comprimés Congestal",
-  "templateFileName": "modele-import-produits.csv"
+  "templateFileName": "modele-import-produits.csv",
+  "pharmacyInfoNavLabel": "Informations de la pharmacie",
+  "pharmacyInfoNavDesc": "Nom de la pharmacie, branche principale et coordonnées",
+  "pharmacyInfoTitle": "Informations de la pharmacie",
+  "pharmacyInfoSubtitle": "Les données enregistrées de votre pharmacie — affichées dans la barre latérale, l’en-tête des reçus et les rapports. Changer la langue ne les modifie pas : ce sont des données réelles, pas des textes d’interface.",
+  "loadingProfile": "Chargement des informations de la pharmacie…",
+  "dataNote": "Ces informations ont été saisies lors de l’inscription de la pharmacie (ce sont des données, pas des textes d’interface) ; elles restent identiques dans toutes les langues — modifiez-les ici à tout moment.",
+  "fieldNamePlaceholder": "ex. Pharmacies Al-Nour",
+  "fieldNameHint": "Affiché dans la barre latérale et en en-tête du reçu",
+  "fieldBranchName": "Nom de la branche principale",
+  "fieldBranchNamePlaceholder": "ex. Branche principale",
+  "fieldBranchNameHint": "Créée automatiquement à l’inscription sous le nom «الفرع الرئيسي» — renommez-la ici",
+  "fieldPhone": "Numéro de téléphone",
+  "fieldPhonePlaceholder": "ex. 01000000000",
+  "fieldEmail": "E-mail",
+  "fieldEmailPlaceholder": "ex. info@pharmacy.com",
+  "fieldAddress": "Adresse",
+  "fieldAddressPlaceholder": "ex. 15 rue El-Gomhouria",
+  "fieldCity": "Ville",
+  "fieldCityPlaceholder": "ex. Le Caire",
+  "profileSaved": "Informations de la pharmacie enregistrées",
+  "profileSaveError": "Impossible d’enregistrer les informations de la pharmacie",
+  "profileCancel": "Annuler les modifications"
 }

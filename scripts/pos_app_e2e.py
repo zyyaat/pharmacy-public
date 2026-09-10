@@ -15,6 +15,9 @@
   9) نظام اللغات (Task 48): /me يعيد locale، PATCH /auth/pharmacy/locale يغيّره
      ويمنع اللغات غير المدعومة، وصفحة الإعدادات تبدّل الواجهة فورًا (RTL↔LTR)
      وتلزوم بعد إعادة التحميل (كوكي + حفظ دائم على الحساب) ثم يعود للعربية
+ 10) معلومات الصيدلية (Task 49): GET/PUT /pharmacy/profile — المالك يقرأ ويعدّل
+     (اسم الفرع الرئيسي بيانات لا نص واجهة)، تحقق المدخلات يرفض الاسم الفارغ
+     والبريد غير الصحيح، الموظف المقيّد يُمنع (403)، ثم تُستعاد البيانات الأصلية
 """
 import sys
 import time
@@ -364,6 +367,43 @@ def main():
         # سلامة الحالة للحسابات اللاحقة: العودة إلى ar نهائيًا من الـ API + الكوكي
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
         page.evaluate("document.cookie = 'pharmacy_locale=ar; path=/; max-age=31536000; samesite=lax'")
+
+        # ============ 10) معلومات الصيدلية (Task 49) ============
+        ps = ls
+        prof = ps.get(f"{BASE}/pharmacy/profile", timeout=10)
+        check("10a. GET profile للمالك ينجح ويعيد الحقول", prof.status_code == 200
+              and all(k in prof.json().get("data", {}) for k in
+                      ("name", "phone", "email", "address", "city", "branch_name")),
+              str(prof.status_code))
+        original = prof.json().get("data", {})
+        check("10b. اسم الفرع الحالي بيانات مخزنة (الفرع الرئيسي)",
+              original.get("branch_name") == "الفرع الرئيسي", str(original.get("branch_name")))
+
+        payload = dict(original)
+        payload.update({"branch_name": "فرع التجارب E2E", "phone": "01000000001"})
+        put = ps.put(f"{BASE}/pharmacy/profile", json=payload, headers=csrf_header(ps), timeout=10)
+        check("10c. PUT profile يحدّث اسم الفرع والهاتف (200)",
+              put.status_code == 200 and put.json().get("data", {}).get("branch_name") == "فرع التجارب E2E",
+              str(put.status_code))
+        ctx = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
+        check("10d. /pharmacy/context يعكس الاسم الجديد فورًا",
+              (ctx.get("branch") or {}).get("name") == "فرع التجارب E2E",
+              str((ctx.get("branch") or {}).get("name")))
+
+        bad = dict(original); bad["name"] = "   "
+        check("10e. PUT باسم صيدلية فارغ → 400",
+              ps.put(f"{BASE}/pharmacy/profile", json=bad, headers=csrf_header(ps), timeout=10).status_code == 400)
+        bad = dict(original); bad["email"] = "not-an-email"
+        check("10f. PUT ببريد غير صحيح → 400",
+              ps.put(f"{BASE}/pharmacy/profile", json=bad, headers=csrf_header(ps), timeout=10).status_code == 400)
+        check("10g. الموظف المقيّد يُمنع من تعديل معلومات الصيدلية (403)",
+              es.put(f"{BASE}/pharmacy/profile", json=original, headers=csrf_header(es), timeout=10).status_code == 403)
+
+        restore = ps.put(f"{BASE}/pharmacy/profile", json=original, headers=csrf_header(ps), timeout=10)
+        back = ps.get(f"{BASE}/pharmacy/profile", timeout=10).json().get("data", {})
+        check("10h. استعادة البيانات الأصلية بالكامل",
+              restore.status_code == 200 and back == original,
+              str(back))
 
         browser.close()
 

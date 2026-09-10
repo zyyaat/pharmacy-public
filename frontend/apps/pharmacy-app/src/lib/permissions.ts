@@ -52,6 +52,7 @@ export const PAGE_PERMISSIONS: Record<string, string[]> = {
 
 /** الصلاحيات المطلوبة لأقسام الإعدادات — القسم الفارغ للمالك الكامل فقط */
 export const SETTINGS_SECTION_PERMISSIONS: Record<string, string[]> = {
+  '/settings/pharmacy-info': ['settings.general'],
   '/settings/import': ['inventory.import'],
   '/settings/receipts': ['settings.receipts'],
   '/settings/database': [],
