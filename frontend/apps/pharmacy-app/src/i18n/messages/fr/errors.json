@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "Impossible de joindre le serveur du système. Vérifiez NEXT_PUBLIC_API_URL et les paramètres CORS du backend.",
+  "network_unreachable": "Impossible de joindre le serveur du système. Ouvrez la page /diag pour diagnostiquer la connexion, puis vérifiez NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL et les paramètres CORS du backend.",
   "template_download_failed": "Impossible de télécharger le modèle d'importation"
 }

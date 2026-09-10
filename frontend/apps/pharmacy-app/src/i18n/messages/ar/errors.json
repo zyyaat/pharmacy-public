@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "تعذر الاتصال بخادم النظام. راجع NEXT_PUBLIC_API_URL وإعدادات CORS في الـ backend.",
+  "network_unreachable": "تعذر الاتصال بخادم النظام. افتح صفحة /diag لتشخيص الاتصال، وتحقق من NEXT_PUBLIC_API_URL وBACKEND_INTERNAL_URL وإعدادات CORS في الـ backend.",
   "template_download_failed": "تعذر تحميل نموذج الترحيل"
 }

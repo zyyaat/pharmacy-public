@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "Sistem sunucusuna ulaşılamadı. NEXT_PUBLIC_API_URL ve backend CORS ayarlarını kontrol edin.",
+  "network_unreachable": "Sistem sunucusuna ulaşılamadı. Bağlantıyı teşhis etmek için /diag sayfasını açın; NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL ve backend CORS ayarlarını kontrol edin.",
   "template_download_failed": "İçe aktarma şablonu indirilemedi"
 }

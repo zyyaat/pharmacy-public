@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "سسٹم سرور سے رابطہ ممکن نہ ہو سکا۔ NEXT_PUBLIC_API_URL اور بیک اینڈ کی CORS ترتیبات دیکھیں۔",
+  "network_unreachable": "سسٹم سرور تک رابطہ ممکن نہیں ہو سکا۔ کنکشن کی تشخیص کے لیے /diag صفحہ کھولیں، اور NEXT_PUBLIC_API_URL، BACKEND_INTERNAL_URL اور backend کی CORS ترتیبات چیک کریں۔",
   "template_download_failed": "امپورٹ ٹیمپلیٹ ڈاؤن لوڈ نہیں ہو سکا"
 }

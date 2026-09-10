@@ -436,10 +436,11 @@ def main():
         import uuid as _uuid
         import psycopg2 as _psycopg2
         _reg_email = f"reg-{_uuid.uuid4().hex[:10]}@test.io"
+        _reg_login = f"owner-{_uuid.uuid4().hex[:10]}@test.io"
         _reg = requests.post(f"{BASE}/auth/register", json={
             "company_name": "صيدلية بريد التسجيل", "company_email": _reg_email,
             "first_name": "صاحب", "last_name": "التسجيل",
-            "email": f"owner-{_uuid.uuid4().hex[:10]}@test.io",
+            "email": _reg_login,
             "password": "Str0ng!Pass2026",
         }, timeout=15)
         _regconn = _psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
@@ -606,6 +607,44 @@ def main():
         check("10a6d. /health يعلن api_level (التحقق الفوري من نشر الباكند بلا بيانات دخول)",
               _health.get("status") == "healthy" and isinstance(_health.get("api_level"), int) and _health.get("api_level") >= 53,
               str(_health))
+
+        # السيناريو الثالث (Task 55) — آخر الحصون: المستخدم مثبت أثناء تصحيح
+        # Task 51/52 أنه يعدّل قاعدة البيانات مباشرة؛ إن فرّغ تجاربه كل مصادر
+        # التسجيل (contact_email وcompanies.email معًا) يبقى بريد الدخول في
+        # company_users كمصدر أخير لا يُهجر — «البريد: —» لا يبقى بلا سبب.
+        _uconn = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        _uconn.autocommit = True
+        _ucur = _uconn.cursor()
+        _ucur.execute("UPDATE pharmacies SET email = NULL WHERE id = %s", (_reg_pid,))
+        _ucur.execute("UPDATE accounts SET contact_email = '' WHERE id = %s", (_reg_aid,))
+        _ucur.execute("UPDATE companies SET email = '' WHERE id = (SELECT company_id FROM accounts WHERE id = %s)", (_reg_aid,))
+        _ucur.execute("SELECT email FROM company_users WHERE company_id = (SELECT company_id FROM accounts WHERE id = %s) ORDER BY created_at ASC, id ASC LIMIT 1", (_reg_aid,))
+        _login_email = _ucur.fetchone()[0]
+        _ucur.close()
+        _uconn.close()
+        _sub.run(["pkill", "-f", "pharmacy-backend"], check=False)
+        time.sleep(1.5)
+        with open("/tmp/backend.log", "ab") as _blog:
+            _sub.Popen(["/tmp/pharmacy-backend"], stdout=_blog, stderr=_sub.STDOUT, start_new_session=True)
+        _healed3 = False
+        for _ in range(60):
+            time.sleep(0.5)
+            try:
+                if requests.get(f"{BASE}/health", timeout=2).status_code == 200:
+                    _healed3 = True
+                    break
+            except Exception:
+                pass
+        _uconn2 = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+        _uconn2.autocommit = True
+        _ucur2 = _uconn2.cursor()
+        _ucur2.execute("SELECT COALESCE(email,'') FROM pharmacies WHERE id = %s", (_reg_pid,))
+        _healed_email = _ucur2.fetchone()[0]
+        _ucur2.close()
+        _uconn2.close()
+        check("10a6e. كل مصادر التسجيل فارغة → الشفاء يستعيد بريد الدخول من company_users (آخر ما كتبه المستخدم)",
+              _healed3 and _login_email == _reg_login and _healed_email == _reg_login and _healed_email != "",
+              f"health={_healed3} healed={_healed_email!r} login={_reg_login!r}")
 
         # ============ 11) اللغة تتبع الحساب من متصفح جديد (Task 50) ============
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)

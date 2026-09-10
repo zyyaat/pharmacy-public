@@ -21,6 +21,9 @@ import (
 //   - accounts.contact_email (written by the current register/bootstrap flows)
 //   - companies.email        (written by every registration era, including the
 //     earliest workspace code that predated the accounts table)
+//   - company_users.email    (the owner login email, the last surviving value
+//     the user typed at registration when direct database edits emptied both
+//     records above — verified user behavior during the Task 51/52 debugging)
 //
 // so an empty pharmacies.email is restored from the first non-empty source on
 // every application startup — healing databases already damaged by the old
@@ -34,13 +37,25 @@ import (
 func HealPharmacyRegistrationEmail(ctx context.Context, db *pgxpool.Pool) error {
 	_, err := db.Exec(ctx, `
 		UPDATE pharmacies p
-		SET    email = COALESCE(NULLIF(btrim(a.contact_email), ''), NULLIF(btrim(c.email), '')),
-		       updated_at = NOW()
+		SET    email = s.src, updated_at = NOW()
 		FROM   accounts a
 		JOIN   companies c ON c.id = a.company_id
+		CROSS  JOIN LATERAL (
+			SELECT COALESCE(
+				NULLIF(btrim(a.contact_email), ''),
+				NULLIF(btrim(c.email), ''),
+				NULLIF(btrim((
+					SELECT cu.email
+					FROM   company_users cu
+					WHERE  cu.company_id = a.company_id
+					ORDER  BY cu.created_at ASC, cu.id ASC
+					LIMIT  1
+				)), '')
+			) AS src
+		) s
 		WHERE  p.account_id = a.id
 		  AND  COALESCE(p.email, '') = ''
-		  AND  COALESCE(NULLIF(btrim(a.contact_email), ''), NULLIF(btrim(c.email), '')) IS NOT NULL
+		  AND  s.src IS NOT NULL
 	`)
 	return err
 }
