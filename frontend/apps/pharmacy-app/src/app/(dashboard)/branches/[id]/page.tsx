@@ -15,8 +15,13 @@ import { usePharmacyContext } from '@/hooks/usePharmacyContext'
  * تعديل فرع قائم (Task 50) — النموذج يبدأ ممتلئًا ببيانات الفرع الحالية
  * (المعلومات القديمة ظاهرة أثناء التعديل). تعديل الفرع الرئيسي يحدّث
  * معلومات الصيدلية نفسها، فنعيد جلب السياق كي يتحدث الشريط الجانبي فورًا.
+ *
+ * Task 51 — درس شكوى «الاسم دائمًا الفرع الرئيسي»: حقل اسم الصيدلية يجب أن
+ * يُتعبّى من قيمة قاعدة البيانات الحقيقية. المصدر الأساسي: pharmacy_name
+ * الذي يُعيده GET /pharmacy/branches حيًا من pharmacies؛ والاحتياط: سياق
+ * الصيدلية المحمّل؛ واسم الفرع آخر الملجآت فقط.
  */
-function toDraft(branch: PharmacyBranch): BranchWriteInput {
+function toDraft(branch: PharmacyBranch, contextPharmacyName?: string): BranchWriteInput {
   return {
     name: branch.name,
     code: branch.code ?? '',
@@ -24,7 +29,9 @@ function toDraft(branch: PharmacyBranch): BranchWriteInput {
     email: branch.email ?? '',
     address: branch.address ?? '',
     city: branch.city ?? '',
-    pharmacy_name: branch.is_main ? branch.pharmacy_name ?? branch.name : undefined,
+    pharmacy_name: branch.is_main
+      ? branch.pharmacy_name ?? contextPharmacyName ?? branch.name
+      : undefined,
   }
 }
 
@@ -33,7 +40,7 @@ export default function EditBranchPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const branchId = params?.id
-  const { refetch } = usePharmacyContext()
+  const { context, refetch } = usePharmacyContext()
   const [branch, setBranch] = useState<PharmacyBranch | null>(null)
   const [draft, setDraft] = useState<BranchWriteInput | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,13 +61,13 @@ export default function EditBranchPage() {
         return
       }
       setBranch(found)
-      setDraft(toDraft(found))
+      setDraft(toDraft(found, context?.pharmacy.name))
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t('branchesLoadErrorFallback'))
     } finally {
       setLoading(false)
     }
-  }, [branchId, t])
+  }, [branchId, t, context])
 
   useEffect(() => {
     void load()

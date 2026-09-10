@@ -370,13 +370,20 @@ def main():
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "ar"}, headers=csrf_header(ls), timeout=10)
         page.evaluate("document.cookie = 'pharmacy_locale=ar; path=/; max-age=31536000; samesite=lax'")
 
-        # ============ 10) إدارة الفروع (Task 50) ============
+        # ============ 10) إدارة الفروع (Task 50 + Task 51 تعبية أصلية) ============
         ps = ls
+        ctx0 = ps.get(f"{BASE}/pharmacy/context", timeout=10).json()
+        real_pharmacy_name = ctx0.get("pharmacy", {}).get("name")
         blist = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
         main_branch = next((b for b in blist if b.get("is_main")), None)
         check("10a. قائمة الفروع تعيد الفرع الرئيسي بعلامة is_main",
               main_branch is not None and main_branch.get("name") == "الفرع الرئيسي",
               str([b.get("name") for b in blist]))
+        # Task 51 — شكوى «الاسم دائمًا الفرع الرئيسي في الحقل»: مصدر تعبية نموذج
+        # التعديل (القائمة) يجب أن يحمل اسم الصيدلية الحقيقي من قاعدة البيانات.
+        check("10a2. مصدر تعبية النموذج يحمل pharmacy_name الحقيقي من قاعدة البيانات",
+              main_branch is not None and main_branch.get("pharmacy_name") == real_pharmacy_name,
+              f"list={main_branch and main_branch.get('pharmacy_name')!r} context={real_pharmacy_name!r}")
 
         create = ps.post(f"{BASE}/pharmacy/branches", json={
             "name": "فرع التجارب E2E", "city": "الجيزة", "phone": "01111111112",
@@ -405,6 +412,13 @@ def main():
               and ctx_after.get("pharmacy", {}).get("name") == "صيدلية التجارب الموحدة"
               and (ctx_after.get("branch") or {}).get("name") == "الفرع الرئيسي",
               str(ctx_after.get("pharmacy", {}).get("name")))
+        # Task 51 — سيناريو المستخدم الحرفي: الاسم تغيّر في قاعدة البيانات،
+        # وإعادة فتح نموذج التعديل يجب أن تعرض القيمة الجديدة لا «الفرع الرئيسي».
+        blist_after = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        main_after = next((b for b in blist_after if b.get("is_main")), {})
+        check("10e2. إعادة فتح النموذج تعرض الاسم الجديد من DB لا «الفرع الرئيسي»",
+              main_after.get("pharmacy_name") == "صيدلية التجارب الموحدة",
+              repr(main_after.get("pharmacy_name")))
 
         bad = {"name": "   "}
         check("10f. POST باسم فرع فارغ → 400",
@@ -433,6 +447,11 @@ def main():
         check("10k. استعادة اسم الصيدلية الأصلي",
               restore.status_code == 200 and ctx_restored.get("name") == ctx_before.get("name"),
               str(ctx_restored.get("name")))
+        blist_restored = ps.get(f"{BASE}/pharmacy/branches", timeout=10).json().get("data", [])
+        main_restored = next((b for b in blist_restored if b.get("is_main")), {})
+        check("10k2. بعد الاستعادة مصدر تعبية النموذج يعيد الاسم الأصلي",
+              main_restored.get("pharmacy_name") == ctx_before.get("name"),
+              repr(main_restored.get("pharmacy_name")))
 
         # ============ 11) اللغة تتبع الحساب من متصفح جديد (Task 50) ============
         ls.patch(f"{BASE}/auth/pharmacy/locale", json={"locale": "en"}, headers=csrf_header(ls), timeout=10)

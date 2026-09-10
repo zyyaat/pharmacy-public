@@ -124,11 +124,15 @@ func (h *Handler) ListPharmacyBranches(c *gin.Context) {
                 return
         }
 
+        // pharmacy_name (Task 51): اسم الصيدلية الحقيقي من سجل pharmacies يرافق كل صف
+        // — مصدر تعبية حقل «اسم الصيدلية» في نموذج التعديل يجب أن يكون قيمة قاعدة
+        // البيانات نفسها لا احتياط اسم الفرع، وإلا ظهر «الفرع الرئيسي» دائمًا مهما
+        // تغيّر الاسم الفعلي في الداتابيز.
         rows, err := h.db.Query(c.Request.Context(), `
                 SELECT b.id::text, b.name, COALESCE(b.code, ''), COALESCE(b.phone, ''),
                        COALESCE(b.email, ''), COALESCE(b.address_line1, ''),
                        COALESCE(b.city, ''), b.is_active, COALESCE(e.display_name, e.first_name || ' ' || e.last_name, ''),
-                       COALESCE(p.default_branch_id = b.id, false)
+                       COALESCE(p.default_branch_id = b.id, false), p.name
                 FROM branches b
                 LEFT JOIN employees e ON e.id = b.manager_employee_id AND e.pharmacy_id = b.pharmacy_id
                 LEFT JOIN pharmacies p ON p.id = b.pharmacy_id
@@ -144,9 +148,9 @@ func (h *Handler) ListPharmacyBranches(c *gin.Context) {
 
         items := make([]gin.H, 0)
         for rows.Next() {
-                var id, name, code, phone, email, address, city, manager string
+                var id, name, code, phone, email, address, city, manager, pharmacyName string
                 var isActive, isMain bool
-                if err := rows.Scan(&id, &name, &code, &phone, &email, &address, &city, &isActive, &manager, &isMain); err != nil {
+                if err := rows.Scan(&id, &name, &code, &phone, &email, &address, &city, &isActive, &manager, &isMain, &pharmacyName); err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "branches_query_failed", "message": "تعذر قراءة فروع الصيدلية"})
                         return
                 }
@@ -154,6 +158,7 @@ func (h *Handler) ListPharmacyBranches(c *gin.Context) {
                         "id": id, "name": name, "code": code, "phone": phone,
                         "email": email, "address": address, "city": city,
                         "is_active": isActive, "manager_name": manager, "is_main": isMain,
+                        "pharmacy_name": pharmacyName,
                 })
         }
         if err := rows.Err(); err != nil {

@@ -259,7 +259,7 @@ export interface PharmacyBranch {
   is_active: boolean
   is_main: boolean
   manager_name: string
-  /** اسم الصيدلية الحالي — تعبه واجهة التعديل للفرع الرئيسي من سياق الصيدلية (لا يأتي من الـ API) */
+  /** اسم الصيدلية الحقيقي من قاعدة البيانات — يُعيده GET /pharmacy/branches حيًا من pharmacies (Task 51)؛ يُتعبّى منه حقل «اسم الصيدلية» في نموذج التعديل الرئيسي بدل احتياط اسم الفرع */
   pharmacy_name?: string
 }
 

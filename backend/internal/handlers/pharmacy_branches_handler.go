@@ -193,10 +193,11 @@ func (h *Handler) UpdatePharmacyBranch(c *gin.Context) {
                 return
         }
 
+        var pharmacyName string
         if isMain {
                 // الفرع الرئيسي هو مقر الصيدلية: بيانات التواصل تتزامن مع سجل الصيدلية
                 // (الفواتير والشريط الجانبي يقرأون منها)، والاسم عبر pharmacy_name صراحةً.
-                pharmacyName := normalized.PharmacyName
+                pharmacyName = normalized.PharmacyName
                 if pharmacyName == "" {
                         pharmacyName = normalized.Name
                 }
@@ -217,12 +218,16 @@ func (h *Handler) UpdatePharmacyBranch(c *gin.Context) {
                 return
         }
 
-        c.JSON(http.StatusOK, gin.H{"data": gin.H{
+        data := gin.H{
                 "id": branchID, "name": normalized.Name, "code": normalized.Code,
                 "phone": normalized.Phone, "email": normalized.Email,
                 "address": normalized.Address, "city": normalized.City,
                 "is_active": true, "is_main": isMain,
-        }})
+        }
+        if isMain {
+                data["pharmacy_name"] = pharmacyName
+        }
+        c.JSON(http.StatusOK, gin.H{"data": data})
 }
 
 // DeletePharmacyBranch deactivates a sub-branch (soft delete — rows stay for
