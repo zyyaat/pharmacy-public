@@ -179,10 +179,64 @@ export interface PharmacyEmployee {
   email: string
   phone: string
   job_title: string
+  role?: string
   status: string
   branch_id: string
   branch_name: string
   created_at: string
+}
+
+// ===== نظام الصلاحيات المرن (Task 42) =====
+
+export interface PermissionEntry {
+  key: string
+  name_ar: string
+  category: string
+}
+
+export interface PermissionModule {
+  module: string
+  label: string
+  permissions: PermissionEntry[]
+}
+
+export interface PermissionTemplate {
+  id: string
+  name: string
+  display_name: string
+  display_name_ar: string
+  description_ar: string
+  is_system: boolean
+  permissions: string[]
+}
+
+export interface MyPermissions {
+  principal_type: string
+  role: string
+  permissions: string[]
+  full_access: boolean
+}
+
+export interface EmployeePermissions {
+  employee_id: string
+  display_name: string
+  email: string
+  permissions: string[]
+  has_explicit: boolean
+  full_access: boolean
+}
+
+export interface CreateEmployeeInput {
+  first_name: string
+  last_name: string
+  email: string
+  password: string
+  phone?: string
+  job_title?: string
+  role?: string
+  branch_id?: string
+  template_id?: string
+  permissions?: string[]
 }
 
 export interface PharmacyBranch {
@@ -348,6 +402,37 @@ export const pharmacyApi = {
   },
   getEmployees() {
     return apiFetch<{ data: PharmacyEmployee[]; total: number }>('/pharmacy/employees')
+  },
+  // ===== الصلاحيات =====
+  getPermissionCatalog() {
+    return apiFetch<{ data: PermissionModule[] }>('/pharmacy/permissions/catalog')
+  },
+  getPermissionTemplates() {
+    return apiFetch<{ data: PermissionTemplate[] }>('/pharmacy/permissions/templates')
+  },
+  getMyPermissions() {
+    return apiFetch<MyPermissions>('/pharmacy/permissions/me')
+  },
+  getEmployeePermissions(employeeId: string) {
+    return apiFetch<{ data: EmployeePermissions }>(`/pharmacy/employees/${encodeURIComponent(employeeId)}/permissions`)
+  },
+  updateEmployeePermissions(employeeId: string, permissions: string[]) {
+    return apiFetch<{ data: EmployeePermissions }>(`/pharmacy/employees/${encodeURIComponent(employeeId)}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissions }),
+    })
+  },
+  createEmployee(input: CreateEmployeeInput) {
+    return apiFetch<{ data: PharmacyEmployee & { permissions: string[]; has_explicit: boolean } }>('/pharmacy/employees', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+  setEmployeeStatus(employeeId: string, status: 'active' | 'inactive') {
+    return apiFetch<{ data: { id: string; status: string } }>(`/pharmacy/employees/${encodeURIComponent(employeeId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
   },
   getBranches() {
     return apiFetch<{ data: PharmacyBranch[]; total: number }>('/pharmacy/branches')

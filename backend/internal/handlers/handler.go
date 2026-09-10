@@ -92,46 +92,66 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy := v1.Group("/pharmacy")
                 pharmacy.Use(h.auth.Middleware(auth.PharmacyRealm))
                 pharmacy.Use(auth.RequirePharmacyPrincipal())
+
+                // Flexible permission guards (Task 42). Company owners
+                // (admin/manager) and legacy employees without explicit
+                // permission rows pass through untouched — existing workflows
+                // keep working. Only employees with an explicit permission set
+                // are restricted to what the owner granted them.
+                perm := h.requirePharmacyPermission
+
                 pharmacy.GET("/context", h.GetPharmacyContext)
-                pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
-                pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
-                pharmacy.GET("/inventory", h.GetPharmacyInventory)
-                pharmacy.GET("/inventory/movements", h.ListPharmacyStockMovements)
-                pharmacy.GET("/inventory/low-stock", h.GetPharmacyLowStock)
+                pharmacy.GET("/dashboard/stats", perm("dashboard.view"), h.GetPharmacyDashboardStats)
+                pharmacy.GET("/dashboard/activity", perm("dashboard.view"), h.GetPharmacyDashboardActivity)
+                pharmacy.GET("/inventory", perm("inventory.view"), h.GetPharmacyInventory)
+                pharmacy.GET("/inventory/movements", perm("inventory.movements.view"), h.ListPharmacyStockMovements)
+                pharmacy.GET("/inventory/low-stock", perm("inventory.view"), h.GetPharmacyLowStock)
                 pharmacy.GET("/system/migrations", h.GetSystemMigrations)
-                pharmacy.GET("/products", h.ListPharmacyProducts)
-                pharmacy.POST("/products", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyProduct)
-                pharmacy.GET("/products/:id", h.GetPharmacyProduct)
-                pharmacy.PUT("/products/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacyProduct)
+                pharmacy.GET("/products", perm("inventory.view"), h.ListPharmacyProducts)
+                pharmacy.POST("/products", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.CreatePharmacyProduct)
+                pharmacy.GET("/products/:id", perm("inventory.view"), h.GetPharmacyProduct)
+                pharmacy.PUT("/products/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.UpdatePharmacyProduct)
                 // استيراد المنتجات من ملف جداول (ترحيل البرامج القديمة)
-                pharmacy.GET("/imports/products/template", h.ProductImportTemplate)
-                pharmacy.POST("/imports/products/preview", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.PreviewProductImport)
-                pharmacy.POST("/imports/products/execute", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.ExecuteProductImport)
-                pharmacy.GET("/pos/products", h.LookupPOSProduct)
-                pharmacy.GET("/pos/search", h.SearchPOSProducts)
-                pharmacy.POST("/pos/sales", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePOSSale)
-                pharmacy.GET("/pos/sales", h.ListPOSSales)
-                pharmacy.GET("/customers", h.ListPharmacyCustomers)
-                pharmacy.POST("/customers", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyCustomer)
-                pharmacy.GET("/customers/:id/statement", h.GetPharmacyCustomerStatement)
-                pharmacy.POST("/customers/:id/payments", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyCustomerPayment)
-                pharmacy.PUT("/customers/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacyCustomer)
-                pharmacy.GET("/pos/sales/:sale_id", h.GetPOSSale)
-                pharmacy.POST("/pos/sales/:sale_id/returns", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePOSSaleReturn)
-                pharmacy.POST("/inventory/:batch_id/adjust", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.AdjustPharmacyInventory)
+                pharmacy.GET("/imports/products/template", perm("inventory.import"), h.ProductImportTemplate)
+                pharmacy.POST("/imports/products/preview", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.PreviewProductImport)
+                pharmacy.POST("/imports/products/execute", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.ExecuteProductImport)
+                pharmacy.GET("/pos/products", perm("pos.access"), h.LookupPOSProduct)
+                pharmacy.GET("/pos/search", perm("pos.access"), h.SearchPOSProducts)
+                pharmacy.POST("/pos/sales", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("pos.access"), h.CreatePOSSale)
+                pharmacy.GET("/pos/sales", perm("sales.view"), h.ListPOSSales)
+                pharmacy.GET("/customers", perm("customers.view"), h.ListPharmacyCustomers)
+                pharmacy.POST("/customers", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("customers.create"), h.CreatePharmacyCustomer)
+                pharmacy.GET("/customers/:id/statement", perm("customers.view"), h.GetPharmacyCustomerStatement)
+                pharmacy.POST("/customers/:id/payments", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("customers.payments"), h.CreatePharmacyCustomerPayment)
+                pharmacy.PUT("/customers/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("customers.update"), h.UpdatePharmacyCustomer)
+                pharmacy.GET("/pos/sales/:sale_id", perm("sales.view"), h.GetPOSSale)
+                pharmacy.POST("/pos/sales/:sale_id/returns", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("sales.returns"), h.CreatePOSSaleReturn)
+                pharmacy.POST("/inventory/:batch_id/adjust", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.adjust"), h.AdjustPharmacyInventory)
                 // Reports are read-only aggregates scoped by the session
                 // principal — no mutation guard needed.
-                pharmacy.GET("/reports/sales", h.GetPharmacySalesReport)
-                pharmacy.GET("/reports/inventory", h.GetPharmacyInventoryReport)
-                pharmacy.GET("/reports/movements", h.GetPharmacyMovementsReport)
-                pharmacy.GET("/employees", h.ListPharmacyEmployees)
-                pharmacy.GET("/branches", h.ListPharmacyBranches)
-                pharmacy.GET("/attendance", h.ListPharmacyAttendance)
+                pharmacy.GET("/reports/sales", perm("reports.sales"), h.GetPharmacySalesReport)
+                pharmacy.GET("/reports/inventory", perm("reports.inventory"), h.GetPharmacyInventoryReport)
+                pharmacy.GET("/reports/movements", perm("reports.movements"), h.GetPharmacyMovementsReport)
+
+                // Flexible permission APIs (catalog/templates are open to every
+                // pharmacy principal; management APIs require the matching
+                // employees.* permissions like every other mutating endpoint).
+                pharmacy.GET("/permissions/catalog", h.GetPermissionCatalog)
+                pharmacy.GET("/permissions/templates", h.GetPermissionTemplates)
+                pharmacy.GET("/permissions/me", h.GetMyPermissions)
+                pharmacy.GET("/employees", perm("employees.view"), h.ListPharmacyEmployees)
+                pharmacy.POST("/employees", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("employees.create"), h.CreatePharmacyEmployee)
+                pharmacy.GET("/employees/:id/permissions", perm("employees.manage_permissions"), h.GetEmployeePermissions)
+                pharmacy.PUT("/employees/:id/permissions", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("employees.manage_permissions"), h.UpdateEmployeePermissions)
+                pharmacy.PATCH("/employees/:id/status", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("employees.update"), h.SetPharmacyEmployeeStatus)
+
+                pharmacy.GET("/branches", perm("branches.view"), h.ListPharmacyBranches)
+                pharmacy.GET("/attendance", perm("attendance.view"), h.ListPharmacyAttendance)
                 // Pharmacy settings: receipt/print configuration. Reading is
                 // open to every pharmacy principal; writing follows the same
                 // mutation guard + CSRF as every other mutating endpoint.
                 pharmacy.GET("/settings", h.GetPharmacySettings)
-                pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacySettings)
+                pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacySettings)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.

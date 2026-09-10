@@ -92,6 +92,9 @@ var migrationChain = []migration{
         {
                 name: "00000000000019_sales_discount_customers.sql",
         },
+        {
+                name: "00000000000020_flexible_permissions.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

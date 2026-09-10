@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
+import { usePermissions } from '@/hooks/usePermissions'
+import { SIDEBAR_PERMISSION_ROUTES, hasAnyPermission } from '@/lib/permissions'
 
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
@@ -22,13 +24,33 @@ const items = [
   { title: 'التقارير', href: '/reports', icon: BarChart3 },
 ]
 
+/** الصلاحية المطلوبة لظهور كل عنصر في القائمة (مرتبة من الأكثر تحديدًا). */
+function requiredPermissions(href: string): string[] | null {
+  const match = SIDEBAR_PERMISSION_ROUTES.find((route) => href === route.href)
+  return match ? match.anyOf : null
+}
+
 export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()
   const { context } = usePharmacyContext()
+  const { data: perms } = usePermissions()
   const [collapsed, setCollapsed] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  const fullAccess = perms?.full_access ?? true
+  const granted = perms?.permissions ?? []
+  // أثناء تحميل الصلاحيات الأولى نظهر كل الأقسام ثم نخفي — كي لا نكسر
+  // تخطيط الصفحة، والفرض الحقيقي موجود في الباكند.
+  const permsLoaded = perms !== null
+  const visibleItems = items.filter((item) => {
+    const required = requiredPermissions(item.href)
+    if (!required) return true
+    if (fullAccess) return true
+    if (!permsLoaded) return true
+    return hasAnyPermission(granted, required, false)
+  })
 
   async function handleLogout() {
     if (loggingOut) return
@@ -94,7 +116,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         <p className={cn('mb-2 text-xs font-medium text-muted-foreground', collapsed ? 'text-center' : 'px-3')}>{collapsed ? '•••' : 'القائمة الرئيسية'}</p>
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
           const ItemIcon = item.icon
           return (

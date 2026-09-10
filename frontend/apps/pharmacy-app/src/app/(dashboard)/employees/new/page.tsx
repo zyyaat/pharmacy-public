@@ -1,7 +1,14 @@
+'use client'
+
+// المسار القديم /employees/new أصبح نافذة داخل صفحة الموظفين نفسها —
+// نعيد التوجيه لتفادي صفحة معلقة بلا وظيفة.
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
 export default function NewEmployeePage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Add New Employee</h1>
-    </div>
-  )
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/employees')
+  }, [router])
+  return null
 }
