@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
+import '../core/strings.dart';
+import '../core/theme.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
+/// تسجيل الدخول — تصميم صفحة الويب: بطاقة مركزية بعنوان الترحيب
+/// ونفس التسميات (auth.json). EMAIL_NOT_VERIFIED → شاشة التحقق.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,9 +17,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _server = TextEditingController(text: ApiClient.instance.baseUrl);
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -23,123 +26,139 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _server.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (_email.text.trim().isEmpty || _password.text.isEmpty) return;
+    final i18n = AppI18n.instance;
+    if (_loading) return;
     setState(() {
       _loading = true;
       _error = null;
     });
-    final auth = context.read<AuthProvider>();
     try {
-      await auth.login(_email.text, _password.text);
+      await context.read<AppState>().login(_email.text.trim(), _password.text);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(
-        context,
-        auth.phase == AuthPhase.onboarding ? '/onboarding' : '/home',
-      );
+      Navigator.pushReplacementNamed(context, '/home');
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.emailNotVerified) {
-        auth.startVerification(_email.text.trim());
-        Navigator.pushReplacementNamed(context, '/verify');
+        context.read<AppState>().pendingVerifyEmail = _email.text.trim();
+        Navigator.pushNamed(context, '/verify');
         return;
       }
       setState(() {
-        _error = friendlyError(context, e);
+        _error = e.isNetwork ? i18n.error(e.code) : i18n.t('auth', 'login_failed');
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(context, e);
+        _error = AppI18n.instance.t('auth', 'login_failed');
         _loading = false;
       });
     }
   }
 
-  Future<void> _saveServer() async {
-    final auth = context.read<AuthProvider>();
-    final messenger = ScaffoldMessenger.of(context);
-    final savedText = context.tr('settings_server_saved');
-    await auth.applyServerOverride(_server.text.trim());
-    messenger.showSnackBar(SnackBar(content: Text(savedText)));
-    if (!mounted) return;
-    setState(() => _error = null);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
+    final pending = context.watch<AppState>().pendingVerifyEmail;
+    final args = ModalRoute.of(context)?.settings.arguments;
     return Scaffold(
-      body: AuthShell(
-        title: context.tr('login_title'),
-        subtitle: context.tr('login_subtext'),
-        children: [
-          TextFormField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            decoration: appInputDecoration(context, context.tr('email'),
-                icon: Icons.alternate_email_rounded),
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _password,
-            obscureText: true,
-            onFieldSubmitted: (_) => _submit(),
-            decoration: appInputDecoration(context, context.tr('password'),
-                icon: Icons.lock_outline_rounded),
-          ),
-          const SizedBox(height: 18),
-          if (_error != null) ...[
-            ErrorBox(message: _error!),
-            const SizedBox(height: 14),
-          ],
-          PrimaryButton(
-            label: context.tr('login_btn'),
-            loading: _loading,
-            onPressed: _submit,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(context.tr('no_account')),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/register'),
-                child: Text(context.tr('create_account')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.local_pharmacy, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('Pharmacy OS', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(i18n.t('auth', 'brand_tagline'), textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                  const SizedBox(height: 24),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(i18n.t('auth', 'login_heading'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(i18n.t('auth', 'login_subtext'),
+                            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                        const SizedBox(height: 16),
+                        if (pending != null && pending.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: AppCard(
+                              padding: const EdgeInsets.all(10),
+                              color: AppColors.successBg,
+                              child: Text(i18n.t('auth', 'login_after_verified'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        if (args is String && args.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: AppCard(
+                              padding: const EdgeInsets.all(10),
+                              color: AppColors.successBg,
+                              child: Text(i18n.t('auth', 'login_after_verified'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        Text(i18n.t('auth', 'email'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        AppInput(controller: _email, keyboard: TextInputType.emailAddress),
+                        const SizedBox(height: 12),
+                        Text(i18n.t('auth', 'password'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        AppInput(controller: _password, obscure: true),
+                        if (_error != null) ...<Widget>[
+                          const SizedBox(height: 12),
+                          Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
+                        ],
+                        const SizedBox(height: 16),
+                        PrimaryButton(i18n.t('auth', 'login_label'), loading: _loading, onPressed: _submit),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(i18n.t('auth', 'no_account'), style: const TextStyle(fontSize: 13)),
+                      TextButton(
+                        onPressed: () => Navigator.pushNamed(context, '/register'),
+                        child: Text(i18n.t('auth', 'create_account_link'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    i18n.t('auth', 'need_help'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.45)),
+                  ),
+                ],
               ),
-            ],
-          ),
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 8),
-              title: Text(
-                context.tr('advanced_server'),
-                style: const TextStyle(fontSize: 13),
-              ),
-              leading: const Icon(Icons.dns_outlined, size: 20),
-              children: [
-                TextFormField(
-                  controller: _server,
-                  keyboardType: TextInputType.url,
-                  decoration: appInputDecoration(
-                      context, context.tr('server_url'), icon: Icons.link),
-                ),
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: _saveServer,
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: Text(context.tr('save')),
-                ),
-              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

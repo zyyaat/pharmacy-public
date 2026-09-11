@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api_client.dart';
+import '../core/strings.dart';
 import '../state/app_state.dart';
-import '../widgets/ui.dart';
 
-/// شاشة الإقلاع: تستعيد الكوكيز وتفحص الجلسة (me) ثم توجه حسب الحالة —
-/// نفس منطق حارس التطبيق الويب: onboarding_required → المعالج، جلسة → اللوحة.
+/// شاشة الإقلاع: تفحص الجلسة عبر /me ثم توجه — نفس منطق حراس الويب:
+/// onboarding مطلوب → المعالج، جلسة سليمة → اللوحة، بلا جلسة → الدخول.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,10 +22,19 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    final auth = context.read<AuthProvider>();
-    await auth.boot();
+    final state = context.read<AppState>();
+    try {
+      await state.boot();
+    } on ApiException catch (_) {
+      // شبكة/خادم — نظل على الشاشة مع رسالة وإعادة محاولة تلقائية قصيرة
+      if (mounted) {
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (mounted) _boot();
+      }
+      return;
+    }
     if (!mounted) return;
-    switch (auth.phase) {
+    switch (state.phase) {
       case AuthPhase.ready:
         Navigator.pushReplacementNamed(context, '/home');
         break;
@@ -34,35 +44,46 @@ class _SplashScreenState extends State<SplashScreen> {
       case AuthPhase.unverified:
         Navigator.pushReplacementNamed(context, '/verify');
         break;
-      default:
+      case AuthPhase.anonymous:
+      case AuthPhase.booting:
         Navigator.pushReplacementNamed(context, '/login');
+        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [Color(0xFFF0FDFA), Color(0xFFECFEFF), Color(0xFFF8FAFC)],
-          ),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              BrandLogo(size: 96),
-              SizedBox(height: 28),
-              SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(strokeWidth: 2.6),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(22),
               ),
-            ],
-          ),
+              child: const Icon(Icons.local_pharmacy, size: 44, color: Colors.white),
+            ),
+            const SizedBox(height: 18),
+            const Text('Pharmacy OS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(i18n.t('auth', 'brand_tagline'),
+                style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: theme.colorScheme.primary),
+            ),
+            const SizedBox(height: 10),
+            Text(i18n.t('common', 'splash_loading'),
+                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.45))),
+          ],
         ),
       ),
     );

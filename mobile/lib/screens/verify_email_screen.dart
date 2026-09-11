@@ -1,16 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../config.dart';
+import '../core/api_client.dart';
+import '../core/strings.dart';
+import '../core/theme.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
-/// تأكيد البريد برمز OTP — بعد النجاح الجلسة تكون مفتوحة من الباك اند مباشرة
-/// (Task 57) فنتوجه للمعالج أو اللوحة دون مطالبة بكلمة مرور ثانية.
-/// إن لم تُفتح الجلسة (خادم قديم) نعيد المستخدم للدخول برسالة هادئة (Task 58).
+/// التحقق من البريد (OTP) — نفس سلوك صفحة verify-email في الويب:
+/// رمز 6 أرقام، جلسة فورية عند النجاح → المعالج أو اللوحة، وعند خادم
+/// قديم بلا session_created نجرّب /me قبل أي استسلام (تقسية Task 58).
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key});
 
@@ -19,169 +18,175 @@ class VerifyEmailScreen extends StatefulWidget {
 }
 
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
-  final _code = TextEditingController();
-  bool _loading = false;
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _code = TextEditingController();
+  bool _verifying = false;
   bool _resending = false;
   String? _error;
-  String? _notice;
-  int _resendIn = 0;
-  Timer? _timer;
+  String? _message;
 
   @override
   void initState() {
     super.initState();
-    final auth = context.read<AuthProvider>();
-    // لو جاءنا من التسجيل فالرمز أُرسل للتو — نبدأ عدّاد الإعادة فقط
-    if (auth.verificationSent) _startCooldown(30);
+    final pending = context.read<AppState>().pendingVerifyEmail;
+    if (pending != null && pending.isNotEmpty) _email.text = pending;
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _email.dispose();
     _code.dispose();
     super.dispose();
   }
 
-  void _startCooldown(int seconds) {
-    _resendIn = seconds;
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) {
-        t.cancel();
+  Future<void> _verify() async {
+    final i18n = AppI18n.instance;
+    if (_verifying) return;
+    setState(() {
+      _verifying = true;
+      _error = null;
+      _message = null;
+    });
+    final state = context.read<AppState>();
+    try {
+      final result = await state.verifyEmail(_email.text.trim(), _code.text.trim());
+      if (!mounted) return;
+      if (result.sessionCreated) {
+        setState(() => _message = result.onboardingRequired
+            ? i18n.t('auth', 'verify_success_onboarding')
+            : i18n.t('auth', 'verify_success_login'));
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/home');
+        return;
+      }
+      // خادم قديم: نجاح التحقق بلا جلسة — نجرّب /me فعلًا قبل التسليم
+      final probe = await state.probeSessionAfterVerify();
+      if (!mounted) return;
+      if (probe) {
+        setState(() => _message = i18n.t('auth', 'verify_success_login'));
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/home');
         return;
       }
       setState(() {
-        _resendIn -= 1;
-        if (_resendIn <= 0) t.cancel();
+        _message = i18n.t('auth', 'verify_verified_but_session_missing');
+        _error = null;
       });
-    });
-  }
-
-  Future<void> _submit() async {
-    final code = _code.text.trim();
-    if (code.length != AppConfig.otpLength) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-      _notice = null;
-    });
-    final auth = context.read<AuthProvider>();
-    try {
-      final opened = await auth.confirmVerification(code);
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
       if (!mounted) return;
-      if (opened) {
-        _notice = auth.phase == AuthPhase.onboarding
-            ? context.tr('verify_success_onboarding')
-            : context.tr('verify_success_home');
-        await Future<void>.delayed(const Duration(milliseconds: 900));
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          auth.phase == AuthPhase.onboarding ? '/onboarding' : '/home',
-        );
-      } else {
-        setState(() {
-          _notice = context.tr('verify_fallback_login');
-          _loading = false;
-        });
-        await Future<void>.delayed(const Duration(milliseconds: 1600));
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    } catch (e) {
+      final navigator = Navigator.of(context);
+      navigator.pushReplacementNamed('/login');
+    } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(context, e);
-        _loading = false;
+        _error = AppI18n.instance.error(e.code, i18n.t('auth', 'verify_failed'));
+        _verifying = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = AppI18n.instance.t('auth', 'verify_failed');
+        _verifying = false;
       });
     }
   }
 
   Future<void> _resend() async {
-    if (_resending || _resendIn > 0) return;
+    final i18n = AppI18n.instance;
+    if (_resending) return;
     setState(() {
       _resending = true;
       _error = null;
+      _message = null;
     });
-    final auth = context.read<AuthProvider>();
-    final messenger = ScaffoldMessenger.of(context);
     try {
-      await auth.api.resendVerification(auth.pendingEmail);
-      _startCooldown(30);
-    } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(context, e));
+      await ApiClient.instance.resendVerification(_email.text.trim());
+      if (!mounted) return;
+      setState(() => _message = i18n.t('auth', 'verify_code_sent'));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = AppI18n.instance.error(e.code, i18n.t('auth', 'verify_resend_failed')));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = i18n.t('auth', 'verify_resend_failed'));
     } finally {
       if (mounted) setState(() => _resending = false);
     }
-    messenger.hideCurrentSnackBar();
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.read<AuthProvider>();
-    final email = auth.pendingEmail;
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
     return Scaffold(
-      body: AuthShell(
-        title: context.tr('verify_title'),
-        subtitle: context.trF('verify_subtext', <String, String>{'email': email}),
-        children: [
-          TextFormField(
-            controller: _code,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            maxLength: AppConfig.otpLength,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(fontSize: 26, letterSpacing: 12, fontWeight: FontWeight.w700),
-            decoration: appInputDecoration(context, context.tr('verify_code')).copyWith(
-              counterText: '',
-            ),
-            onFieldSubmitted: (_) => _submit(),
-          ),
-          const SizedBox(height: 18),
-          if (_error != null) ...[
-            ErrorBox(message: _error!),
-            const SizedBox(height: 14),
-          ],
-          if (_notice != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: kBrandSeed.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+      appBar: AppBar(title: Text(i18n.t('auth', 'verify_heading'))),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(Icons.mark_email_read_outlined, size: 28, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(i18n.t('auth', 'verify_heading'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(i18n.t('auth', 'verify_default_message'),
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                    const SizedBox(height: 16),
+                    Text(i18n.t('auth', 'email'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    AppInput(controller: _email, keyboard: TextInputType.emailAddress),
+                    const SizedBox(height: 12),
+                    Text(i18n.t('auth', 'code_label'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _code,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, letterSpacing: 10, fontWeight: FontWeight.w800),
+                      decoration: InputDecoration(counterText: '', hintText: '••••••'),
+                    ),
+                    if (_error != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
+                    ],
+                    if (_message != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text(_message!, style: TextStyle(fontSize: 12, color: AppColors.successFg, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                    ],
+                    const SizedBox(height: 16),
+                    PrimaryButton(i18n.t('auth', 'verify_button'), loading: _verifying, onPressed: _verify),
+                    const SizedBox(height: 8),
+                    SecondaryButton(i18n.t('auth', 'resend_button'), icon: Icons.refresh, onPressed: _resending ? null : _resend),
+                    const SizedBox(height: 10),
+                    Text(i18n.t('auth', 'check_inbox'), textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                    TextButton(
+                      onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                      child: Text(i18n.t('auth', 'back_to_login'), style: const TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ),
-              child: Text(
-                _notice!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kBrandSeed, fontWeight: FontWeight.w600),
-              ),
             ),
-            const SizedBox(height: 14),
-          ],
-          PrimaryButton(
-            label: _loading ? context.tr('verifying') : context.tr('verify_btn'),
-            loading: _loading,
-            onPressed: _submit,
           ),
-          const SizedBox(height: 14),
-          Center(
-            child: _resendIn > 0
-                ? Text(
-                    context.trF('resend_in', <String, String>{'n': '$_resendIn'}),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  )
-                : TextButton.icon(
-                    onPressed: _resending ? null : _resend,
-                    icon: _resending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(context.tr('resend')),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }

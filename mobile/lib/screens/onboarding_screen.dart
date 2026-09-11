@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/models.dart';
+import '../core/api_client.dart';
+import '../core/strings.dart';
+import '../core/theme.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
-/// معالج إعداد الصيدلية بأسلوب Upwork (نظير صفحة /onboarding في الويب):
-/// سؤال واحد لكل شاشة، شريط تقدم، تخطي الخطوات الاختيارية، مراجعة بأزرار
-/// تعديل قافزة، ثم حفظ واحد عبر PUT /pharmacy/onboarding مع complete=true.
+/// معالج إعداد الصيدلية (Task 57) — نفس خطوات الويب الأربع بأسلوب
+/// Upwork: الاسم ← التواصل ← الموقع ← المراجعة مع تخطي الاختياري
+/// ومراجعة بأزرار تعديل، وإنهاء بـ complete=true.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -16,20 +18,18 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  // 0 الاسم، 1 التواصل، 2 الموقع، 3 المراجعة، 4 النجاح
-  int _step = 0;
+  final TextEditingController _name = TextEditingController();
+  final TextEditingController _phone = TextEditingController();
+  final TextEditingController _website = TextEditingController();
+  final TextEditingController _city = TextEditingController();
+  final TextEditingController _state = TextEditingController();
+  final TextEditingController _address1 = TextEditingController();
+  final TextEditingController _address2 = TextEditingController();
+  final TextEditingController _postal = TextEditingController();
+  int _step = 0; // 0 ترحيب، 1 اسم، 2 تواصل، 3 موقع، 4 مراجعة، 5 نجاح
   bool _loading = true;
   bool _saving = false;
   String? _error;
-
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _website = TextEditingController();
-  final _addr1 = TextEditingController();
-  final _addr2 = TextEditingController();
-  final _city = TextEditingController();
-  final _state = TextEditingController();
-  final _postal = TextEditingController();
 
   @override
   void initState() {
@@ -39,410 +39,317 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
-    _phone.dispose();
-    _website.dispose();
-    _addr1.dispose();
-    _addr2.dispose();
-    _city.dispose();
-    _state.dispose();
-    _postal.dispose();
+    for (final TextEditingController c in <TextEditingController>[_name, _phone, _website, _city, _state, _address1, _address2, _postal]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _load() async {
-    final auth = context.read<AuthProvider>();
+    final i18n = AppI18n.instance;
     try {
-      final st = await auth.loadOnboarding();
-      final p = st.pharmacy;
+      final s = await ApiClient.instance.getOnboarding();
       if (!mounted) return;
       setState(() {
-        _name.text = p.name;
-        _phone.text = p.phone;
-        _website.text = p.website;
-        _addr1.text = p.addressLine1;
-        _addr2.text = p.addressLine2;
-        _city.text = p.city;
-        _state.text = p.stateProvince;
-        _postal.text = p.postalCode;
+        _name.text = s.pharmacy.name;
+        _phone.text = s.pharmacy.phone;
+        _website.text = s.pharmacy.website;
+        _city.text = s.pharmacy.city == 'غير محدد' ? '' : s.pharmacy.city;
+        _state.text = s.pharmacy.stateProvince;
+        _address1.text = s.pharmacy.addressLine1;
+        _address2.text = s.pharmacy.addressLine2;
+        _postal.text = s.pharmacy.postalCode;
         _loading = false;
       });
-    } catch (e) {
+    } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
+        _error = AppI18n.instance.error(e.code, i18n.t('auth', 'ob_err_load'));
         _loading = false;
-        _error = friendlyError(context, e);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = AppI18n.instance.t('auth', 'ob_err_load');
+        _loading = false;
       });
     }
   }
 
-  OnboardingProfile _profile() => OnboardingProfile(
-        name: _name.text.trim(),
-        phone: _phone.text.trim(),
-        website: _website.text.trim(),
-        addressLine1: _addr1.text.trim(),
-        addressLine2: _addr2.text.trim(),
-        city: _city.text.trim(),
-        stateProvince: _state.text.trim(),
-        postalCode: _postal.text.trim(),
-        country: '',
-      );
+  bool _validateName() {
+    final i18n = AppI18n.instance;
+    if (_name.text.trim().length < 2) {
+      setState(() => _error = i18n.t('auth', 'ob_name_required'));
+      return false;
+    }
+    setState(() => _error = null);
+    return true;
+  }
 
-  bool get _nameValid => _name.text.trim().runes.length >= 2;
-
-  Future<void> _save() async {
+  Future<void> _save({required bool complete}) async {
+    final i18n = AppI18n.instance;
     setState(() {
       _saving = true;
       _error = null;
     });
-    final auth = context.read<AuthProvider>();
     try {
-      await auth.completeOnboarding(_profile());
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _step = 4;
+      await ApiClient.instance.updateOnboarding(<String, dynamic>{
+        if (_name.text.trim().isNotEmpty) 'name': _name.text.trim(),
+        'phone': _phone.text.trim(),
+        'website': _website.text.trim(),
+        if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
+        'state_province': _state.text.trim(),
+        'address_line1': _address1.text.trim(),
+        'address_line2': _address2.text.trim(),
+        'postal_code': _postal.text.trim(),
+        if (complete) 'complete': true,
       });
-    } catch (e) {
+      if (!mounted) return;
+      if (complete) {
+        await context.read<AppState>().completeOnboarding();
+        setState(() {
+          _step = 5;
+          _saving = false;
+        });
+      } else {
+        setState(() {
+          _step += 1;
+          _saving = false;
+        });
+      }
+    } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
+        _error = AppI18n.instance.error(e.code, i18n.t('auth', 'ob_err_save'));
         _saving = false;
-        _error = friendlyError(context, e);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = AppI18n.instance.t('auth', 'ob_err_save');
+        _saving = false;
       });
     }
+  }
+
+  Future<void> _finish() async {
+    if (!_validateName()) {
+      setState(() => _step = 1);
+      return;
+    }
+    await _save(complete: true);
   }
 
   void _next() {
-    if (_step == 0 && !_nameValid) {
-      setState(() => _error = context.tr('ob_name_required'));
-      return;
-    }
+    if (_step == 1 && !_validateName()) return;
     setState(() {
       _error = null;
-      _step += 1;
+      _step = _step < 4 ? _step + 1 : 4;
     });
   }
 
+  void _skip() {
+    setState(() {
+      _error = null;
+      _step = 4;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
+    if (_loading) {
+      return Scaffold(body: const LoadingBox(), appBar: AppBar(title: Text(i18n.t('auth', 'ob_app_label'))));
+    }
+    if (_error != null && _step == 0) {
+      return Scaffold(
+        appBar: AppBar(title: Text(i18n.t('auth', 'ob_app_label'))),
+        body: Padding(padding: const EdgeInsets.all(16), child: ErrorRetry(_error!, onRetry: _load)),
+      );
+    }
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildBody(),
+      appBar: AppBar(
+        title: Text(i18n.t('auth', 'ob_app_label')),
+        automaticallyImplyLeading: false,
       ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_step == 4) return _success();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.local_pharmacy_rounded, color: kBrandSeed),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.tr('ob_title'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (_step > 0 && _step < 5) ...<Widget>[
+                    Row(
+                      children: <Widget>[
+                        Text('$_step / 4', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: theme.colorScheme.primary)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(
+                      value: _step / 4,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(2),
+                      backgroundColor: theme.dividerColor,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  _buildStep(i18n, theme),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                context.trF('ob_step', <String, String>{'n': '${_step + 1}'}),
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Theme.of(context).colorScheme.outline),
-              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep(AppI18n i18n, ThemeData theme) {
+    switch (_step) {
+      case 0:
+        return _welcome(i18n, theme);
+      case 1:
+        return _stepCard(i18n, theme, i18n.t('auth', 'ob_s1_title'), i18n.t('auth', 'ob_s1_sub'),
+            AppInput(controller: _name, hint: i18n.t('auth', 'pharmacy_name_ph')),
+            showSkip: true);
+      case 2:
+        return _stepCard(i18n, theme, i18n.t('auth', 'ob_s2_title'), i18n.t('auth', 'ob_s2_sub'),
+            Column(children: <Widget>[
+              AppInput(controller: _phone, hint: i18n.t('auth', 'ob_phone_ph'), keyboard: TextInputType.phone),
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: (_step + 1) / 4,
-                  minHeight: 7,
-                  backgroundColor: kBrandSeed.withOpacity(0.12),
-                  valueColor: const AlwaysStoppedAnimation<Color>(kBrandSeed),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                child: _stepBody(_step),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _stepBody(int step) {
-    final fields = <Widget>[];
-    if (step == 0) {
-      fields.addAll([
-        _stepTitle(context.tr('ob_welcome_title')),
-        _stepHint(context.tr('ob_welcome_hint')),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _name,
-          autofocus: true,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => setState(() {}),
-          decoration: appInputDecoration(context, context.tr('ob_name'),
-              icon: Icons.storefront_rounded),
-        ),
-      ]);
-    } else if (step == 1) {
-      fields.addAll([
-        _stepTitle(context.tr('ob_contact_title')),
-        _stepHint(context.tr('ob_contact_hint')),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _phone,
-          keyboardType: TextInputType.phone,
-          decoration: appInputDecoration(context, context.tr('ob_phone'),
-              icon: Icons.phone_outlined),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _website,
-          keyboardType: TextInputType.url,
-          decoration: appInputDecoration(context, context.tr('ob_website'),
-              icon: Icons.language_rounded),
-        ),
-      ]);
-    } else if (step == 2) {
-      fields.addAll([
-        _stepTitle(context.tr('ob_location_title')),
-        _stepHint(context.tr('ob_location_hint')),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _addr1,
-          decoration: appInputDecoration(context, context.tr('ob_address1'),
-              icon: Icons.location_on_outlined),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _addr2,
-          decoration: appInputDecoration(context, context.tr('ob_address2')),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _city,
-                decoration: appInputDecoration(context, context.tr('ob_city')),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                controller: _state,
-                decoration:
-                    appInputDecoration(context, context.tr('ob_state')),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _postal,
-          keyboardType: TextInputType.number,
-          decoration:
-              appInputDecoration(context, context.tr('ob_postal')),
-        ),
-      ]);
-    } else {
-      fields.add(_review());
+              AppInput(controller: _website, hint: i18n.t('auth', 'ob_website_ph'), keyboard: TextInputType.url),
+            ]),
+            showSkip: true);
+      case 3:
+        return _stepCard(i18n, theme, i18n.t('auth', 'ob_s3_title'), i18n.t('auth', 'ob_s3_sub'),
+            Column(children: <Widget>[
+              AppInput(controller: _city, hint: i18n.t('auth', 'ob_city_ph')),
+              const SizedBox(height: 10),
+              AppInput(controller: _state, hint: i18n.t('auth', 'ob_state_ph')),
+              const SizedBox(height: 10),
+              AppInput(controller: _address1, hint: i18n.t('auth', 'ob_address1_ph')),
+              const SizedBox(height: 10),
+              AppInput(controller: _address2, hint: i18n.t('auth', 'ob_address2_ph')),
+              const SizedBox(height: 10),
+              AppInput(controller: _postal, hint: i18n.t('auth', 'ob_postal_ph'), keyboard: TextInputType.number),
+            ]),
+            showSkip: true);
+      case 4:
+        return _review(i18n, theme);
+      default:
+        return _success(i18n, theme);
     }
+  }
 
-    final optional = step == 1 || step == 2;
-    return Column(
-      key: ValueKey<int>(step),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ...fields,
-        const SizedBox(height: 22),
-        if (_error != null) ...[
-          ErrorBox(message: _error!),
-          const SizedBox(height: 14),
+  Widget _welcome(AppI18n i18n, ThemeData theme) {
+    final user = context.watch<AppState>().user;
+    return AppCard(
+      child: Column(
+        children: <Widget>[
+          Text(
+            '${i18n.t('auth', 'ob_welcome')} ${user?.firstName ?? ''} 👋',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(i18n.t('auth', 'ob_welcome_lead'), textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+          const SizedBox(height: 18),
+          PrimaryButton(i18n.t('auth', 'ob_continue'), onPressed: () => setState(() => _step = 1)),
         ],
-        Row(
-          children: [
-            if (step > 0)
-              TextButton(
-                onPressed: () => setState(() {
-                  _error = null;
-                  _step -= 1;
-                }),
-                child: Text(context.tr('back')),
-              ),
-            const Spacer(),
-            if (optional)
-              TextButton(
-                onPressed: _next,
-                child: Text(context.tr('skip')),
-              ),
-            const SizedBox(width: 4),
-            if (step < 3)
-              Expanded(
-                flex: 2,
-                child: PrimaryButton(label: context.tr('next'), onPressed: _next),
-              )
-            else
-              Expanded(
-                flex: 2,
-                child: PrimaryButton(
-                  label: _saving ? context.tr('ob_saving') : context.tr('save'),
-                  loading: _saving,
-                  onPressed: _save,
-                ),
-              ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _review() {
-    final rows = <MapEntry<String, String>>[
-      MapEntry(context.tr('ob_name'), _name.text.trim()),
-      MapEntry(context.tr('ob_phone'), _phone.text.trim()),
-      MapEntry(context.tr('ob_website'), _website.text.trim()),
-      MapEntry(context.tr('ob_address1'), _addr1.text.trim()),
-      MapEntry(context.tr('ob_address2'), _addr2.text.trim()),
-      MapEntry(context.tr('ob_city'), _city.text.trim()),
-      MapEntry(context.tr('ob_state'), _state.text.trim()),
-      MapEntry(context.tr('ob_postal'), _postal.text.trim()),
+  Widget _stepCard(AppI18n i18n, ThemeData theme, String title, String sub, Widget fields, {bool showSkip = false}) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(sub, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+          const SizedBox(height: 16),
+          fields,
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: 16),
+          PrimaryButton(i18n.t('auth', 'ob_continue'), loading: _saving, onPressed: _next),
+          if (showSkip) ...<Widget>[
+            const SizedBox(height: 6),
+            TextButton(onPressed: _skip, child: Text(i18n.t('auth', 'ob_skip'), style: const TextStyle(fontSize: 12))),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _review(AppI18n i18n, ThemeData theme) {
+    final rows = <(String, String, VoidCallback)>[
+      (i18n.t('auth', 'pharmacy_name'), _name.text, () => setState(() => _step = 1)),
+      (i18n.t('auth', 'ob_phone'), _phone.text.isEmpty ? i18n.t('auth', 'ob_optional') : _phone.text, () => setState(() => _step = 2)),
+      (i18n.t('auth', 'ob_website'), _website.text.isEmpty ? i18n.t('auth', 'ob_optional') : _website.text, () => setState(() => _step = 2)),
+      (i18n.t('auth', 'ob_city'), _city.text.isEmpty ? i18n.t('auth', 'ob_optional') : _city.text, () => setState(() => _step = 3)),
+      (i18n.t('auth', 'ob_state'), _state.text.isEmpty ? i18n.t('auth', 'ob_optional') : _state.text, () => setState(() => _step = 3)),
+      (i18n.t('auth', 'ob_address1'), _address1.text.isEmpty ? i18n.t('auth', 'ob_optional') : _address1.text, () => setState(() => _step = 3)),
+      (i18n.t('auth', 'ob_postal'), _postal.text.isEmpty ? i18n.t('auth', 'ob_optional') : _postal.text, () => setState(() => _step = 3)),
     ];
-    // الخطوة التي يُعدَّل منها كل صف: 0 الاسم، 1 تواصل، 2 موقع
-    final jump = <int>[0, 1, 1, 2, 2, 2, 2, 2];
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              context.tr('ob_review_title'),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w800),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(i18n.t('auth', 'ob_s4_title'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(i18n.t('auth', 'ob_s4_sub'), style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+          const SizedBox(height: 14),
+          for (final (String label, String value, VoidCallback edit) in rows) ...<Widget>[
+            Row(
+              children: <Widget>[
+                SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55)))),
+                Expanded(child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                TextButton(onPressed: edit, child: Text(i18n.t('auth', 'ob_edit'), style: const TextStyle(fontSize: 12))),
+              ],
             ),
-            for (var i = 0; i < rows.length; i++)
-              if (rows[i].value.isNotEmpty)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(rows[i].value,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(rows[i].key, style: const TextStyle(fontSize: 12)),
-                  trailing: TextButton(
-                    onPressed: () => setState(() {
-                      _error = null;
-                      _step = jump[i];
-                    }),
-                    child: Text(context.tr('ob_review_edit')),
-                  ),
-                ),
+            const Divider(height: 8),
           ],
-        ),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: 12),
+          PrimaryButton(i18n.t('auth', 'ob_finish'), loading: _saving, onPressed: _finish),
+        ],
       ),
     );
   }
 
-  Widget _success() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 108,
-              height: 108,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.14),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_rounded,
-                  color: Color(0xFF10B981), size: 62),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              context.tr('ob_complete_title'),
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.tr('ob_complete_sub'),
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: 240,
-              child: PrimaryButton(
-                label: context.tr('ob_enter'),
-                onPressed: () =>
-                    Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
-              ),
-            ),
-          ],
-        ),
+  Widget _success(AppI18n i18n, ThemeData theme) {
+    return AppCard(
+      child: Column(
+        children: <Widget>[
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(color: AppColors.successBg, shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_outline, size: 34, color: AppColors.successFg),
+          ),
+          const SizedBox(height: 14),
+          Text(i18n.t('auth', 'ob_success_title'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(i18n.t('auth', 'ob_success_sub'), textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+          const SizedBox(height: 18),
+          PrimaryButton(i18n.t('auth', 'ob_enter'), onPressed: () {
+            Navigator.pushReplacementNamed(context, '/home');
+          }),
+        ],
       ),
     );
   }
-
-  Widget _stepTitle(String text) => Text(
-        text,
-        style: Theme.of(context)
-            .textTheme
-            .titleLarge
-            ?.copyWith(fontWeight: FontWeight.w800),
-      );
-
-  Widget _stepHint(String text) => Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          text,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: Theme.of(context).colorScheme.outline),
-        ),
-      );
 }

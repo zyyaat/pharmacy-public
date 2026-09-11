@@ -1,149 +1,178 @@
-import 'package:flutter/widgets.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
 import '../core/session_store.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
 
-/// حالات الجلسة — مطابقة لمنطق حارس (dashboard)/layout.tsx وverify-email في الويب:
-/// boot ← جلسة سابقة؟ (me) → onboarding_required؟ المعالج : اللوحة، وإلا دخول.
-enum AuthPhase { boot, anonymous, unverified, onboarding, ready }
+/// حالة التطبيق المركزية: اللغة + آلة حالات الجلسة (boot→me→…) + سياق
+/// الصيدلية + صلاحيات المستخدم — بنفس منطق Task 59 مع توسعة Task 61.
+enum AuthPhase { booting, anonymous, unverified, onboarding, ready }
 
-class AuthProvider extends ChangeNotifier {
+class AppState extends ChangeNotifier {
   final ApiClient api = ApiClient.instance;
   final SessionStore store = SessionStore();
 
-  AuthPhase phase = AuthPhase.boot;
+  String _locale = 'ar';
+  AuthPhase _phase = AuthPhase.booting;
   User? user;
+  PharmacyContext? context;
+  MyPermissions? permissions;
+  String? pendingVerifyEmail;
 
-  /// بريد مرحلة التحقق (من التسجيل أو من EMAIL_NOT_VERIFIED عند الدخول)
-  String pendingEmail = '';
-  bool verificationSent = false;
+  String get locale => _locale;
+  AuthPhase get phase => _phase;
+  bool get isRtl => _locale.startsWith('ar');
+  String get tns => _locale; // تمرير للتنسيق
 
-  Future<void> boot() async {
-    phase = AuthPhase.boot;
-    notifyListeners();
+  // ------------------------------------------------------------- التهيئة
+
+  Future<void> loadInitialLocale() async {
     try {
-      await api.applyServerUrl(await store.serverOverride());
+      final saved = await store.locale();
+      if (saved != null && saved.isNotEmpty) _locale = saved;
     } catch (_) {}
+    await AppI18n.instance.setLocale(_locale);
+  }
+
+  Future<void> setLocale(String locale) async {
+    _locale = locale;
+    await AppI18n.instance.setLocale(locale);
+    await store.setLocale(locale);
+    try {
+      await api.setLocale(locale);
+    } catch (_) {/* الخادم اختياري هنا — المحلي هو المرجع */}
+    notifyListeners();
+  }
+
+  Future<void> applyServerOverride(String? raw) async {
+    await api.applyServerUrl(raw);
+    await store.setServerOverride(raw);
+    notifyListeners();
+  }
+
+  Future<String?> serverOverride() => store.serverOverride();
+
+  // ------------------------------------------------------------- الجلسة
+
+  /// تشغيل الإقلاع: من يقول «ما زال صالحًا» هو الخادم عبر /me.
+  Future<void> boot() async {
+    _phase = AuthPhase.booting;
+    notifyListeners();
     try {
       user = await api.me();
-      _decide();
+    } on ApiException catch (e) {
+      user = null;
+      _phase = AuthPhase.anonymous;
+      notifyListeners();
+      if (e.isNetwork) rethrow;
+      return;
     } catch (_) {
       user = null;
-      phase = AuthPhase.anonymous;
+      _phase = AuthPhase.anonymous;
+      notifyListeners();
+      return;
+    }
+    await _loadSessionData();
+    if (context != null && (context!.pharmacyName.isEmpty)) {
+      _phase = AuthPhase.onboarding;
+    } else {
+      _phase = AuthPhase.ready;
     }
     notifyListeners();
   }
 
-  void _decide() {
-    if (user != null && user!.onboardingRequired) {
-      phase = AuthPhase.onboarding;
-    } else {
-      phase = AuthPhase.ready;
+  Future<void> _loadSessionData() async {
+    try {
+      context = await api.context();
+    } catch (_) {
+      context = null;
+    }
+    try {
+      permissions = await api.myPermissions();
+    } catch (_) {
+      permissions = null;
     }
   }
 
-  void startVerification(String email, {bool sent = false}) {
-    pendingEmail = email.trim();
-    verificationSent = sent;
-    phase = AuthPhase.unverified;
+  Future<void> refreshSessionData() async {
+    await _loadSessionData();
     notifyListeners();
   }
 
   Future<void> login(String email, String password) async {
-    final u = await api.login(email.trim(), password);
-    user = u;
-    pendingEmail = u.email;
-    _decide();
+    user = await api.login(email, password);
+    pendingVerifyEmail = null;
+    await _loadSessionData();
+    _phase = AuthPhase.ready;
     notifyListeners();
   }
 
-  /// يعيد true إذا فُتحت الجلسة فعلًا (مطابق لمنطق Task 58 في الويب:
-  /// نثق بـ session_created، وإلا نفحص /me احتياطًا قبل أي استسلام).
-  Future<bool> confirmVerification(String code) async {
-    final r = await api.verifyEmail(pendingEmail, code);
-    if (r.sessionCreated) {
-      if (r.user != null) user = r.user;
-      if (user == null) {
-        try {
-          user = await api.me();
-        } catch (_) {}
-      }
-      _decide();
+  /// تسجيل جديد → انتظار تحقق البريد (الويب: نفس المسار)
+  Future<void> register({
+    required String companyName,
+    required String companyEmail,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+  }) async {
+    await api.register(
+      companyName: companyName,
+      companyEmail: companyEmail,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      password: password,
+    );
+    pendingVerifyEmail = email;
+    _phase = AuthPhase.unverified;
+    notifyListeners();
+  }
+
+  /// التحقق من الرمز — جلسة فورية على الخادم (api_level 57+)
+  Future<({bool sessionCreated, bool onboardingRequired})> verifyEmail(String email, String code) async {
+    final result = await api.verifyEmail(email, code);
+    if (result.user != null) user = result.user;
+    if (result.sessionCreated) {
+      await _loadSessionData();
+      _phase = result.onboardingRequired || context == null ? AuthPhase.onboarding : AuthPhase.ready;
       notifyListeners();
-      return true;
     }
+    return (sessionCreated: result.sessionCreated, onboardingRequired: result.onboardingRequired);
+  }
+
+  /// الخادم قديم ولم يفتح جلسة (Task 58): نعيد المحاولة عبر /me قبل الاستسلام
+  Future<bool> probeSessionAfterVerify() async {
     try {
       user = await api.me();
-      _decide();
-      notifyListeners();
-      return true;
     } catch (_) {
       return false;
     }
+    await _loadSessionData();
+    _phase = AuthPhase.ready;
+    notifyListeners();
+    return true;
   }
 
-  Future<OnboardingState> loadOnboarding() => api.getOnboarding();
-
-  Future<void> completeOnboarding(OnboardingProfile profile) async {
-    await api.updateOnboarding(profile.toUpdatePayload(complete: true));
-    try {
-      user = await api.me();
-    } catch (_) {}
-    phase = AuthPhase.ready;
+  Future<void> completeOnboarding() async {
+    await _loadSessionData();
+    _phase = AuthPhase.ready;
     notifyListeners();
   }
 
   Future<void> logout() async {
-    try {
-      await api.logout();
-    } catch (_) {}
+    await api.logout();
     user = null;
-    pendingEmail = '';
-    phase = AuthPhase.anonymous;
+    context = null;
+    permissions = null;
+    pendingVerifyEmail = null;
+    _phase = AuthPhase.anonymous;
     notifyListeners();
   }
 
-  /// تجاوز عنوان الخادم من داخل التطبيق — يمسح الجلسة ويعيد للدخول
-  Future<void> applyServerOverride(String? url) async {
-    await store.setServerOverride(url);
-    await api.applyServerUrl(url);
-    user = null;
-    phase = AuthPhase.anonymous;
-    notifyListeners();
-  }
-}
+  // ------------------------------------------------------------- الصلاحيات
 
-class LocaleProvider extends ChangeNotifier {
-  LocaleProvider(String initial) : _locale = initial;
-
-  String _locale;
-  String get locale => _locale;
-
-  Future<void> set(SessionStore store, String value) async {
-    if (_locale == value) return;
-    _locale = value;
-    notifyListeners();
-    try {
-      await store.setLocale(value);
-    } catch (_) {}
-    try {
-      // Task 50 — حفظ اللغة على الحساب أيضًا (أفضل جهد؛ تفشل بصمت عند غياب جلسة)
-      await ApiClient.instance.setLocale(value);
-    } catch (_) {}
-  }
-}
-
-// ------------------------------------------------------------ وصول الترجمة
-
-extension TrContext on BuildContext {
-  String _locale() =>
-      Provider.of<LocaleProvider>(this, listen: false).locale;
-
-  String tr(String key) => trFor(_locale(), key);
-
-  String trF(String key, Map<String, String> vars) =>
-      trFmt(_locale(), key, vars);
+  bool can(String key) => permissions?.can(key) ?? true;
+  bool canAny(List<String> keys) => permissions?.canAny(keys) ?? true;
 }
