@@ -21,6 +21,11 @@ class AppState extends ChangeNotifier {
   MyPermissions? permissions;
   String? pendingVerifyEmail;
 
+  // بيانات التسجيل الحالي في الذاكرة فقط — تُخزَّن مشفّرة بعد فتح الجلسة
+  // بنجاح (تحقق البريد) ليعمل الدخول الصامت في الإقلاعات القادمة.
+  String? _pendingRegisterEmail;
+  String? _pendingRegisterPassword;
+
   String get locale => _locale;
   ThemeMode get themeMode => _themeMode;
   AuthPhase get phase => _phase;
@@ -68,28 +73,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> applyServerOverride(String? raw) async {
-    await api.applyServerUrl(raw);
-    await store.setServerOverride(raw);
-    notifyListeners();
-  }
-
-  Future<String?> serverOverride() => store.serverOverride();
-
   // ------------------------------------------------------------- الجلسة
 
   /// تشغيل الإقلاع: من يقول «ما زال صالحًا» هو الخادم عبر /me.
+  /// قاعدة المستخدم: يبقى مسجلاً حتى يسجّل الخروج بنفسه —
+  /// فإذا فسدت/انتهت كوكيز الجلسة (401) جرّبنا الدخول الصامت بالبيانات
+  /// المحفوظة، وفشل الشبكة لا يُخرج أحدًا (شاشة البداية تعيد المحاولة).
   Future<void> boot() async {
     _phase = AuthPhase.booting;
     notifyListeners();
     try {
       user = await api.me();
     } on ApiException catch (e) {
-      user = null;
-      _phase = AuthPhase.anonymous;
-      notifyListeners();
       if (e.isNetwork) rethrow;
-      return;
+      final ok = await _silentRelogin();
+      if (!ok) {
+        user = null;
+        context = null;
+        permissions = null;
+        _phase = AuthPhase.anonymous;
+        notifyListeners();
+        return;
+      }
     } catch (_) {
       user = null;
       _phase = AuthPhase.anonymous;
@@ -126,9 +131,31 @@ class AppState extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     user = await api.login(email, password);
     pendingVerifyEmail = null;
+    // حفظ الدخول لهذا الجهاز (مشفّر) — الجلسة تبقى حتى خروج يدوي
+    await store.setCredentials(email.trim(), password);
     await _loadSessionData();
     _phase = AuthPhase.ready;
     notifyListeners();
+  }
+
+  /// الدخول الصامت بالبيانات المحفوظة عند فقدان كوكيز الجلسة
+  /// (انتهاء صلاحية refresh أو مسحها من الخادم). فشل الشبكة يُرمى
+  /// ليُعاد الإقلاع لاحقًا ولا يُسقط الجلسة؛ أما رفض الدخول فعلي
+  /// (كلمة المرور تغيّرت) يمسح المحفوظ ويطلب دخولًا يدويًا.
+  Future<bool> _silentRelogin() async {
+    final creds = await store.credentials();
+    if (creds == null) return false;
+    try {
+      user = await api.login(creds.email, creds.password);
+    } on ApiException catch (e) {
+      if (e.isNetwork) rethrow;
+      await store.clearCredentials();
+      return false;
+    } catch (_) {
+      return false;
+    }
+    pendingVerifyEmail = null;
+    return true;
   }
 
   /// تسجيل جديد → انتظار تحقق البريد (الويب: نفس المسار)
@@ -148,9 +175,21 @@ class AppState extends ChangeNotifier {
       email: email,
       password: password,
     );
+    _pendingRegisterEmail = email;
+    _pendingRegisterPassword = password;
     pendingVerifyEmail = email;
     _phase = AuthPhase.unverified;
     notifyListeners();
+  }
+
+  /// تخزين بيانات التسجيل بعد فتح الجلسة بنجاح — مرة واحدة ثم تُنسى من الذاكرة.
+  Future<void> _persistPendingCredentials(String email) async {
+    final pass = _pendingRegisterPassword;
+    if (pass == null || pass.isEmpty) return;
+    final mail = (email.isNotEmpty ? email : (_pendingRegisterEmail ?? '')).trim();
+    if (mail.isNotEmpty) await store.setCredentials(mail, pass);
+    _pendingRegisterEmail = null;
+    _pendingRegisterPassword = null;
   }
 
   /// التحقق من الرمز — جلسة فورية على الخادم (api_level 57+)
@@ -158,6 +197,7 @@ class AppState extends ChangeNotifier {
     final result = await api.verifyEmail(email, code);
     if (result.user != null) user = result.user;
     if (result.sessionCreated) {
+      await _persistPendingCredentials(email);
       await _loadSessionData();
       _phase = result.onboardingRequired || context == null ? AuthPhase.onboarding : AuthPhase.ready;
       notifyListeners();
@@ -172,6 +212,7 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+    await _persistPendingCredentials(user?.email ?? '');
     await _loadSessionData();
     _phase = AuthPhase.ready;
     notifyListeners();
@@ -184,8 +225,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// تسجيل الخروج اليدوي — الطريق الوحيد لمغادرة الجلسة.
+  /// ينجح حتى بلا شبكة: الكوكيز والبيانات المحفوظة تُمسح محليًا على أي حال.
   Future<void> logout() async {
-    await api.logout();
+    try {
+      await api.logout();
+    } catch (_) {
+      // لا شبكة/خطأ خادم — لا يمنع الخروج المحلي
+    }
+    await store.clearCredentials();
+    _pendingRegisterEmail = null;
+    _pendingRegisterPassword = null;
     user = null;
     context = null;
     permissions = null;

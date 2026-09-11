@@ -12,7 +12,8 @@ import 'settings_import_screen.dart';
 import 'settings_receipts_screen.dart';
 
 /// الإعدادات — أقسام الويب نفسها (الفواتير والطباعة، قاعدة البيانات،
-/// اللغة، ترحيل المنتجات) + طبقتا الطوارئ للموبايل (عنوان الخادم).
+/// اللغة، ترحيل المنتجات). عنوان الخادم ليس من شأن العميل — لا يوجد
+/// أي تحكم به هنا؛ يتحدد وقت البناء من المطورين فقط.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -123,8 +124,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _ServerOverrideCard(),
-        const SizedBox(height: 12),
         Center(
           child: Text(
             i18n.t('reports', 'brand_tagline'),
@@ -132,75 +131,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// طبقة الطوارئ الثالثة: تجاوز عنوان الخادم من داخل التطبيق (Task 59)
-class _ServerOverrideCard extends StatefulWidget {
-  @override
-  State<_ServerOverrideCard> createState() => _ServerOverrideCardState();
-}
-
-class _ServerOverrideCardState extends State<_ServerOverrideCard> {
-  final TextEditingController _ctrl = TextEditingController();
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    try {
-      final override = await context.read<AppState>().serverOverride();
-      if (override != null && mounted) _ctrl.text = override;
-    } catch (_) {
-      // التخزين الآمن قد يفشل عابرًا — لا يُتلف الشجرة، الحقل يبقى فارغًا
-    }
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    await context.read<AppState>().applyServerOverride(_ctrl.text.trim());
-    if (mounted) {
-      setState(() => _saving = false);
-      await appSnackbar(context, AppI18n.instance.t('common', 'done'));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text('عنوان الخادم (تجاوز طوارئ)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text('اتركه فارغًا لاستخدام الخادم الافتراضي المدمج',
-              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(child: AppInput(controller: _ctrl, hint: 'https://…/api/v1', keyboard: TextInputType.url)),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                child: const Icon(Icons.save_outlined, size: 20),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

@@ -4,7 +4,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
-import 'core/session_store.dart';
 import 'core/theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -40,15 +39,11 @@ Future<void> main() async {
           ),
         ),
       );
-  final store = SessionStore();
-  // استعادة كوكيز الجلسة واللغة وعنوان الخادم قبل أول إطار
+  // استعادة كوكيز الجلسة واللغة قبل أول إطار
   await ApiClient.instance.cookies.restore();
   final state = AppState();
   try {
     await state.loadInitialLocale();
-  } catch (_) {}
-  try {
-    await ApiClient.instance.applyServerUrl(await store.serverOverride());
   } catch (_) {}
   runApp(PharmacyOSApp(state: state));
 }

@@ -69,16 +69,6 @@ class ApiClient {
     return d;
   }
 
-  /// يبدّل عنوان الخادم (تجاوز داخل التطبيق) ويمسح كوكيز المضيف القديم.
-  Future<void> applyServerUrl(String? rawOverride) async {
-    final hasOverride = rawOverride != null && rawOverride.trim().isNotEmpty;
-    final url = AppConfig.normalizeBaseUrl(hasOverride ? rawOverride : AppConfig.apiBaseUrl);
-    if (url == _baseUrl) return;
-    _baseUrl = url;
-    dio.options.baseUrl = url;
-    cookies.clear();
-  }
-
   // ---------------------------------------------------------------- الجلسة
 
   Future<User> login(String email, String password) async {
