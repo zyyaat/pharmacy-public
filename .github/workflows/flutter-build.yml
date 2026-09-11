@@ -1,0 +1,86 @@
+# Task 59 — بناء تطبيق الصيدلية المحمول بلا أي بيئة محلية:
+# اضغط Run workflow ← (اختياري) أدخل عنوان الـ API ← Run ← نزّل الـ APK من Artifacts.
+# مجلد android/ يُولّد في السحابة من قالب نسخة Flutter المثبتة هنا ثم يُرقّع
+# بـ mobile/scripts/prepare_android.sh — لا حاجة لـ Flutter على أي جهاز.
+
+name: flutter-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "API base URL (اختياري — يفوق متغير المستودع API_BASE_URL)"
+        required: false
+        default: ""
+        type: string
+      flutter_version:
+        description: "Flutter version"
+        required: false
+        default: "3.24.5"
+        type: string
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/flutter-build.yml"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ inputs.flutter_version || '3.24.5' }}
+          cache: true
+
+      - name: Generate android/ scaffold from the pinned Flutter template
+        run: |
+          flutter --version
+          rm -rf /tmp/gen
+          flutter create /tmp/gen --project-name pharmacy_mobile --org com.zyyaat --platforms android
+          rm -rf mobile/android
+          cp -r /tmp/gen/android mobile/android
+
+      - name: Patch android/ (INTERNET + app label + minSdk 23)
+        run: bash mobile/scripts/prepare_android.sh
+
+      - name: Generate env.json (env-var layer — dart-define)
+        working-directory: mobile
+        env:
+          INPUT_URL: ${{ inputs.api_base_url }}
+          VAR_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          API_URL="$INPUT_URL"
+          if [ -z "$API_URL" ]; then API_URL="$VAR_URL"; fi
+          if [ -z "$API_URL" ]; then
+            API_URL="https://pharmacy-api.example.com/api/v1"
+            echo "::warning::API_BASE_URL is not set (neither run input nor repository variable) — using placeholder. The app still allows overriding the server URL from its Settings tab."
+          fi
+          printf '{"API_BASE_URL":"%s"}\n' "$API_URL" > env.json
+          echo "Built with API_BASE_URL=$API_URL"
+
+      - name: flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Smoke test (full-app compile check + model guards)
+        working-directory: mobile
+        run: flutter test
+
+      - name: Build release APK (universal)
+        working-directory: mobile
+        run: flutter build apk --release --dart-define-from-file=env.json
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-mobile-apk-${{ github.run_number }}
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

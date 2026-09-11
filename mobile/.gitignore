@@ -1,0 +1,20 @@
+# Task 59 — كود Dart فقط؛ مجلدات المنصات يولّدها GitHub Actions من قالب نسخة
+# Flutter المثبتة في الـ workflow (flutter create) ثم يرقّعها prepare_android.sh
+# (test/ يُودع عادي — اختبار الدخان جزء من المصدر)
+android/
+ios/
+web/
+windows/
+macos/
+linux/
+
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ملف بيئة البناء — يُولّد في CI فقط ولا يُودع أبدًا
+env.json
+*.iml
+.idea/

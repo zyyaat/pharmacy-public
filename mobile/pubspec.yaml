@@ -1,0 +1,29 @@
+name: pharmacy_mobile
+description: Pharmacy OS — التطبيق المحمول للصيدلية (بناء عبر GitHub Actions بدون بيئة محلية)
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # شبكة فقط — جلسة الكوكيز مُنفذة يدويًا في lib/core/cookies.dart
+  # (الباك اند يعتمد جلسة كوكيز معتمة: pharmacy_access / pharmacy_refresh /
+  #  pharmacy_csrf — لا يوجد Bearer، لذا أي حزمة كوكيز خارجية زائدة عن الحاجة)
+  dio: ^5.7.0
+  provider: ^6.1.2
+  flutter_secure_storage: ^9.2.2
+  intl: 0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
