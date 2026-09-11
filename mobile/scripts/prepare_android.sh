@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Task 59 — يرقّع مجلد android/ المولود حديثًا بأمر flutter create داخل CI.
 # مجلد المنصة لا يُودع في المستودع إطلاقًا (.gitignore)؛ تُولّده نسخة Flutter
-# المثبتة في الـ workflow ثم يطبق هذا السكربت تخصيصاتنا الثلاثة الثابتة:
+# المثبتة في الـ workflow ثم يطبق هذا السكربت تخصيصاتنا الأربعة الثابتة:
 #   1) إذن INTERNET (قالب main لا يتضمنه — موجود فقط في debug/profile)
 #   2) اسم التطبيق الظاهر على الجهاز: Pharmacy OS
 #   3) minSdk 23 (شرط flutter_secure_storage مع EncryptedSharedPreferences)
+#   4) useLegacyPackaging (تثبيت ناجح دائمًا حتى على أجهزة صفحات 16KB الحديثة)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -33,4 +34,19 @@ fi
 grep -Eq 'minSdk(Version)? ?= ?23|minSdkVersion 23' "$GRADLE" \
   || { echo "FATAL: minSdk patch did not apply — inspect $GRADLE" >&2; exit 1; }
 
-echo "OK: android/ prepared (INTERNET + label + minSdk 23)"
+# 4) تغليف المكتبات الأصلية بوضع الاستخراج (useLegacyPackaging):
+#    أحدث الأجهزة (صفحات ذاكرة 16KB) ترفض APK تحتوي مكتبات غير محاذاة 16KB،
+#    وهذا الخيار يجعل المكتبات مضغوطة تُستخرج عند التثبيت فينجح التثبيت دائمًا.
+#    ترقيع بأمان: إن تغيّر القالب نكتفِ بتحذير ولا نُفشل البناء.
+if grep -q "useLegacyPackaging" "$GRADLE"; then
+  echo "OK: useLegacyPackaging already present"
+else
+  sed -i '0,/^    buildTypes {/s//    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n\n    buildTypes {/' "$GRADLE" || true
+  if grep -q "useLegacyPackaging" "$GRADLE"; then
+    echo "OK: useLegacyPackaging=true (install-safe on 16KB-page devices)"
+  else
+    echo "WARN: packagingOptions not inserted (template changed?) — build continues"
+  fi
+fi
+
+echo "OK: android/ prepared (INTERNET + label + minSdk 23 + install-safe packaging)"

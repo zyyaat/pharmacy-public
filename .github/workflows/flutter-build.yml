@@ -74,13 +74,24 @@ jobs:
         working-directory: mobile
         run: flutter test
 
-      - name: Build release APK (universal)
+      - name: Build release APK (arm64-v8a — للهواتف الحديثة، التثبيت الناجح)
+        working-directory: mobile
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --dart-define-from-file=env.json
+
+      - name: Build release APK (universal — احتياط لكل المعماريات)
         working-directory: mobile
         run: flutter build apk --release --dart-define-from-file=env.json
 
-      - name: Upload APK artifact
+      - name: Upload arm64 APK artifact (main)
         uses: actions/upload-artifact@v4
         with:
-          name: pharmacy-mobile-apk-${{ github.run_number }}
+          name: pharmacy-mobile-apk-arm64-${{ github.run_number }}
+          path: mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+
+      - name: Upload universal APK artifact (fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-mobile-apk-universal-${{ github.run_number }}
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
