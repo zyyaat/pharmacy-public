@@ -94,9 +94,9 @@ class _BranchesScreenState extends State<BranchesScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    final appState = context.watch<AppState>();
-    final canCreate = appState.can('branches.create');
-    final canUpdate = appState.can('branches.update');
+    // مثل الويب: زر الإضافة وأزرار التعديل ظاهرة دائمًا بلا بوابات
+    // (branches/page.tsx:48-52 و104-110 — الخادم هو من يرد 403 للموظف بلا صلاحية).
+    // كان الإخفاء هنا يجعل صفحة المالك تبدو فارغة بلا زر إضافة.
     if (_loading) return const LoadingBox();
     if (_error != null) return ErrorRetry(_error!, onRetry: _load);
     return RefreshIndicator(
@@ -108,8 +108,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
             i18n.t('employees', 'branchesTitle'),
             subtitle: i18n.t('employees', 'branchesSubtitle'),
             actions: <Widget>[
-              if (canCreate)
-                WButton(i18n.t('employees', 'branchesAddBtn'), icon: Icons.add, onPressed: () => _openForm()),
+              WButton(i18n.t('employees', 'branchesAddBtn'), icon: Icons.add, onPressed: () => _openForm()),
             ],
           ),
           const SizedBox(height: 24),
@@ -134,8 +133,8 @@ class _BranchesScreenState extends State<BranchesScreen> {
                             for (final Branch b in _list) ...<Widget>[
                               _BranchTile(
                                 branch: b,
-                                onEdit: canUpdate ? () => _openForm(branch: b) : null,
-                                onDelete: canUpdate && !b.isMain ? () => _deleteBranch(b) : null,
+                                onEdit: () => _openForm(branch: b),
+                                onDelete: !b.isMain ? () => _deleteBranch(b) : null,
                               ),
                               if (b != _list.last) const SizedBox(height: 16),
                             ],

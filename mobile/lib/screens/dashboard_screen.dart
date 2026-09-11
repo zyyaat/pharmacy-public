@@ -110,7 +110,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24), // space-y-6
 
-          // بطاقات الإحصائيات — عمودان من 640px مثل الويب
+          // بطاقات الإحصائيات — عمود واحد على الهاتف وعمودان من 640px مثل الويب
+          // (أزواج في صفوف بارتفاع متساوٍ عبر stretch — بلا ارتفاعات مفروضة
+          // فلا يحدث overflow مهما اختلفت قياسات الخطوط بين الأجهزة)
           LayoutBuilder(builder: (BuildContext ctx, BoxConstraints c) {
             final twoCols = c.maxWidth >= 640; // sm:grid-cols-2
             final cards = <Widget>[
@@ -146,15 +148,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               );
             }
-            return GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 2.1,
-              children: cards,
-            );
+            // sm:grid-cols-2 gap-4 — صفّان من أزواج البطاقات بارتفاع متساوٍ
+            final rows = <Widget>[];
+            for (int i = 0; i < cards.length; i += 2) {
+              final pair = <Widget>[Expanded(child: cards[i])];
+              if (i + 1 < cards.length) {
+                pair
+                  ..add(const SizedBox(width: 16)) // gap-4
+                  ..add(Expanded(child: cards[i + 1]));
+              }
+              rows
+                ..add(IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: pair),
+                ))
+                ..add(const SizedBox(height: 16)); // gap-4 بين الصفوف
+            }
+            return Column(children: rows);
           }),
           const SizedBox(height: 24),
 
@@ -298,14 +307,26 @@ class _QuickActionsCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(24),
-            child: GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.4,
-              children: tiles,
+            // مثل الويب grid-cols-2 gap-3: أزواج المربعات في صفوف بارتفاع
+            // متساوٍ عبر stretch — بلا ارتفاع مفروض فلا overflow للنص.
+            child: Column(
+              children: <Widget>[
+                for (int i = 0; i < tiles.length; i += 2) ...<Widget>[
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Expanded(child: tiles[i]),
+                        if (i + 1 < tiles.length) ...<Widget>[
+                          const SizedBox(width: 12), // gap-3
+                          Expanded(child: tiles[i + 1]),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (i + 2 < tiles.length) const SizedBox(height: 12),
+                ],
+              ],
             ),
           ),
         ],

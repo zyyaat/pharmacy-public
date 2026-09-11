@@ -202,11 +202,20 @@ class _SalesListScreenState extends State<SalesListScreen> {
                               ));
                               _load(append: false);
                             },
-                            child: Row(
+                            child: Wrap(
+                              // مثل الويب: flex flex-wrap items-center gap-x-6 gap-y-2 —
+                              // العناصر تلتفّ لسطر جديد عند الضيق فلا ينكعرض عمود الفاتورة
+                              // لأحرف عمودية أبدًا.
+                              spacing: 24, // gap-x-6
+                              runSpacing: 8, // gap-y-2
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: <Widget>[
-                                Expanded(
+                                // min-w-[130px]: كتلة الفاتورة والتاريخ
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(minWidth: 130),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: <Widget>[
                                       Text(_invoiceLabel(s.invoiceNumber),
                                           textDirection: TextDirection.ltr,
@@ -220,36 +229,28 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                     ],
                                   ),
                                 ),
-                                Flexible(
-                                  child: Text(
-                                    // الويب يمرر الرقم الخام: t('productsAndUnits', {units: total_quantity_base})
-                                    s.productsCount == 0
-                                        ? i18n.t('sales', 'noProducts')
-                                        : i18n.t('sales', 'productsAndUnits', {
-                                            'products': Fmt.number(s.productsCount),
-                                            'units': Fmt.number(s.totalQuantityBase),
-                                          }),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                                  ),
+                                Text(
+                                  // الويب يمرر الرقم الخام: t('productsAndUnits', {units: total_quantity_base})
+                                  s.productsCount == 0
+                                      ? i18n.t('sales', 'noProducts')
+                                      : i18n.t('sales', 'productsAndUnits', {
+                                          'products': Fmt.number(s.productsCount),
+                                          'units': Fmt.number(s.totalQuantityBase),
+                                        }),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      color: theme.colorScheme.onSurface.withOpacity(0.6)),
                                 ),
-                                const SizedBox(width: 12),
                                 AppBadge(_statusLabel(s.status), tone: AppBadge.saleStatus(s.status)),
-                                if (s.paymentType == 'credit') ...<Widget>[
-                                  const SizedBox(width: 6),
+                                if (s.paymentType == 'credit')
                                   AppBadge(
                                     s.customerName.isEmpty
                                         ? i18n.t('sales', 'creditBadge')
                                         : i18n.t('sales', 'creditBadgeWithCustomer', {'customer': s.customerName}),
                                     tone: BadgeTone.warning,
                                   ),
-                                ],
                                 // سطر «خصم X» المضمر — مثل web page.tsx:120-122
-                                if (s.discountAmountPiastres > 0) ...<Widget>[
-                                  const SizedBox(width: 8),
+                                if (s.discountAmountPiastres > 0)
                                   Text(
                                       i18n.t('sales', 'discount',
                                           {'amount': Fmt.money(s.discountAmountPiastres, locale: i18n.locale)}),
@@ -257,10 +258,9 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                           color: theme.colorScheme.error)),
-                                ],
-                                const SizedBox(width: 12),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: <Widget>[
                                     Text(Fmt.money(s.totalAmountPiastres, locale: i18n.locale),
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -274,7 +274,6 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                               color: theme.colorScheme.error)),
                                   ],
                                 ),
-                                const SizedBox(width: 4),
                                 // ChevronLeft مع rtl-flip: يشير دائمًا باتجاه التقدم
                                 Icon(rtl ? Icons.chevron_left : Icons.chevron_right,
                                     size: 20, color: theme.colorScheme.onSurface.withOpacity(0.45)),

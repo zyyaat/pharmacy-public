@@ -330,7 +330,9 @@ class SectionHeader extends StatelessWidget {
 }
 
 /// رأس الصفحة في كل صفحات اللوحة: h1 text-2xl font-bold + subtitle text-sm
-/// muted + أزرار إجراءات (flex-wrap)
+/// muted + أزرار إجراءات — بنفس سلوك الويب flex-col sm:flex-row sm:items-center:
+/// تحت 640px العنوان فوق والأزرار تحته في سطر يلتفّ (flex-wrap)، ومن 640px
+/// يصيران في صف واحد مع توسيط رأسي — فلا يُخنَق العنوان أبدًا حتى مع زرّين.
 class PageHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -340,27 +342,41 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.25)),
-            ),
-            if (actions.isNotEmpty) ...<Widget>[
-              const SizedBox(width: 12),
-              Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.end, children: actions),
-            ],
-          ],
-        ),
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.25)),
         if (subtitle != null && subtitle!.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // mt-2
           Text(subtitle!, style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55))),
         ],
       ],
     );
+    if (actions.isEmpty) return titleBlock;
+    final Widget actionsWrap = Wrap(spacing: 8, runSpacing: 8, children: actions);
+    return LayoutBuilder(builder: (BuildContext ctx, BoxConstraints c) {
+      // مثل الويب: sm: (640px) هو حد التحول من عمود إلى صف
+      if (c.maxWidth < 640) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            titleBlock,
+            const SizedBox(height: 16), // gap-4
+            actionsWrap,
+          ],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // sm:items-center
+        children: <Widget>[
+          Expanded(child: titleBlock),
+          const SizedBox(width: 16),
+          actionsWrap,
+        ],
+      );
+    });
   }
 }
 
