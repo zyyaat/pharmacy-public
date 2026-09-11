@@ -48,7 +48,28 @@ jobs:
           rm -rf mobile/android
           cp -r /tmp/gen/android mobile/android
 
-      - name: Patch android/ (INTERNET + app label + minSdk 23)
+      - name: Restore fixed release keystore (توقيع ثابت — التحديث فوق النسخة المثبتة يعمل)
+        working-directory: mobile
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::warning::Keystore secrets missing — release falls back to debug signing (update-over-install will be REJECTED)"
+            exit 0
+          fi
+          echo "$KS_B64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KS_STORE_PASS
+          keyPassword=$KS_KEY_PASS
+          keyAlias=$KS_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+          echo "OK: fixed keystore restored — same signature on every build"
+
+      - name: Patch android/ (INTERNET + label + minSdk + packaging + signing)
         run: bash mobile/scripts/prepare_android.sh
 
       - name: Generate env.json (env-var layer — dart-define)
@@ -76,11 +97,11 @@ jobs:
 
       - name: Build release APK (arm64-v8a — للهواتف الحديثة، التثبيت الناجح)
         working-directory: mobile
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --dart-define-from-file=env.json
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} --dart-define-from-file=env.json
 
       - name: Build release APK (universal — احتياط لكل المعماريات)
         working-directory: mobile
-        run: flutter build apk --release --dart-define-from-file=env.json
+        run: flutter build apk --release --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} --dart-define-from-file=env.json
 
       - name: Upload arm64 APK artifact (main)
         uses: actions/upload-artifact@v4

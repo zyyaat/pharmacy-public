@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Task 59 — يرقّع مجلد android/ المولود حديثًا بأمر flutter create داخل CI.
 # مجلد المنصة لا يُودع في المستودع إطلاقًا (.gitignore)؛ تُولّده نسخة Flutter
-# المثبتة في الـ workflow ثم يطبق هذا السكربت تخصيصاتنا الأربعة الثابتة:
+# المثبتة في الـ workflow ثم يطبق هذا السكربت تخصيصاتنا الخمسة الثابتة:
 #   1) إذن INTERNET (قالب main لا يتضمنه — موجود فقط في debug/profile)
 #   2) اسم التطبيق الظاهر على الجهاز: Pharmacy OS
 #   3) minSdk 23 (شرط flutter_secure_storage مع EncryptedSharedPreferences)
 #   4) useLegacyPackaging (تثبيت ناجح دائمًا حتى على أجهزة صفحات 16KB الحديثة)
+#   5) التوقيع الثابت من key.properties (إن وُجد) — التحديث فوق النسخة المثبتة يعمل
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -49,4 +50,29 @@ else
   fi
 fi
 
-echo "OK: android/ prepared (INTERNET + label + minSdk 23 + install-safe packaging)"
+# 5) التوقيع الثابت — أساس «التحديث فوق النسخة المثبتة بلا حذف»:
+#    أندرويد يرفض تحديثًا موقعًا بمفتاح مختلف عن المثبت حاليًا، وكانت كل
+#    بناءات CI تُوقّع بمفتاح debug مؤقت يتغير كل تشغيل. حين يوجد
+#    android/key.properties (من الـ Secrets) نربطه ببكج release ثابتًا.
+#    بلا مفتاح: تحذير فقط ويستمر البناء بتوقيع debug كما كان.
+if [ -f android/key.properties ]; then
+  if grep -q "signingConfigs.release" "$GRADLE"; then
+    echo "OK: fixed signing already wired"
+  else
+    # 5-أ) تحميل خصائص المفتاح قبل android {
+    sed -i '0,/^android {/s//def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file(\"key.properties\")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n\nandroid {/' "$GRADLE" || true
+    # 5-ب) كتلة signingConfigs.release قبل buildTypes
+    sed -i '0,/^    buildTypes {/s//    signingConfigs {\n        release {\n            keyAlias keystoreProperties[\"keyAlias\"]\n            keyPassword keystoreProperties[\"keyPassword\"]\n            storeFile file(keystoreProperties[\"storeFile\"])\n            storePassword keystoreProperties[\"storePassword\"]\n        }\n    }\n\n    buildTypes {/' "$GRADLE" || true
+    # 5-ج) release يستخدم التوقيع الثابت بدل debug
+    sed -i 's|signingConfig = signingConfigs.debug|signingConfig = signingConfigs.release|' "$GRADLE" || true
+    if grep -q "signingConfig = signingConfigs.release" "$GRADLE" && grep -q "keystoreProperties" "$GRADLE"; then
+      echo "OK: release signed with the fixed keystore (updates over installed app work)"
+    else
+      echo "WARN: signing patch did not apply (template changed?) — falls back to debug signing"
+    fi
+  fi
+else
+  echo "WARN: android/key.properties missing — release will use debug signing (update-over-install rejected)"
+fi
+
+echo "OK: android/ prepared (INTERNET + label + minSdk 23 + install-safe packaging + fixed signing)"
