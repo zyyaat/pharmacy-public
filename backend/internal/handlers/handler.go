@@ -158,6 +158,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // mutation guard + CSRF as every other mutating endpoint.
                 pharmacy.GET("/settings", h.GetPharmacySettings)
                 pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacySettings)
+
+                // Task 57 — إعداد الصيدلية الذي يفتح مباشرة بعد التحقق من البريد:
+                // القراءة لأي جلسة صيدلية صالحة، والكتابة بنفس حرس الطفرات + CSRF
+                // كباقي نقاط النهاية المكتوبة. لا صلاحية مفصّلة هنا لأن المالك
+                // الجديد يجب أن يمرّ من هذه الصفحة قبل أي إعداد آخر.
+                pharmacy.GET("/onboarding", h.GetPharmacyOnboarding)
+                pharmacy.PUT("/onboarding", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacyOnboarding)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.
@@ -184,10 +191,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 }
 
 // APILevel is bumped with every behavioral backend change so a deployment's
-// code state is verifiable from outside without credentials (Task 53: the
-// pharmacy-email startup self-heal ships with api_level 53 — if /health
+// code state is verifiable from outside without credentials (Task 57: smart
+// registration — verifying the email OTP now opens the session immediately
+// and the pharmacy onboarding wizard ships with api_level 57; if /health
 // reports a lower value, the running backend predates the deploy).
-const APILevel = 56
+const APILevel = 57
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

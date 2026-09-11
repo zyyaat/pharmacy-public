@@ -17,6 +17,7 @@ export default function VerifyEmailPage() {
   const [code, setCode] = useState('')
   const [message, setMessage] = useState<string>(t('verify_default_message'))
   const [error, setError] = useState(false)
+  const [verified, setVerified] = useState(false)
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [sent, setSent] = useState(false)
@@ -32,6 +33,14 @@ export default function VerifyEmailPage() {
     const params = new URLSearchParams(window.location.search)
     const pendingEmail = params.get('email')?.trim() || ''
     setEmail(pendingEmail)
+    // Task 57 — التسجيل الذكي: لو جائنا من صفحة التسجيل برمزٍ أُرسل للتو
+    // (sent=1) فلا نعيد الإرسال إطلاقًا؛ نُظهر تأكيد الإرسال فقط. أما الوصول
+    // المباشر (من تسجيل الدخول أو رابط مكتوب) فنجدد الإرسال تلقائيًا.
+    if (params.get('sent') === '1') {
+      setSent(true)
+      setMessage(t('verify_code_sent'))
+      return
+    }
     if (params.get('sent') === '0') {
       setError(true)
       setMessage(t('verify_send_failed_on_create'))
@@ -62,6 +71,7 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user])
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {
@@ -80,9 +90,20 @@ export default function VerifyEmailPage() {
     setVerifying(true)
     setError(false)
     try {
-      await authApi.verifyEmail(email, code)
-      setMessage(t('verify_success'))
-      window.setTimeout(() => window.location.assign('/login'), 900)
+      // Task 57 — التحقق يفتح الجلسة فورًا من الباك اند: مسار ذكي حسب الحالة.
+      const body = await authApi.verifyEmail(email, code)
+      setVerified(true)
+      if (body.session_created) {
+        setMessage(
+          body.onboarding_required
+            ? t('verify_success_onboarding')
+            : t('verify_success'),
+        )
+        window.setTimeout(() => window.location.assign(body.onboarding_required ? '/onboarding' : '/'), 1000)
+      } else {
+        setMessage(t('verify_success_login'))
+        window.setTimeout(() => window.location.assign('/login'), 1000)
+      }
     } catch (verificationError) {
       setError(true)
       setMessage(verificationError instanceof Error ? verificationError.message : t('verify_failed'))
@@ -121,8 +142,8 @@ export default function VerifyEmailPage() {
       <div className="absolute -start-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -bottom-40 -end-24 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
       <section className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-8 text-center shadow-2xl sm:p-12" aria-live="polite">
-        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-black ${error ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
-          {error ? '!' : '✓'}
+        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-black ${verified ? 'animate-pop-in bg-primary text-primary-foreground shadow-lg shadow-primary/30' : error ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+          {verified ? '✓' : error ? '!' : '✓'}
         </div>
         <p className="mt-6 text-sm font-medium text-primary">Pharmacy OS</p>
         <h1 className="mt-3 text-2xl font-bold leading-relaxed">{t('verify_heading')}</h1>

@@ -94,7 +94,15 @@ export const authApi = {
     })
   },
   verifyEmail(email: string, code: string) {
-    return apiFetch<{ message: string }>('/auth/verify-email', {
+    // Task 57 — التحقق الناجح يفتح الجلسة فورًا: الكوكيز تُضبط على الاستجابة
+    // والحمولة تحمل المستخدم + هل إعداد الصيدلية ما زال مطلوبًا.
+    return apiFetch<{
+      message: string
+      session_created?: boolean
+      onboarding_required?: boolean
+      expires_in?: number
+      user?: Record<string, unknown>
+    }>('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({ email, code }),
     })
@@ -925,6 +933,36 @@ export interface ProductImportOptions {
   duplicate_strategy: 'skip' | 'update'
   quantity_unit: 'box' | 'strip'
   import_stock: boolean
+}
+
+/** Task 57 — ملف الصيدلية الذي يجمعه معالج الإعداد بعد التحقق من البريد. */
+export interface OnboardingProfile {
+  name: string
+  phone: string
+  website: string
+  address_line1: string
+  address_line2: string
+  city: string
+  state_province: string
+  postal_code: string
+  country: string
+}
+
+export interface OnboardingState {
+  onboarding_required: boolean
+  pharmacy: OnboardingProfile
+}
+
+export const onboardingApi = {
+  get() {
+    return apiFetch<{ data: OnboardingState }>('/pharmacy/onboarding')
+  },
+  update(payload: Partial<Omit<OnboardingProfile, 'country'>> & { complete?: boolean }) {
+    return apiFetch<{ data: OnboardingState }>('/pharmacy/onboarding', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
 }
 
 export const productImportApi = {

@@ -10,6 +10,8 @@ export type PharmacyUser = Record<string, unknown> & {
   account_type?: 'company_user' | 'employee'
   role?: string
   pharmacy_id?: string
+  /** Task 57 — هل ما زال معالج إعداد الصيدلية مطلوبًا قبل دخول اللوحة؟ */
+  onboarding_required?: boolean
 }
 
 function isPharmacyAccount(user: PharmacyUser): boolean {

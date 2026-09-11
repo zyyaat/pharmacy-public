@@ -16,8 +16,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return
+    if (!user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+      return
+    }
+    // Task 57 — حساب جديد لم يُكمل إعداد صيدليته؟ المعالج أولًا مهما كان المسار.
+    if (user.onboarding_required === true && pathname !== '/onboarding') {
+      router.replace('/onboarding')
     }
   }, [loading, user, router, pathname])
 

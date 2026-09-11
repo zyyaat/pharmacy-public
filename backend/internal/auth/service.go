@@ -70,6 +70,7 @@ type Principal struct {
 	BranchID          string
 	PermissionVersion int
 	Locale            string
+	Onboarded         bool // pharmacies.settings.onboarding.completed snapshot (Task 57)
 	PasswordHash      string
 	IsActive          bool
 	EmailVerified     bool
@@ -134,6 +135,13 @@ func principalAllowedInRealm(principal *Principal, realm AuthRealm) bool {
 	default:
 		return false
 	}
+}
+
+// PrincipalAllowedInRealm exposes the realm gate to the verify-email
+// auto-login path (Task 57): only a principal that could hold a pharmacy
+// session anyway gets a session right after confirming its email.
+func (s *Service) PrincipalAllowedInRealm(principal *Principal, realm AuthRealm) bool {
+	return principalAllowedInRealm(principal, realm)
 }
 
 func (s *Service) FindPrincipal(ctx context.Context, email, principalType, tenantID string) (*Principal, error) {
@@ -592,7 +600,8 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 		       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
 		       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
 		       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
-		       cu.permission_version, COALESCE(cu.locale, 'ar')
+		       cu.permission_version, COALESCE(cu.locale, 'ar'),
+		       COALESCE((p.settings->'onboarding'->>'completed') = 'true', false)
 		FROM company_users cu
 		LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 		LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
@@ -605,7 +614,7 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 	`, email, companyID).Scan(
 		&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
-		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale,
+		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale, &p.Onboarded,
 	)
 	if err != nil {
 		return nil, err
@@ -617,20 +626,22 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 func (s *Service) findEmployee(ctx context.Context, email, pharmacyID string) (*Principal, error) {
 	var p Principal
 	err := s.db.QueryRow(ctx, `
-		SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-		       role::text, pharmacy_id::text, COALESCE(branch_id::text, ''),
-		       COALESCE(password_hash, ''), is_active,
-		       email_verified_at IS NOT NULL, login_attempts, locked_until,
-		       permission_version, COALESCE(locale, 'ar')
-		FROM employees
-		WHERE LOWER(email) = LOWER($1)
-		  AND ($2 = '' OR pharmacy_id::text = $2)
-		ORDER BY created_at
+		SELECT e.id::text, e.email, e.first_name, e.last_name, COALESCE(e.display_name, ''),
+		       e.role::text, e.pharmacy_id::text, COALESCE(e.branch_id::text, ''),
+		       COALESCE(e.password_hash, ''), e.is_active,
+		       e.email_verified_at IS NOT NULL, e.login_attempts, e.locked_until,
+		       e.permission_version, COALESCE(e.locale, 'ar'),
+		       COALESCE((p.settings->'onboarding'->>'completed') = 'true', false)
+		FROM employees e
+		LEFT JOIN pharmacies p ON p.id = e.pharmacy_id
+		WHERE LOWER(e.email) = LOWER($1)
+		  AND ($2 = '' OR e.pharmacy_id::text = $2)
+		ORDER BY e.created_at
 		LIMIT 1
 	`, email, pharmacyID).Scan(
 		&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive,
-		&p.EmailVerified, &p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale,
+		&p.EmailVerified, &p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale, &p.Onboarded,
 	)
 	if err != nil {
 		return nil, err
@@ -647,7 +658,8 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 			       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
 			       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
 			       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
-			       cu.permission_version, COALESCE(cu.locale, 'ar')
+			       cu.permission_version, COALESCE(cu.locale, 'ar'),
+			       COALESCE((p.settings->'onboarding'->>'completed') = 'true', false)
 			FROM company_users cu
 			LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 			LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
@@ -655,7 +667,7 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 			WHERE cu.id = $1 AND cu.deleted_at IS NULL
 		`, id).Scan(&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 			&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified, &p.LoginAttempts,
-			&p.LockedUntil, &p.PermissionVersion, &p.Locale)
+			&p.LockedUntil, &p.PermissionVersion, &p.Locale, &p.Onboarded)
 		if err != nil {
 			return nil, err
 		}
@@ -664,15 +676,18 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 	}
 	var p Principal
 	err := s.db.QueryRow(ctx, `
-		SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-		       role::text, pharmacy_id::text, COALESCE(branch_id::text, ''),
-		       COALESCE(password_hash, ''), is_active,
-		       email_verified_at IS NOT NULL, login_attempts, locked_until,
-		       permission_version, COALESCE(locale, 'ar')
-		FROM employees WHERE id = $1
+		SELECT e.id::text, e.email, e.first_name, e.last_name, COALESCE(e.display_name, ''),
+		       e.role::text, e.pharmacy_id::text, COALESCE(e.branch_id::text, ''),
+		       COALESCE(e.password_hash, ''), e.is_active,
+		       e.email_verified_at IS NOT NULL, e.login_attempts, e.locked_until,
+		       e.permission_version, COALESCE(e.locale, 'ar'),
+		       COALESCE((p.settings->'onboarding'->>'completed') = 'true', false)
+		FROM employees e
+		LEFT JOIN pharmacies p ON p.id = e.pharmacy_id
+		WHERE e.id = $1
 	`, id).Scan(&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
 		&p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
-		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale)
+		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion, &p.Locale, &p.Onboarded)
 	if err != nil {
 		return nil, err
 	}

@@ -24,9 +24,20 @@
      الرسالة؛ GET /auth/platform/email-delivery-status (محمي بجلسة المنصة)
      يكشف الحقيقة: محمي 401 بلا جلسة/بنطاق خاطئ، تحقق مدخلات 400، وبلا
      إعداد Brevo يعيد 503 email_not_configured
+ 13) التسجيل الذكي (Task 57): التحقق من رمز البريد يفتح جلسة الصيدلية فورًا
+     (كوكيز access/refresh/csrf في نفس الاستجابة) بدل إعادة كلمة المرور،
+     الحمولة تعلن onboarding_required=true، وGET/PUT /pharmacy/onboarding
+     يجمّعان ملف الصيدلية (اسم/هاتف/مدينة/عنوان) ويغلقان البوابة، و/me
+     يعكس الإكمال، والرمز يُستهلك مرة واحدة
 """
+import os
 import sys
 import time
+
+# القسم 12 يحتاج مدير منصة: bootstrap يعمل عند إقلاع الباكند فقط إذا وُجدت
+# المتغيرات — نجعل الاستدعاء المباشر للاختبار مكتفياً بنفسه (العدّاء يصدّرها أيضًا).
+os.environ.setdefault("BOOTSTRAP_SUPER_ADMIN_EMAIL", "e2e-admin@pharmacyos.test")
+os.environ.setdefault("BOOTSTRAP_SUPER_ADMIN_PASSWORD", "E2eAdmin#2026")
 
 import requests
 
@@ -713,6 +724,111 @@ def main():
     check("12e. استعلام سجل التسليم بلا إعداد Brevo → 503 email_not_configured",
           r.status_code == 503 and _body.get("error") == "email_not_configured",
           f"{r.status_code} {r.text[:150]}")
+
+    # ============ 13) التسجيل الذكي: تحقق → جلسة فورية → معالج الإعداد (Task 57) ============
+    # سيناريو العميل الجديد كاملًا عبر الـ API: تسجيل → زرع رمز معروف في
+    # auth_email_tokens (الباك اند يخزن sha256 فقط فلا يمكن استرداد رمز حقيقي)
+    # → التحقق يفتح الجلسة مباشرة → معالج الإعداد يكتب الملف ويقفل البوابة.
+    import hashlib
+    _ts = int(time.time())
+    _smart_email = f"smart-{_ts}@test.io"
+    _smart_pass = "Str0ng!Pass2026"
+    _smart_conn = psycopg2.connect("postgresql://postgres@127.0.0.1:54329/reports_test")
+    _smart_conn.autocommit = True
+    _smart_cur = _smart_conn.cursor()
+
+    def cleanup_smart():
+        _smart_cur.execute("""
+            DELETE FROM auth_sessions WHERE principal_type='company_user'
+              AND principal_id IN (SELECT id FROM company_users WHERE email=%s);
+            DELETE FROM auth_email_tokens WHERE principal_type='company_user'
+              AND principal_id IN (SELECT id FROM company_users WHERE email=%s);
+            DELETE FROM company_user_permissions WHERE company_user_id IN
+              (SELECT id FROM company_users WHERE email=%s);
+            DELETE FROM company_users WHERE email=%s;
+            DELETE FROM branches WHERE pharmacy_id IN
+              (SELECT p.id FROM pharmacies p JOIN accounts a ON a.id=p.account_id WHERE a.contact_email=%s);
+            DELETE FROM pharmacies WHERE account_id IN (SELECT id FROM accounts WHERE contact_email=%s);
+            DELETE FROM accounts WHERE contact_email=%s;
+            DELETE FROM companies WHERE email=%s;
+        """, (_smart_email,) * 8)
+
+    try:
+        r = requests.post(f"{BASE}/auth/register", json={
+            "company_name": "صيدلية التسجيل الذكي", "company_email": _smart_email,
+            "first_name": "أحمد", "last_name": "الذكي",
+            "email": _smart_email, "password": _smart_pass,
+        }, timeout=15)
+        check("13a. تسجيل حساب جديد → 201", r.status_code == 201, f"{r.status_code} {r.text[:150]}")
+
+        _smart_cur.execute("SELECT id::text FROM company_users WHERE email=%s", (_smart_email,))
+        _cu_id = _smart_cur.fetchone()[0]
+        _code = "854312"
+        _smart_cur.execute(
+            """INSERT INTO auth_email_tokens (principal_type, principal_id, purpose, token_hash, expires_at)
+               VALUES ('company_user', %s::uuid, 'verify_email', %s, NOW() + INTERVAL '1 hour')""",
+            (_cu_id, hashlib.sha256(_code.encode()).digest()))
+
+        smart = requests.Session()
+        r = smart.post(f"{BASE}/auth/verify-email", json={"email": _smart_email, "code": _code}, timeout=15)
+        _body = r.json() if r.ok else {}
+        check("13b. التحقق من الرمز → 200 مع جلسة مفتوحة فورًا",
+              r.status_code == 200 and _body.get("session_created") is True,
+              f"{r.status_code} {r.text[:200]}")
+        check("13c. الحمولة تعلن onboarding_required=true (معالج الإعداد مطلوب)",
+              _body.get("onboarding_required") is True, str(_body.get("onboarding_required")))
+        check("13d. كوكيز الجلسة ضُبطت (access+refresh+csrf)",
+              all(c in smart.cookies for c in ("pharmacy_access", "pharmacy_refresh", "pharmacy_csrf")),
+              str(list(smart.cookies.keys())))
+
+        r = smart.post(f"{BASE}/auth/verify-email", json={"email": _smart_email, "code": _code}, timeout=15)
+        check("13e. نفس الرمز مرة ثانية → 400 (يُستهلك مرة واحدة)", r.status_code == 400, str(r.status_code))
+
+        r = requests.get(f"{BASE}/pharmacy/onboarding", timeout=10)
+        check("13f. GET onboarding بلا جلسة → 401", r.status_code == 401, str(r.status_code))
+
+        r = smart.get(f"{BASE}/pharmacy/onboarding", timeout=15)
+        _data = (r.json() or {}).get("data") or {}
+        _ph = _data.get("pharmacy") or {}
+        check("13g. GET onboarding: البوابة مطلوبة واسم التسجيل معبأ مسبقًا",
+              r.status_code == 200 and _data.get("onboarding_required") is True
+              and _ph.get("name") == "صيدلية التسجيل الذكي",
+              f"{r.status_code} {r.text[:200]}")
+
+        r = smart.put(f"{BASE}/pharmacy/onboarding", json={
+            "name": "صيدلية الشفاء الحديثة", "phone": "01000000000", "city": "القاهرة",
+            "state_province": "مدينة نصر", "address_line1": "شارع عباس العقاد، عمارة 9",
+            "complete": True,
+        }, headers=csrf_header(smart), timeout=15)
+        _data = (r.json() or {}).get("data") or {}
+        check("13h. PUT onboarding: حفظ الملف وإغلاق البوابة (onboarding_required=false)",
+              r.status_code == 200 and _data.get("onboarding_required") is False,
+              f"{r.status_code} {r.text[:200]}")
+
+        r = smart.get(f"{BASE}/auth/pharmacy/me", timeout=15)
+        _me = (r.json() or {}).get("user") or {}
+        check("13i. /me بعد الإكمال تعكس onboarding_required=false",
+              r.status_code == 200 and _me.get("onboarding_required") is False,
+              f"{r.status_code} {r.text[:150]}")
+
+        r = smart.get(f"{BASE}/pharmacy/onboarding", timeout=15)
+        _data = (r.json() or {}).get("data") or {}
+        _ph = _data.get("pharmacy") or {}
+        check("13j. الملف المحفوظ يُقرأ كاملًا (اسم/هاتف/مدينة/عنوان) والبوابة مغلقة",
+              r.status_code == 200 and _data.get("onboarding_required") is False
+              and _ph.get("phone") == "01000000000" and _ph.get("city") == "القاهرة"
+              and str(_ph.get("address_line1", "")).startswith("شارع عباس"),
+              str(_ph)[:180])
+
+        r = smart.put(f"{BASE}/pharmacy/onboarding", json={"name": "ش"}, headers=csrf_header(smart), timeout=15)
+        check("13k. اسم أقصر من حرفين → 400", r.status_code == 400, str(r.status_code))
+    finally:
+        try:
+            cleanup_smart()
+        except Exception as _cleanup_error:
+            print(f"WARN cleanup section 13: {_cleanup_error}")
+        _smart_cur.close()
+        _smart_conn.close()
 
     failed = checks.count(False)
     print(f"\n==== {len(checks) - failed}/{len(checks)} checks passed ====")

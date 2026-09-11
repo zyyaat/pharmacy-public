@@ -499,7 +499,37 @@ func (h *Handler) verifyEmail(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "verification_failed", "Could not verify email")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
+	principal.EmailVerified = true
+
+	// Task 57 — confirming the code proves email ownership, so open the
+	// pharmacy session right here instead of sending the user back to the
+	// login form to re-type the password they just set. Any failure in this
+	// block must not fail the verification itself: the response declares
+	// session_created=false and the client falls back to the normal login.
+	sessionCreated := false
+	if h.service.PrincipalAllowedInRealm(principal, PharmacyRealm) {
+		tokens, sessionErr := h.service.CreateSession(c.Request.Context(), principal, PharmacyRealm, RequestMeta{
+			IPAddress: c.ClientIP(),
+			UserAgent: c.GetHeader("User-Agent"),
+		})
+		if sessionErr != nil {
+			log.Printf("post-verification session failed for principal type %s: %v", principal.Type, sessionErr)
+		} else if cookieErr := h.setAuthCookies(c, tokens, PharmacyRealm); cookieErr != nil {
+			log.Printf("post-verification cookies failed for principal type %s: %v", principal.Type, cookieErr)
+		} else {
+			sessionCreated = true
+			if loginErr := h.service.recordSuccessfulLogin(c.Request.Context(), principal); loginErr != nil {
+				log.Printf("post-verification login record failed for principal type %s: %v", principal.Type, loginErr)
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message":             "Email verified successfully",
+		"user":                userPayload(principal),
+		"expires_in":          int64(h.service.cfg.AccessTTL.Seconds()),
+		"session_created":     sessionCreated,
+		"onboarding_required": !principal.Onboarded,
+	})
 }
 
 func isVerificationCode(code string) bool {
@@ -557,7 +587,7 @@ func userPayload(p *Principal) map[string]interface{} {
 		"id": p.ID, "email": p.Email, "first_name": p.FirstName, "last_name": p.LastName,
 		"display_name": p.DisplayName, "role": p.Role, "account_type": p.Type,
 		"is_active": p.IsActive, "email_verified": p.EmailVerified,
-		"locale": p.Locale,
+		"locale": p.Locale, "onboarding_required": !p.Onboarded,
 	}
 	if p.CompanyID != "" {
 		payload["company_id"] = p.CompanyID

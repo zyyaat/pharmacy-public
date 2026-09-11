@@ -45,6 +45,14 @@ def main():
     cur = conn.cursor()
     cur.execute("UPDATE company_users SET email_verified_at=NOW() WHERE email=%s", (EMAIL,))
     print("email verified rows:", cur.rowcount)
+    # Task 57 — الحساب المزروع حساب قديم «أكمل إعداده»: نغلق بوابة معالج
+    # onboarding كي لا يعيد حارس اللوحة توجيه فحوص المتصفح إلى /onboarding.
+    cur.execute(
+        "UPDATE pharmacies SET settings = settings || '{\"onboarding\": {\"completed\": true}}'::jsonb "
+        "WHERE account_id IN (SELECT id FROM accounts WHERE contact_email=%s)",
+        (EMAIL,),
+    )
+    print("onboarding closed rows:", cur.rowcount)
     conn.close()
 
     r = s.post(f"{BASE}/auth/pharmacy/login", json={"email": EMAIL, "password": PASSWORD}, timeout=10)
