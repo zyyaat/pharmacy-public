@@ -18,9 +18,20 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [redirectPath, setRedirectPath] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     setRedirectPath(getSafeRedirectPath(new URLSearchParams(window.location.search).get('next')))
+  }, [])
+
+  useEffect(() => {
+    // Task 58 — عودة لطيفة من التحقق حين تكون الجلسة التلقائية غائبة: عبّئ
+    // البريد مسبقًا وأخبر المستخدم أن بريده مؤكد فعلًا حتى لا تبدو الصفحة معطلة.
+    const params = new URLSearchParams(window.location.search)
+    const pendingEmail = params.get('email')?.trim() || ''
+    if (pendingEmail) setEmail((current) => (current ? current : pendingEmail))
+    if (params.get('verified') === '1') setNotice(t('login_after_verified'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -89,6 +100,7 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-muted-foreground">{t('login_subtext')}</p>
           </div>
           <form className="mt-8 space-y-5" autoComplete="on" onSubmit={handleSubmit}>
+            {notice && <p className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm text-primary" role="status">{notice}</p>}
             {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
             <label className="block">
               <span className="mb-2 block text-sm font-medium">{t('email')}</span>

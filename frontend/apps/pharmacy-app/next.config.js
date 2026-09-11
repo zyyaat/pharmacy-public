@@ -12,6 +12,11 @@ if (useDevelopmentProxy && !process.env.BACKEND_INTERNAL_URL) {
 }
 
 const nextConfig = {
+  env: {
+    // Task 58 — بصمة بناء الواجهة (VERCEL_GIT_COMMIT_SHA) تظهر في كونسول المتصفح
+    // لكشف النسخ القديمة المخبأة فورًا أثناء تشخيص التسجيل الذكي.
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || '',
+  },
   allowedDevOrigins: ['127.0.0.1', 'localhost', process.env.REPLIT_DEV_DOMAIN].filter(Boolean),
   async rewrites() {
     if (!useDevelopmentProxy) return []

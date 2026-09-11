@@ -20,6 +20,12 @@ export default function VerifyEmailPage() {
   const [verified, setVerified] = useState(false)
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  useEffect(() => {
+    // Task 58 — بصمة النشر: تكشف فورًا من كونسول المتصفح هل هذه النسخة القديمة أم الجديدة
+    if (process.env.NEXT_PUBLIC_BUILD_ID) {
+      console.info(`[pharmacy-os] ui build: ${process.env.NEXT_PUBLIC_BUILD_ID}`)
+    }
+  }, [])
   const [sent, setSent] = useState(false)
 
   useEffect(() => {
@@ -101,8 +107,27 @@ export default function VerifyEmailPage() {
         )
         window.setTimeout(() => window.location.assign(body.onboarding_required ? '/onboarding' : '/'), 1000)
       } else {
-        setMessage(t('verify_success_login'))
-        window.setTimeout(() => window.location.assign('/login'), 1000)
+        // Task 58 — لا نستسلم لغياب session_created بشكل أعمى: نسخة خادم قديمة
+        // (أقل من 57) لا ترسل الحقل أصلًا، وقد تكون الجلسة فُتحت رغم ذلك.
+        // نفحص الجلسة فعليًا عبر /me قبل أي تحويل لتسجيل الدخول اليدوي.
+        try {
+          const me = await authApi.me()
+          const meUser = (me.user || null) as { onboarding_required?: boolean } | null
+          if (meUser) {
+            setMessage(
+              meUser.onboarding_required === true
+                ? t('verify_success_onboarding')
+                : t('verify_success'),
+            )
+            window.setTimeout(() => window.location.assign(meUser.onboarding_required === true ? '/onboarding' : '/'), 1000)
+            return
+          }
+        } catch {
+          // لا جلسة فعلًا — الخادم لم يفتح جلسة بعد التحقق (نسخة قديمة أو فشل جلسة)
+        }
+        setMessage(t('verify_verified_but_session_missing'))
+        const fallbackEmail = encodeURIComponent(email.trim())
+        window.setTimeout(() => window.location.assign(`/login?verified=1&email=${fallbackEmail}`), 1600)
       }
     } catch (verificationError) {
       setError(true)
