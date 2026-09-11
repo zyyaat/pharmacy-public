@@ -38,6 +38,7 @@ class HomeScreen extends StatefulWidget {
 /// حالة الهيكل مكشوفة ليتسنّى لبطاقات الإجراءات السريعة تنشيط صفحة
 /// بالمعرّف نفسه (مثل تغيير المسار في الويب).
 class HomeShellState extends State<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _active = 'dashboard';
   List<LowStockItem> _lowStock = <LowStockItem>[];
   List<Customer> _debts = <Customer>[];
@@ -78,8 +79,10 @@ class HomeShellState extends State<HomeScreen> {
     _refreshAlerts();
   }
 
-  void _openDrawer(BuildContext context) {
-    Scaffold.of(context).openDrawer();
+  void _openDrawer() {
+    // بمفتاح Scaffold لا نعتمد على Scaffold.of الذي يرمي لو مُرِّر سياق
+    // أعلى من الـ Scaffold نفسه (كان يُفشل الضغط على القائمة صامتًا في release).
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   @override
@@ -92,13 +95,14 @@ class HomeShellState extends State<HomeScreen> {
       orElse: () => pages.first,
     );
     return Scaffold(
+      key: _scaffoldKey,
       drawer: _SidebarDrawer(active: _active, onSelect: (String key) => goTo(key)),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: <Widget>[
             _HeaderBar(
-              onMenu: () => _openDrawer(context),
+              onMenu: _openDrawer,
               onAlertsChanged: _refreshAlerts,
               alertCount: (state.can('inventory.view') ? _lowStock.length : 0) +
                   (state.can('customers.view') ? _debts.length : 0),
@@ -284,7 +288,8 @@ class _SidebarDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
               alignment: AlignmentDirectional.centerStart,
-              child: BrandLogo(height: 36, dark: dark),
+              // FittedBox: عرض الشعار الفعري قد يفوق عرض الدرج قليلًا — نُصغّر بسلاسة
+              child: FittedBox(fit: BoxFit.scaleDown, child: BrandLogo(height: 36, dark: dark)),
             ),
 
             // صندوق الصيدلية الحالية — bg-primary/10 rounded-lg p-3

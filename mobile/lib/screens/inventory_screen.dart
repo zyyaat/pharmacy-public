@@ -242,8 +242,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                               : Fmt.date(it.expiryDate, locale: i18n.locale)),
                                           AppBadge(_statusLabel(it.status), tone: AppBadge.stockStatus(it.status)),
                                           if (canManage || canAdjust)
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
                                               children: <Widget>[
                                                 if (canManage)
                                                   WButton(

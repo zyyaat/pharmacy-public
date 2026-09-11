@@ -438,6 +438,7 @@ class _WButtonState extends State<WButton> {
         shadows = WebShadow.sm;
       case WButtonVariant.gradient:
         fg = scheme.onPrimary;
+        bg = Colors.transparent; // التدرج يرسم الخلفية — بلا هذه القيمة يبقى late bg غير مهيأ (تعطل)
         gradient = LinearGradient(colors: <Color>[primary, AppColors.gradientEnd]);
         shadows = WebShadow.md;
       case WButtonVariant.link:

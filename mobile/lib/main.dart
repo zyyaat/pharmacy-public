@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,30 @@ import 'state/app_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // شبكة أمان: أي استثناء build يعرض بطاقة خطأ مقروءة بدل الصندوق الرمادي
+  // الصامت في وضع release، ويُبقي بقية الواجهة واضحة ومتفاعلة.
+  ErrorWidget.builder = (FlutterErrorDetails details) => Material(
+        color: const Color(0xFF0B110E),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(Icons.error_outline, color: Color(0xFFF14D4C), size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  kDebugMode
+                      ? details.exception.toString()
+                      : 'حدث خطأ غير متوقع في هذه الصفحة — أعد المحاولة أو أعد فتح التطبيق',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFFAFAFA), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
   final store = SessionStore();
   // استعادة كوكيز الجلسة واللغة وعنوان الخادم قبل أول إطار
   await ApiClient.instance.cookies.restore();

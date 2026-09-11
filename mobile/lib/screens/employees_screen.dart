@@ -144,14 +144,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   tone: e.status == 'active' ? BadgeTone.success : BadgeTone.destructive,
                                 ),
                                 if (canManage)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
                                     children: <Widget>[
                                       WButton(i18n.t('employees', 'permissions'),
                                           icon: Icons.key_outlined,
                                           variant: WButtonVariant.ghost, size: WButtonSize.sm,
                                           onPressed: () => _openPermissions(e)),
-                                      const SizedBox(width: 6),
                                       WButton(
                                         e.status == 'active' ? i18n.t('employees', 'deactivate') : i18n.t('employees', 'activate'),
                                         icon: e.status == 'active' ? Icons.block : Icons.check_circle_outline,

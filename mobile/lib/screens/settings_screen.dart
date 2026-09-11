@@ -159,8 +159,12 @@ class _ServerOverrideCardState extends State<_ServerOverrideCard> {
   }
 
   Future<void> _load() async {
-    final override = await context.read<AppState>().serverOverride();
-    if (override != null && mounted) _ctrl.text = override;
+    try {
+      final override = await context.read<AppState>().serverOverride();
+      if (override != null && mounted) _ctrl.text = override;
+    } catch (_) {
+      // التخزين الآمن قد يفشل عابرًا — لا يُتلف الشجرة، الحقل يبقى فارغًا
+    }
   }
 
   Future<void> _save() async {
