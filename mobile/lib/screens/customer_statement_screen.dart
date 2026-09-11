@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
+import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
 /// كشف حساب العميل — قيود الآجل والمدفوعات بالرصيد الجاري، ونافذة
@@ -84,7 +86,8 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
     if (ok != true) return;
     final piastres = Fmt.parseEGPToPiastres(amountCtrl.text);
     if (piastres == null || piastres <= 0) {
-      await appSnackbar(context, i18n.t('customers', 'paymentInvalid'), error: true);
+      // المفتاح الصحيح amountInvalid مثل الويب (page.tsx:120)
+      await appSnackbar(context, i18n.t('customers', 'amountInvalid'), error: true);
       return;
     }
     try {
@@ -101,13 +104,56 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
     }
   }
 
+  /// عمودا عليه/سداد: الآجل يظهر عليه بالأحمر، والتحصيل سداد بالأخضر،
+  /// والفراغ شرطة صريحة — كأعمدة جدول الكشف في صفحة عملاء الويب
+  Widget _duePaidCells(BuildContext context, StatementEntry e) {
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurface.withOpacity(0.5);
+    final String due = e.isPayment ? '—' : Fmt.money(e.dueAmountPiastres, locale: i18n.locale);
+    final String paid = e.isPayment ? Fmt.money(e.amountPiastres, locale: i18n.locale) : '—';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(i18n.t('customers', 'colDue'), style: TextStyle(fontSize: 10, color: muted)),
+            const SizedBox(width: 4),
+            Text(due,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: e.isPayment ? muted : theme.colorScheme.error)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(i18n.t('customers', 'colPaid'), style: TextStyle(fontSize: 10, color: muted)),
+            const SizedBox(width: 4),
+            Text(paid,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: e.isPayment ? AppColors.successFg : muted)),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
     final s = _statement;
+    // بوابة التحصيل مثل Can perm="customers.payments" في الويب (page.tsx:276) —
+    // الإخفاء لا التعطيل
+    final canPay = context.watch<AppState>().can('customers.payments');
     return Scaffold(
-      appBar: AppBar(title: Text(widget.customer.name)),
+      appBar: AppBar(title: Text(i18n.t('customers', 'statementTitleFor', {'name': widget.customer.name}))),
       body: _loading
           ? const LoadingBox()
           : _error != null
@@ -117,19 +163,27 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
                   children: <Widget>[
                     AppCard(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
+                          // ترويسة الكشف بالويب: الهاتف أو «بدون رقم هاتف»
+                          Text(
+                            widget.customer.phone.isEmpty ? i18n.t('customers', 'noPhone') : widget.customer.phone,
+                            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                          ),
+                          const SizedBox(height: 8),
                           Row(
                             children: <Widget>[
                               Expanded(
                                 child: Text(i18n.t('customers', 'currentBalance'),
                                     style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))),
                               ),
+                              // المستحق بنغمة destructive حمراء مثل الويب (وليس amber)
                               Text(
                                 Fmt.money(s!.balancePiastres, locale: i18n.locale),
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
-                                  color: s.balancePiastres > 0 ? AppColors.warningFg : AppColors.successFg,
+                                  color: s.balancePiastres > 0 ? theme.colorScheme.error : AppColors.successFg,
                                 ),
                               ),
                             ],
@@ -137,9 +191,11 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    PrimaryButton(i18n.t('customers', 'recordPayment'), icon: Icons.payments_outlined, onPressed: _pay),
-                    const SizedBox(height: 16),
+                    if (canPay) ...<Widget>[
+                      const SizedBox(height: 14),
+                      PrimaryButton(i18n.t('customers', 'recordPayment'), icon: Icons.payments_outlined, onPressed: _pay),
+                      const SizedBox(height: 16),
+                    ],
                     if (s.entries.isEmpty)
                       EmptyState(i18n.t('customers', 'emptyStatement'), icon: Icons.receipt_long_outlined)
                     else
@@ -152,23 +208,34 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
                                     Expanded(
-                                      child: Text(
-                                        e.isPayment
-                                            ? i18n.t('customers', 'paymentEntry')
-                                            : i18n.t('customers', 'creditSale') + (e.invoiceNumber == null ? '' : ' #${Fmt.number(e.invoiceNumber!)}'),
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                                      ),
+                                      child: e.isPayment
+                                          ? Text(i18n.t('customers', 'paymentEntry'),
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))
+                                          : Text.rich(
+                                              TextSpan(
+                                                children: <InlineSpan>[
+                                                  TextSpan(text: i18n.t('customers', 'creditSale')),
+                                                  if (e.invoiceNumber != null)
+                                                    TextSpan(
+                                                      // مرجع الفاتورة مُبطن INV-000123 بخط monospace مثل الويب
+                                                      text: ' INV-${e.invoiceNumber!.toString().padLeft(6, '0')}',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontFamily: 'monospace',
+                                                        color: theme.colorScheme.onSurface.withOpacity(0.75),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                            ),
                                     ),
-                                    Text(
-                                      (e.isPayment ? '+' : '') + Fmt.money(e.amountPiastres, locale: i18n.locale),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: e.isPayment ? AppColors.successFg : AppColors.warningFg,
-                                      ),
-                                    ),
+                                    const SizedBox(width: 8),
+                                    // عمودا «عليه/سداد» كصفوف الجدول في الويب (page.tsx:261-266)
+                                    _duePaidCells(context, e),
                                   ],
                                 ),
                                 const SizedBox(height: 2),

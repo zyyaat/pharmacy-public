@@ -14,6 +14,10 @@ import 'settings_receipts_screen.dart';
 /// الإعدادات — أقسام الويب نفسها (الفواتير والطباعة، قاعدة البيانات،
 /// اللغة، ترحيل المنتجات). عنوان الخادم ليس من شأن العميل — لا يوجد
 /// أي تحكم به هنا؛ يتحدد وقت البناء من المطورين فقط.
+///
+/// بوابة الأقسام مثل settings/layout.tsx + permissions.ts:54-58:
+/// الترحيل ← inventory.import، الفواتير ← settings.receipts، قاعدة
+/// البيانات ← المالك الكامل فقط (fullAccess)، واللغة ظاهرة دائمًا.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -23,36 +27,51 @@ class SettingsScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final state = context.watch<AppState>();
     final ctx = state.context;
-    final sections = <({IconData icon, String title, String desc, WidgetBuilder builder})>[
+    // المالك الكامل — وغياب الصلاحيات (مجهول/تحميل) يفشل بالسماح مثل
+    // بقية التطبيق (state.can/canAny تعيد true عند permissions == null).
+    final bool fullAccess = state.permissions?.fullAccess ?? true;
+    // anyOf == null → قسم دائم الظهور (اللغة)؛ [] → المالك الكامل فقط
+    // (قاعدة البيانات — SETTINGS_SECTION_PERMISSIONS بالويب فارغة له).
+    final sections = <({IconData icon, String title, String desc, WidgetBuilder builder, List<String>? anyOf})>[
       (
         icon: Icons.receipt_outlined,
         title: i18n.t('settings', 'receiptsNavLabel'),
         desc: i18n.t('settings', 'receiptsNavDesc'),
         builder: (_) => const ReceiptsSettingsScreen(),
+        anyOf: const <String>['settings.receipts'],
       ),
       (
         icon: Icons.storage_outlined,
         title: i18n.t('settings', 'databaseNavLabel'),
         desc: i18n.t('settings', 'databaseNavDesc'),
         builder: (_) => const DatabaseSettingsScreen(),
+        anyOf: const <String>[],
       ),
       (
         icon: Icons.translate,
         title: i18n.t('settings', 'languageNavLabel'),
         desc: i18n.t('settings', 'languageNavDesc'),
         builder: (_) => const LanguageSettingsScreen(),
+        anyOf: null,
       ),
       (
         icon: Icons.upload_file_outlined,
         title: i18n.t('settings', 'importNavLabel'),
         desc: i18n.t('settings', 'importNavDesc'),
         builder: (_) => const ImportScreen(),
+        anyOf: const <String>['inventory.import'],
       ),
     ];
+    final visibleSections = sections.where((section) {
+      final List<String>? anyOf = section.anyOf;
+      if (anyOf == null) return true; // اللغة لكل المستخدمين (layout.tsx:31-32)
+      if (anyOf.isEmpty) return fullAccess; // قاعدة البيانات للمالك الكامل فقط
+      return state.canAny(anyOf); // الإخفاء لا التعطيل — مثل Can بالويب
+    }).toList();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        PageHeader(i18n.t('nav', 'settings'), subtitle: i18n.t('settings', 'languageNavDesc')),
+        PageHeader(i18n.t('nav', 'settings'), subtitle: i18n.t('settings', 'navAria')),
         const SizedBox(height: 24),
         // بطاقة معلومات الصيدلية
         AppCard(
@@ -76,7 +95,7 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             children: <Widget>[
               const SizedBox(height: 8),
-              for (final section in sections)
+              for (final section in visibleSections)
                 Column(
                   children: <Widget>[
                     InkWell(
@@ -112,7 +131,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (section != sections.last)
+                    if (section != visibleSections.last)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Divider(height: 1, color: theme.dividerColor),
@@ -137,12 +156,45 @@ class SettingsScreen extends StatelessWidget {
 
 // ------------------------------------------------------------ اللغة
 
-class LanguageSettingsScreen extends StatelessWidget {
+/// منتقي اللغة — نسخة language-setting.tsx: الحفظ على الحساب أولًا
+/// (PATCH) ثم التطبيق المحلي؛ أثناء الانتظار سبّينة دوّارة، وعند الفشل
+/// سطر خطأ والاختيار يبقى على اللغة القديمة (لا يُقلب الواجهة بلا نجاح).
+class LanguageSettingsScreen extends StatefulWidget {
   const LanguageSettingsScreen({super.key});
+
+  @override
+  State<LanguageSettingsScreen> createState() => _LanguageSettingsScreenState();
+}
+
+class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
+  String? _pending; // اللغة قيد التطبيق (busy = pending === code بالويب)
+  String? _error;
+
+  Future<void> _select(String code) async {
+    final AppState state = context.read<AppState>();
+    if (code == state.locale || _pending != null) return; // disabled={pending !== null}
+    setState(() {
+      _pending = code;
+      _error = null;
+    });
+    try {
+      // مثل changeLocale بالويب: الحفظ الدائم على الحساب أولًا — فشل
+      // الشبكة يرمي هنا فلا يتغير الاختيار المعروض إطلاقًا.
+      await ApiClient.instance.setLocale(code);
+      // التطبيق المحلي (القاموس + تخزين الجهاز) — مزامنة الخادم داخله
+      // اختيارية أصلاً وقد نجحت في السطر السابق (نفس النداء القابل للتكرار).
+      await state.setLocale(code);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppI18n.instance.t('common', 'language_change_failed'));
+    } finally {
+      if (mounted) setState(() => _pending = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
     final state = context.watch<AppState>();
     return Scaffold(
       appBar: AppBar(title: Text(i18n.t('settings', 'language_title'))),
@@ -150,23 +202,49 @@ class LanguageSettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Text(i18n.t('settings', 'language_desc'),
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55))),
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
           const SizedBox(height: 14),
-          for (final (String code, String _, String native) in <(String, String, String)>[
-            ('ar', 'العربية', 'العربية'),
+          // nativeName + englishName مثل LOCALE_META في i18n/config.ts
+          for (final (String code, String native, String english) in <(String, String, String)>[
+            ('ar', 'العربية', 'Arabic'),
             ('en', 'English', 'English'),
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: AppCard(
-                onTap: () => context.read<AppState>().setLocale(code),
+                onTap: _pending == null ? () => _select(code) : null,
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: <Widget>[
-                    Expanded(child: Text(native, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
-                    if (state.locale == code) Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(native, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(english,
+                              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                        ],
+                      ),
+                    ),
+                    if (_pending == code)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else if (state.locale == code)
+                      Icon(Icons.check_circle, color: theme.colorScheme.primary),
                   ],
                 ),
+              ),
+            ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _error!,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.error),
               ),
             ),
         ],
@@ -176,6 +254,19 @@ class LanguageSettingsScreen extends StatelessWidget {
 }
 
 // ------------------------------------------------------------ قاعدة البيانات
+
+/// 00000000000019_sales_discount_customers.sql → { number: 19, title: sales discount customers }
+/// مثل parseMigration في database/page.tsx حرفيًا.
+({String number, String title, String file}) _parseMigration(String version) {
+  final RegExpMatch? match = RegExp(r'^(\d+)_(.+?)(?:\.sql)?$').firstMatch(version);
+  if (match == null) return (number: '—', title: version, file: version);
+  final int? n = int.tryParse(match.group(1)!);
+  return (
+    number: n == null ? '—' : '$n',
+    title: match.group(2)!.replaceAll('_', ' '),
+    file: version,
+  );
+}
 
 class DatabaseSettingsScreen extends StatefulWidget {
   const DatabaseSettingsScreen({super.key});
@@ -226,6 +317,8 @@ class _DatabaseSettingsScreenState extends State<DatabaseSettingsScreen> {
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
+    // الأحدث في الشارة: آخر عنصر في السجل (وليس الأول) — مثل items[items.length - 1]
+    final latest = _migrations.isEmpty ? null : _parseMigration(_migrations.last.version);
     return Scaffold(
       appBar: AppBar(
         title: Text(i18n.t('settings', 'databaseTitle')),
@@ -251,11 +344,20 @@ class _DatabaseSettingsScreenState extends State<DatabaseSettingsScreen> {
                               Text(i18n.t('settings', 'schemaVersionLabel'), style: const TextStyle(fontSize: 13)),
                               const Spacer(),
                               AppBadge(
-                                _migrations.isEmpty ? '—' : _migrations.first.version,
+                                latest == null ? '—' : 'v${latest.number}',
                                 tone: BadgeTone.success,
                               ),
                             ],
                           ),
+                          if (latest != null) ...<Widget>[
+                            const SizedBox(height: 4),
+                            Text(
+                              latest.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                            ),
+                          ],
                           const SizedBox(height: 4),
                           Text(i18n.t('settings', 'statusUpToDate'),
                               style: TextStyle(fontSize: 12, color: AppColors.successFg, fontWeight: FontWeight.w600)),
@@ -270,19 +372,73 @@ class _DatabaseSettingsScreenState extends State<DatabaseSettingsScreen> {
                     if (_migrations.isEmpty)
                       Text(i18n.t('settings', 'noMigrationsYet'), style: const TextStyle(fontSize: 13))
                     else
-                      for (final MigrationItem m in _migrations)
+                      // الأحدث أولاً مثل [...items].reverse() بالويب (historyDesc)
+                      for (final MigrationItem m in _migrations.reversed)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.only(bottom: 10),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               const Icon(Icons.check_circle_outline, size: 16, color: AppColors.successFg),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(m.version, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                              Text(_parseMigration(m.version).number,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      _parseMigration(m.version).title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _parseMigration(m.version).file,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textDirection: TextDirection.ltr, // <code dir="ltr"> بالويب
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(Fmt.dateTime(m.appliedAt, locale: i18n.locale),
                                   style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
                             ],
                           ),
                         ),
+                    const SizedBox(height: 14),
+                    // صندوق الملاحظة — bg-muted/50 p-3 text-xs مثل نهاية بطاقة السجل بالويب
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurface.withOpacity(0.04),
+                        borderRadius: AppRadius.br,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Icon(Icons.info_outline,
+                              size: 14, color: theme.colorScheme.onSurface.withOpacity(0.55)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              i18n.t('settings', 'autoMigrationsNote'),
+                              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55), height: 1.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
     );

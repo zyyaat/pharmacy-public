@@ -69,7 +69,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    if (_loading) return const LoadingBox();
+    if (_loading) {
+      // مثل الويب: Card بنص dashboard.loading بدل الهيكل العظمي المجرد
+      return AppCard(
+        padding: const EdgeInsets.all(32), // p-8
+        child: Center(
+          child: Text(
+            i18n.t('dashboard', 'loading'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          ),
+        ),
+      );
+    }
     if (_error != null) return ErrorRetry(_error!, onRetry: _load);
     final stats = _stats;
     if (stats == null) {
@@ -192,12 +204,10 @@ class _LowStockCard extends StatelessWidget {
                       for (final item in items) ...<Widget>[
                         LowStockTile(
                           name: item.name,
-                          subtitle: item.strips > 0 ? '${Fmt.number(item.quantity)} + ${Fmt.number(item.strips)}' : null,
-                          badge: item.strips > 0
-                              ? '${Fmt.number(item.quantity)} + ${Fmt.number(item.strips)}'
-                              : Fmt.number(item.quantity),
-                          badgeTone: AppBadge.stockStatus(item.status),
-                          note: i18n.t('dashboard', 'reorder_note', {'min': Fmt.number(item.minStockLevel)}),
+                          subtitle: item.genericName, // الويب: السطر الفرعي = الاسم العلمي
+                          badge: _availabilityWord(item.quantity, item.strips, i18n), // شارة التوفر بصياغة الويب
+                          badgeTone: BadgeTone.warning, // الويب: <Badge variant="warning"> ثابتة لا حسب الحالة
+                          note: i18n.t('dashboard', 'reorder_note', {'min': _boxWord(item.minStockLevel, i18n)}),
                           iconBg: AppColors.warningBg,
                           iconFg: theme.brightness == Brightness.dark ? AppColors.warningFgDark : AppColors.warningFg,
                         ),
@@ -209,6 +219,33 @@ class _LowStockCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // نفس مساعدات الويب lib/product.ts — صياغة عربية للعلب والشرائط
+  String _boxWord(int count, AppI18n i18n) {
+    if (count == 1) return i18n.t('inventory', 'box_word_one');
+    if (count == 2) return i18n.t('inventory', 'box_word_two');
+    if (count >= 3 && count <= 10) return i18n.t('inventory', 'box_word_many', {'count': Fmt.number(count)});
+    return i18n.t('inventory', 'box_word_other', {'count': Fmt.number(count)});
+  }
+
+  String _stripWord(int count, AppI18n i18n) {
+    if (count == 1) return i18n.t('inventory', 'strip_word_one');
+    if (count == 2) return i18n.t('inventory', 'strip_word_two');
+    if (count >= 3 && count <= 10) return i18n.t('inventory', 'strip_word_many', {'count': Fmt.number(count)});
+    return i18n.t('inventory', 'strip_word_other', {'count': Fmt.number(count)});
+  }
+
+  /// availabilityAr في الويب — لوحة التحكم تمرّر quantity كالعلب الكاملة
+  String _availabilityWord(int fullBoxes, int strips, AppI18n i18n) {
+    if (fullBoxes > 0 && strips > 0) {
+      return i18n.t('inventory', 'availability_box_and_strip', {
+        'boxes': Fmt.number(fullBoxes),
+        'strips': _stripWord(strips, i18n),
+      });
+    }
+    if (fullBoxes > 0) return _boxWord(fullBoxes, i18n);
+    return _stripWord(strips, i18n);
   }
 }
 

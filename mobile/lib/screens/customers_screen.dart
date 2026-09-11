@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
-import '../core/theme.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
@@ -79,12 +78,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
   void _onSearch(String v) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), _load);
+    // مهلة 200ms مثل useEffect في صفحة عملاء الويب
+    _debounce = Timer(const Duration(milliseconds: 200), _load);
   }
 
   Future<void> _addCustomer() async {
+    if (_adding) return;
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty || _adding) {
+    if (name.isEmpty) {
+      // مثل الويب (page.tsx:96) — رسالة خطأ بدل التجاهل الصامت
+      await appSnackbar(context, AppI18n.instance.t('customers', 'nameRequired'), error: true);
       return;
     }
     setState(() => _adding = true);
@@ -132,6 +135,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                   child: CardTitle(
                     i18n.t('customers', 'customersTitle'),
+                    // وصف البطاقة = searchHint كما في CardDescription بالويب
+                    subtitle: i18n.t('customers', 'searchHint'),
                     trailing: canCreate
                         ? WButton(
                             _creating ? i18n.t('common', 'cancel') : i18n.t('customers', 'newCustomer'),
@@ -178,7 +183,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       if (_list.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
-                          child: Text(i18n.t('customers', 'searchHint'),
+                          child: Text(i18n.t('customers', 'emptyList'),
                               textAlign: TextAlign.center,
                               style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
                         )
@@ -208,21 +213,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                       ],
                                     ),
                                   ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: <Widget>[
-                                      Text(
-                                        Fmt.money(c.balancePiastres, locale: i18n.locale),
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: c.balancePiastres > 0 ? AppColors.warningFg : AppColors.successFg,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      _debtBadge(i18n, c),
-                                    ],
-                                  ),
+                                  // الرصيد شارة فقط — المبلغ الحر المكرر حُذف،
+                                  // والمستحق عليه بنغمة destructive مثل الويب
+                                  _debtBadge(i18n, c),
                                 ],
                               ),
                             ),

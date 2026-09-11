@@ -55,7 +55,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (problem == null && !_emailRe.hasMatch(_ownerEmail.text.trim())) problem = i18n.t('auth', 'reg_err_email');
       case 4:
         if (_password.text != _confirm.text) problem = i18n.t('auth', 'password_mismatch');
-        else if (_password.text.length < 10) problem = i18n.t('auth', 'password_hint');
+        // Task 68-f — الويب يفرض minLength=10 عبر تحقق المتصفح؛ أضفنا مفتاح خطأ
+        // مخصص (error_password_short) بدل النص الإرشادي password_hint.
+        else if (_password.text.length < 10) problem = i18n.t('auth', 'error_password_short');
     }
     if (problem != null) {
       setState(() => _error = problem);
@@ -91,7 +93,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _password.text,
           );
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/verify');
+      // Task 68-f — مثل register/page.tsx:122-125: هل أُرسل الرمز فعلًا عند
+      // إنشاء الحساب؟ تُمرر لشاشة التحقق لتُظهر verify_send_failed_on_create
+      // عند الفشل بدل افتراض النجاح دائمًا.
+      Navigator.pushReplacementNamed(
+          context, '/verify',
+          arguments: ApiClient.instance.lastRegisterEmailVerificationSent);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -245,20 +252,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  /// Task 68-f — Enter يقدّم الخطوة التالية مثل onKeyDown في الويب
+  /// (register/page.tsx:92-97)؛ الخطوة الأخيرة (التأكيد) ترسل النموذج.
+  void _advanceOnEnter(String _) => _next();
+
   Widget _buildStepFields(AppI18n i18n) {
     final theme = Theme.of(context);
     switch (_step) {
       case 1:
-        return WizardInput(controller: _pharmacyName, hint: i18n.t('auth', 'pharmacy_name_ph'));
+        return WizardInput(
+            controller: _pharmacyName,
+            hint: i18n.t('auth', 'pharmacy_name_ph'),
+            onSubmitted: _advanceOnEnter);
       case 2:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             AppField(label: i18n.t('auth', 'first_name'),
-                child: WizardInput(controller: _firstName, hint: i18n.t('auth', 'first_name_ph'))),
+                child: WizardInput(
+                    controller: _firstName,
+                    hint: i18n.t('auth', 'first_name_ph'),
+                    onSubmitted: _advanceOnEnter)),
             const SizedBox(height: 20),
             AppField(label: i18n.t('auth', 'last_name'),
-                child: WizardInput(controller: _lastName, hint: i18n.t('auth', 'last_name_ph'))),
+                child: WizardInput(
+                    controller: _lastName,
+                    hint: i18n.t('auth', 'last_name_ph'),
+                    onSubmitted: _advanceOnEnter)),
           ],
         );
       case 3:
@@ -268,13 +288,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
             AppField(
               label: i18n.t('auth', 'pharmacy_email'),
               hint: i18n.t('auth', 'reg_email_pharmacy_hint'),
-              child: WizardInput(controller: _pharmacyEmail, keyboard: TextInputType.emailAddress, ltr: true, hint: 'pharmacy@example.com'),
+              child: WizardInput(
+                  controller: _pharmacyEmail,
+                  keyboard: TextInputType.emailAddress,
+                  ltr: true,
+                  hint: 'pharmacy@example.com',
+                  onSubmitted: _advanceOnEnter),
             ),
             const SizedBox(height: 20),
             AppField(
               label: i18n.t('auth', 'owner_email'),
               hint: i18n.t('auth', 'reg_email_owner_hint'),
-              child: WizardInput(controller: _ownerEmail, keyboard: TextInputType.emailAddress, ltr: true, hint: 'owner@example.com'),
+              child: WizardInput(
+                  controller: _ownerEmail,
+                  keyboard: TextInputType.emailAddress,
+                  ltr: true,
+                  hint: 'owner@example.com',
+                  onSubmitted: _advanceOnEnter),
             ),
           ],
         );
@@ -283,10 +313,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             AppField(label: i18n.t('auth', 'password'),
-                child: WizardInput(controller: _password, obscure: true, ltr: true, hint: i18n.t('auth', 'password_ph'))),
+                child: WizardInput(
+                    controller: _password,
+                    obscure: true,
+                    ltr: true,
+                    hint: i18n.t('auth', 'password_ph'),
+                    onSubmitted: _advanceOnEnter)),
             const SizedBox(height: 20),
             AppField(label: i18n.t('auth', 'confirm_password'),
-                child: WizardInput(controller: _confirm, obscure: true, ltr: true, hint: i18n.t('auth', 'confirm_password_ph'))),
+                child: WizardInput(
+                    controller: _confirm,
+                    obscure: true,
+                    ltr: true,
+                    hint: i18n.t('auth', 'confirm_password_ph'),
+                    // الحقل الأخير في المعالج: done بدل next ثم إرسال (مثل submit الويب)
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: _advanceOnEnter)),
             const SizedBox(height: 8),
             Text(i18n.t('auth', 'password_hint'),
                 style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),

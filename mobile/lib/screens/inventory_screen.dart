@@ -88,6 +88,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }).toList();
   }
 
+  /// Task 68-b (D): نغمات الشارات مثل الويب حرفيًا (inventory/page.tsx:14-20):
+  /// expiring_soon → secondary و quarantined → outline (كلاهما muted هنا)،
+  /// والحالة المجهولة → outline (muted) وليس success.
+  BadgeTone _statusTone(String status) {
+    switch (status.toLowerCase()) {
+      case 'out_of_stock':
+        return BadgeTone.destructive;
+      case 'low_stock':
+        return BadgeTone.warning;
+      case 'expiring_soon':
+      case 'quarantined':
+        return BadgeTone.muted;
+      case 'normal':
+        return BadgeTone.success;
+      default:
+        return BadgeTone.muted;
+    }
+  }
+
   String _statusLabel(String status) {
     final i18n = AppI18n.instance;
     switch (status.toLowerCase()) {
@@ -123,7 +142,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final i18n = AppI18n.instance;
     final state = context.watch<AppState>();
     final canManage = state.can('inventory.manage_products') || state.permissions?.fullAccess == true;
-    final canAdjust = state.can('inventory.adjust_stock');
+    // Task 68-b (A): مفتاح الصلاحية الصحيح «inventory.adjust» كما في الويب والباك اند
+    // (handler.go:129 perm("inventory.adjust")) — كان adjust_stock فلا يظهر الزر أبدًا.
+    final canAdjust = state.can('inventory.adjust');
     final canPOS = state.can('pos.access');
     final filtered = _filtered;
 
@@ -240,7 +261,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           Text(it.expiryDate == null || it.expiryDate!.isEmpty
                                               ? '—'
                                               : Fmt.date(it.expiryDate, locale: i18n.locale)),
-                                          AppBadge(_statusLabel(it.status), tone: AppBadge.stockStatus(it.status)),
+                                          AppBadge(_statusLabel(it.status), tone: _statusTone(it.status)),
                                           if (canManage || canAdjust)
                                             Wrap(
                                               spacing: 6,
@@ -456,7 +477,25 @@ class _AdjustStockFormState extends State<_AdjustStockForm> {
           ErrorBanner(_error!),
         ],
         const SizedBox(height: 16),
-        WButton(i18n.t('common', 'confirm'), onPressed: _saving ? null : _submit, loading: _saving),
+        // Task 68-b (E): مثل الويب (page.tsx:124-129) — زر التنفيذ بعنوان الإضافة/
+        // الخصم الصريح معطّل عندما تصبح الكمية المتوقعة سالبة، وبجانبه زر إلغاء.
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: WButton(
+                _add ? i18n.t('inventory', 'adjust_submit_add') : i18n.t('inventory', 'adjust_submit_remove'),
+                onPressed: (_saving || _projected < 0) ? null : _submit,
+                loading: _saving,
+              ),
+            ),
+            const SizedBox(width: 8),
+            WButton(
+              i18n.t('inventory', 'cancel'),
+              variant: WButtonVariant.outline,
+              onPressed: _saving ? null : () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
       ],
     );
   }

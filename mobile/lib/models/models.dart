@@ -163,6 +163,7 @@ class InventoryItem {
   final String batchId, pharmacyProductId, productName, genericName, brandName;
   final String barcode, dosageForm, strength, batchNumber, unit, branchName, status;
   final int quantity, costPerUnitPiastres, sellingPricePiastres, partialSellingPricePiastres;
+  final int? totalCostPiastres; // Task 68 — عمود generated في العرض (quantity × cost_per_unit)
   final int unitsPerBox, minStockLevel;
   final String? expiryDate;
   final int? daysUntilExpiry;
@@ -175,7 +176,7 @@ class InventoryItem {
       required this.status, required this.quantity, required this.costPerUnitPiastres,
       required this.sellingPricePiastres, required this.partialSellingPricePiastres,
       required this.unitsPerBox, required this.minStockLevel, this.expiryDate,
-      this.daysUntilExpiry, required this.packagingType})
+      this.daysUntilExpiry, required this.packagingType, this.totalCostPiastres})
       : boxStrip = packagingType == 'BOX_STRIP';
 
   factory InventoryItem.fromJson(Map<String, dynamic> j) => InventoryItem(
@@ -200,6 +201,7 @@ class InventoryItem {
         expiryDate: j['expiry_date'] == null ? null : sOf(j['expiry_date']),
         daysUntilExpiry: j['days_until_expiry'] == null ? null : iOf(j['days_until_expiry']),
         packagingType: sOf(j['packaging_type'], 'WHOLE_ONLY'),
+        totalCostPiastres: j['total_cost_piastres'] == null ? null : iOf(j['total_cost_piastres']),
       );
 }
 

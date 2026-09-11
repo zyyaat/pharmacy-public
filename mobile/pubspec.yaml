@@ -20,6 +20,9 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   file_picker: ^8.1.2
   intl: 0.19.0
+  # Task 68 — طباعة الإيصال الحراري عبر نظام الطباعة في أندرويد (نفس نهج window.print في الويب)
+  pdf: ^3.11.1
+  printing: ^5.13.1
 
 dev_dependencies:
   flutter_test:

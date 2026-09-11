@@ -65,7 +65,9 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       setState(() {
-        _error = e.isNetwork ? i18n.error(e.code) : i18n.t('auth', 'login_failed');
+        // Task 68-f — نفس نمط register_screen: ترجمة كود الخادم عبر نطاق errors
+        // (الويب login/page.tsx:58 يعرض رسالة الخطأ الحقيقية) مع login_failed كبديل.
+        _error = i18n.error(e.code, i18n.t('auth', 'login_failed'));
         _loading = false;
       });
     } catch (_) {

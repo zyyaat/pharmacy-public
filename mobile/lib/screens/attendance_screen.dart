@@ -6,8 +6,10 @@ import '../core/strings.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
 
-/// Task 62 — الحضور بنسخة الويب حرفيًا: رأس صفحة + بطاقة واحدة بعنوان
+/// Task 62/68 — الحضور بنسخة الويب حرفيًا: رأس صفحة + بطاقة واحدة بعنوان
 /// بأيقونة التقويم، وجدول: الموظف/الفرع/الدخول/الخروج/الحالة.
+/// الحالة تُقرأ من item.status المُحلَّل (active → حاضر الآن، completed →
+/// مكتمل، وإلا النص الخام كما بالويب) وتُعرض كشارة.
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -54,11 +56,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  /// حالة السجل كما بالويب (page.tsx:34): active → حاضر الآن،
+  /// completed → مكتمل، وإلا النص الخام من الخادم.
+  Widget _statusCell(AttendanceRow r) {
+    final i18n = AppI18n.instance;
+    switch (r.status) {
+      case 'active':
+        return AppBadge(i18n.t('employees', 'nowActive'), tone: BadgeTone.success);
+      case 'completed':
+        return AppBadge(i18n.t('employees', 'completed'), tone: BadgeTone.muted);
+      default:
+        return AppBadge(r.status.isNotEmpty ? r.status : '—', tone: BadgeTone.muted);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    if (_loading) return const LoadingBox();
-    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    final muted = TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5));
+    // الويب يُبقي هيكل الصفحة (رأس + بطاقة) ويصير التحميل/الخطأ داخل
+    // محتوى البطاقة (page.tsx:31-32) — لا يستبدل الصفحة كاملة.
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -79,37 +96,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: _rows.isEmpty
+                  child: _loading
                       ? Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
-                          child: Text(i18n.t('employees', 'attendanceEmpty'),
-                              style: TextStyle(
-                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                          child: Center(child: Text(i18n.t('common', 'loading'), style: muted)),
                         )
-                      : WebTable(
-                          minWidth: 640,
-                          headers: <String>[
-                            i18n.t('employees', 'thEmployee'),
-                            i18n.t('employees', 'thBranch'),
-                            i18n.t('employees', 'thClockIn'),
-                            i18n.t('employees', 'thClockOut'),
-                            i18n.t('employees', 'thStatus'),
-                          ],
-                          rows: <List<Widget>>[
-                            for (final AttendanceRow r in _rows)
-                              <Widget>[
-                                Text(r.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                Text(r.branchName.isEmpty ? '—' : r.branchName),
-                                Text(Fmt.dateTime(r.clockIn, locale: i18n.locale)),
-                                Text((r.clockOut == null || r.clockOut!.isEmpty) ? '—' : Fmt.dateTime(r.clockOut, locale: i18n.locale)),
-                                Text(
-                                  (r.clockOut == null || r.clockOut!.isEmpty)
-                                      ? i18n.t('employees', 'nowActive')
-                                      : i18n.t('employees', 'completed'),
+                      : _error != null
+                          ? ErrorRetry(_error!, onRetry: _load)
+                          : _rows.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  child: Text(i18n.t('employees', 'attendanceEmpty'), style: muted),
+                                )
+                              : WebTable(
+                                  minWidth: 720, // min-w-[720px] كما بالويب
+                                  headers: <String>[
+                                    i18n.t('employees', 'thEmployee'),
+                                    i18n.t('employees', 'thBranch'),
+                                    i18n.t('employees', 'thClockIn'),
+                                    i18n.t('employees', 'thClockOut'),
+                                    i18n.t('employees', 'thStatus'),
+                                  ],
+                                  rows: <List<Widget>>[
+                                    for (final AttendanceRow r in _rows)
+                                      <Widget>[
+                                        Text(r.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        Text(r.branchName.isEmpty ? '—' : r.branchName),
+                                        Text(Fmt.dateTime(r.clockIn, locale: i18n.locale)),
+                                        Text((r.clockOut == null || r.clockOut!.isEmpty) ? '—' : Fmt.dateTime(r.clockOut, locale: i18n.locale)),
+                                        _statusCell(r),
+                                      ],
+                                  ],
                                 ),
-                              ],
-                          ],
-                        ),
                 ),
               ],
             ),

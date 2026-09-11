@@ -677,7 +677,9 @@ class AppBadge extends StatelessWidget {
       case 'EXPIRED':
         return BadgeTone.destructive;
       default:
-        return BadgeTone.success;
+        // Task 68-k — الافتراضي muted (outline بالويب) لا أخضر النجاح:
+        // شاشات المخزون تربط النغمات محليًا الآن فالتغيير آمن
+        return BadgeTone.muted;
     }
   }
 
@@ -1076,6 +1078,10 @@ class AuthInput extends StatefulWidget {
   final double fontSize;
   final FontWeight fontWeight;
   final TextDirection? textDirection;
+  // Task 68-f — تمكين Enter للحقول (يلزم معالج WizardInput)؛ null = سلوك الافتراضي
+  // كما كان تمامًا لكل الاستخدامات القائمة.
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
   const AuthInput({
     super.key,
     required this.controller,
@@ -1092,6 +1098,8 @@ class AuthInput extends StatefulWidget {
     this.fontSize = 14,
     this.fontWeight = FontWeight.w400,
     this.textDirection,
+    this.onSubmitted,
+    this.textInputAction,
   });
 
   @override
@@ -1142,6 +1150,8 @@ class _AuthInputState extends State<AuthInput> {
         obscureText: widget.obscure,
         keyboardType: widget.keyboard,
         onChanged: widget.onChanged,
+        onSubmitted: widget.onSubmitted,
+        textInputAction: widget.textInputAction,
         textAlign: widget.centered ? TextAlign.center : (widget.alignEnd ? TextAlign.end : TextAlign.start),
         textDirection: widget.textDirection ?? (widget.ltr ? TextDirection.ltr : null),
         style: TextStyle(fontSize: widget.fontSize, fontWeight: widget.fontWeight),
@@ -1159,6 +1169,10 @@ class _AuthInputState extends State<AuthInput> {
 }
 
 /// حقل معالجات التسجيل/الإعداد: h-14 rounded-2xl px-5 text-base
+/// Task 68-f — Enter يقدّم الخطوة التالية مثل onKeyDown في الويب
+/// (register/page.tsx:92-97): onSubmitted اختياري، وtextInputAction الافتراضي
+/// «next» عند توفيره، ويُمرر «done» صراحة للحقل الأخير في المعالج.
+/// كلا المعاملين اختياريان — الاستخدامات القائمة (onboarding) بلا تغيير.
 class WizardInput extends AuthInput {
   const WizardInput({
     super.key,
@@ -1173,7 +1187,15 @@ class WizardInput extends AuthInput {
     super.alignEnd,
     super.centered,
     super.textDirection,
-  }) : super(height: 56, fontSize: 16); // h-14 text-base
+    ValueChanged<String>? onSubmitted,
+    TextInputAction? textInputAction,
+  }) : super(
+          height: 56,
+          fontSize: 16, // h-14 text-base
+          onSubmitted: onSubmitted,
+          textInputAction:
+              textInputAction ?? (onSubmitted != null ? TextInputAction.next : null),
+        );
 }
 
 /// حقل البحث بأيقونة في البداية — مثل header والبطاقات في الويب
@@ -1730,57 +1752,133 @@ class PaginationRow extends StatelessWidget {
 
 // ---------------------------------------------------------------- الرسم البياني
 
-/// رسم أعمدة مبسّط (CustomPainter بلا حزم خارجية) لمنحنى المبيعات اليومي
-/// في تقرير المبيعات — نفس فكرة BarChart في الويب.
+/// رسم أعمدة مبسّط — نسخة Flutter من components/reports/bar-chart.tsx:
+/// صف رأس (chart_max + سطر الملخص)، قيم سالبة تُقص إلى صفر، أعمدة صفرية
+/// باهتة (bg-muted بحد أدنى 2px) بدل لون الهوية، تسميات كل ~8 أعمدة
+/// (index % labelStep == 0 أو الأخير)، والرسم لا يُخفى أبدًا عندما تكون
+/// القيم كلها ≤ 0 — تُعرض أصفارًا باهتة (سلوك الويب bar-chart.tsx:61-76).
 class MiniBarChart extends StatelessWidget {
   final List<({String label, int value})> points;
   final String tooltipSuffix;
   final Color? barColor;
-  const MiniBarChart({super.key, required this.points, this.tooltipSuffix = '', this.barColor});
+  final String? summary; // سطر الملخص أعلى الرسم (chart_summary_days مثلًا)
+  final double height;
+  const MiniBarChart({
+    super.key,
+    required this.points,
+    this.tooltipSuffix = '',
+    this.barColor,
+    this.summary,
+    this.height = 180,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) return const SizedBox.shrink();
+    final i18n = AppI18n.instance;
     final theme = Theme.of(context);
-    final color = barColor ?? (theme.brightness == Brightness.dark ? AppColors.darkPrimary : AppColors.lightPrimary);
-    final maxV = points.map((p) => p.value).reduce((a, b) => a > b ? a : b);
-    if (maxV <= 0) return const SizedBox.shrink();
-    return SizedBox(
-      height: 140,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          for (final p in points)
-            Expanded(
-              child: Tooltip(
-                message: '${p.label}: ${Fmt.money(p.value, locale: AppI18n.instance.locale)}$tooltipSuffix',
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: LayoutBuilder(builder: (BuildContext ctx, BoxConstraints c) {
-                    final h = (p.value / maxV) * (c.maxHeight - 18);
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: <Widget>[
-                        Container(
-                          height: h < 2 ? 2 : h,
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.85),
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          p.label.length > 5 ? p.label.substring(p.label.length - 5) : p.label,
-                          style: TextStyle(fontSize: 8, color: theme.colorScheme.onSurface.withOpacity(0.45)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    );
-                  }),
+    final color = barColor ??
+        (theme.brightness == Brightness.dark ? AppColors.darkPrimary : AppColors.lightPrimary);
+    final mutedBar = theme.colorScheme.onSurface.withOpacity(0.12); // bg-muted
+    // أقصى قيمة بعد قصّ السوالب إلى صفر — الصفر لا يُخفي الرسم أبدًا
+    var maxV = 0;
+    for (final p in points) {
+      if (p.value > maxV) maxV = p.value;
+    }
+    // كل كم عمود نُظهر تسمية حتى لا تزدحم المحور (الهدف ≈ 8 تسميات)
+    final labelStep = (points.length / 8).ceil();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        // صف الرأس: chart_max يمينًا وsummary يسارًا (bar-chart.tsx:49-52)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  i18n.t('reports', 'chart_max', {'value': Fmt.number(maxV)}),
+                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)),
                 ),
               ),
-            ),
-        ],
+              if (summary != null && summary!.isNotEmpty)
+                Text(
+                  summary!,
+                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: height,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              for (int i = 0; i < points.length; i++)
+                Expanded(
+                  child: Tooltip(
+                    message: '${points[i].label}: ${Fmt.money(points[i].value, locale: i18n.locale)}$tooltipSuffix',
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: _bar(points[i].value, maxV, color, mutedBar),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        // صف التسميات: index % labelStep == 0 أو العمود الأخير فقط
+        Row(
+          children: <Widget>[
+            for (int i = 0; i < points.length; i++)
+              Expanded(
+                child: Text(
+                  (i % labelStep == 0 || i == points.length - 1) ? points[i].label : '',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.45)),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// عمود واحد: القيم السالبة تُقص إلى صفر، والصفر عمود باهت بارتفاع 2px.
+  Widget _bar(int rawValue, int maxV, Color color, Color mutedBar) {
+    final v = rawValue < 0 ? 0 : rawValue;
+    if (v <= 0 || maxV <= 0) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 40), // max-w-[40px]
+        child: Container(
+          height: 2, // min-h-[2px]
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: mutedBar,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+        ),
+      );
+    }
+    final ratio = v / maxV;
+    // min-h-[3px] للويب — أدنى عامل ارتفاع يعادل 3px من ارتفاع الرسم
+    final factor = (ratio * height) < 3 ? 3 / height : ratio;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 40), // max-w-[40px]
+      child: FractionallySizedBox(
+        heightFactor: factor.clamp(0.0, 1.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.85),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+        ),
       ),
     );
   }

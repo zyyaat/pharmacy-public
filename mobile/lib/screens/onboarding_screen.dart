@@ -94,38 +94,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     return true;
   }
 
-  Future<void> _save({required bool complete}) async {
+  Future<void> _save() async {
     final i18n = AppI18n.instance;
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
+      // الويب: PUT كل الحقول الثمانية دائمًا (الفراغات مشمولة) + complete دائمًا
       await ApiClient.instance.updateOnboarding(<String, dynamic>{
-        if (_name.text.trim().isNotEmpty) 'name': _name.text.trim(),
+        'name': _name.text.trim(),
         'phone': _phone.text.trim(),
         'website': _website.text.trim(),
-        if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
+        'city': _city.text.trim(),
         'state_province': _state.text.trim(),
         'address_line1': _address1.text.trim(),
         'address_line2': _address2.text.trim(),
         'postal_code': _postal.text.trim(),
-        if (complete) 'complete': true,
+        'complete': true,
       });
       if (!mounted) return;
-      if (complete) {
-        await context.read<AppState>().completeOnboarding();
-        setState(() {
-          _step = 5;
-          _saving = false;
-        });
-        _pop.forward(); // animate-pop-in
-      } else {
-        setState(() {
-          _step += 1;
-          _saving = false;
-        });
-      }
+      await context.read<AppState>().completeOnboarding();
+      setState(() {
+        _step = 5;
+        _saving = false;
+      });
+      _pop.forward(); // animate-pop-in
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -146,7 +140,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       setState(() => _step = 1);
       return;
     }
-    await _save(complete: true);
+    await _save();
   }
 
   void _next() {
@@ -158,9 +152,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   }
 
   void _skip() {
+    // الويب: skip يقدّم خطوة واحدة فقط بحد أقصى المراجعة — لا قفز مباشر للمراجعة
     setState(() {
       _error = null;
-      _step = 4;
+      if (_step < 4) _step += 1;
     });
   }
 
@@ -201,8 +196,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 Text(_error!, textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, height: 1.6, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55))),
                 const SizedBox(height: 24),
+                // الويب: زر إعادة التحميل يحمل تسمية ob_continue وليس retry
                 WButton(
-                  i18n.t('common', 'retry'),
+                  i18n.t('auth', 'ob_continue'),
                   onPressed: _load,
                   size: WButtonSize.xl,
                 ),
@@ -453,6 +449,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       (i18n.t('auth', 'ob_city'), _city.text, 3),
       (i18n.t('auth', 'ob_state'), _state.text, 3),
       (i18n.t('auth', 'ob_address1'), _address1.text, 3),
+      // الويب: 8 صفوف — عنوان إضافي بين العنوان الأول والبريد
+      (i18n.t('auth', 'ob_address2'), _address2.text, 3),
       (i18n.t('auth', 'ob_postal'), _postal.text, 3),
     ];
     return Container(
@@ -504,8 +502,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   Widget _success(AppI18n i18n) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    // نقاط الاحتفال (confetti-dot) بألوان الهوية
-    const confettiColors = <Color>[Color(0xFF00D084), Color(0xFFF59E0B), Color(0xFF2563EB), Color(0xFFDF202E), Color(0xFF059669)];
+    // نقاط الاحتفال الثماني بنفس مواقع/ألوان/تأخيرات الويب (page.tsx CONFETTI):
+    // (يسار كنسبة من صندوق 96px، لون، بداية التدرج = التأخير/0.5s)
+    const confetti = <(double, Color, double)>[
+      (0.18, Color(0xFF34D399), 0.0),
+      (0.26, Color(0xFF22D3EE), 0.3),
+      (0.34, Color(0xFFA3E635), 0.6),
+      (0.46, Color(0xFFFBBF24), 0.2),
+      (0.58, Color(0xFF34D399), 0.5),
+      (0.68, Color(0xFFF472B6), 0.1),
+      (0.76, Color(0xFF22D3EE), 0.7),
+      (0.84, Color(0xFFA3E635), 0.4),
+    ];
     return AuthShell(
       child: Center(
         child: SingleChildScrollView(
@@ -529,18 +537,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
-                        // نقاط تتصاعد خلف العلامة
-                        for (int i = 0; i < confettiColors.length; i++)
+                        // نقاط تتصاعد خلف العلامة — تدرّج متأخر مثل animationDelay
+                        for (final (double dx, Color color, double begin) in confetti)
                           Positioned(
-                            bottom: 24,
-                            left: 8.0 + i * 16,
+                            bottom: 24, // bottom-6
+                            left: 96 * dx,
                             child: ScaleTransition(
-                              scale: _pop,
+                              scale: CurvedAnimation(
+                                parent: _pop,
+                                curve: Interval(begin, 1.0, curve: Curves.easeOut),
+                              ),
                               child: Container(
                                 width: 10,
                                 height: 10,
                                 decoration: BoxDecoration(
-                                  color: confettiColors[i].withOpacity(0.85),
+                                  color: color.withOpacity(0.85),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),

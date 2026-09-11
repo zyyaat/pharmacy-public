@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,12 +29,42 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   String? _error;
   String? _message;
   bool _sent = false;
+  // الويب: error=true يلوّن الرسالة بالأحمر ويحوّل الأيقونة إلى '!' فقط —
+  // هنا نفس الدور للرسالة المركزية (الرموز من الخادم تظهر كسطر خطأ مستقل _error).
+  bool _messageIsError = false;
+  // امتصاص arguments الواردة + الإعادة التلقائية للإرسال — مرة واحدة فقط
+  // حتى لا تتكرر مع نداءات didChangeDependencies اللاحقة (ثيم/الخ).
+  bool _entryHandled = false;
 
   @override
   void initState() {
     super.initState();
     final pending = context.read<AppState>().pendingVerifyEmail;
     if (pending != null && pending.isNotEmpty) _email.text = pending;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_entryHandled) return;
+    _entryHandled = true;
+    // Task 68-f — نظير ?sent=1|0 في الويب (register/page.tsx:122-125):
+    // true = جاءنا من التسجيل ورمزٌ أُرسل للتو، false = فشل الإرسال عند إنشاء
+    // الحساب، غائب = مسار تسجيل الدخول/مباشر فيُفترض الإرسال ويعاد إرساله تلقائيًا.
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final bool? sentOnCreate = args is bool ? args : null;
+    if (sentOnCreate == true) {
+      _sent = true;
+      _message = AppI18n.instance.t('auth', 'verify_code_sent');
+    } else if (sentOnCreate == false) {
+      _message = AppI18n.instance.t('auth', 'verify_send_failed_on_create');
+      _messageIsError = true;
+    }
+    // Task 68-f — الإعادة التلقائية للإرسال عند الوصول ببريد معبأ
+    // (الويب verify-email/page.tsx:56-76) إلا إذا وصلنا برمزٍ أُرسل للتو (sent=1).
+    if (_email.text.trim().isNotEmpty && sentOnCreate != true) {
+      unawaited(_resend());
+    }
   }
 
   @override
@@ -45,38 +77,69 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Future<void> _verify() async {
     final i18n = AppI18n.instance;
     if (_verifying) return;
+    // Task 68-f — تحقق عميل مثل الويب (verify-email/page.tsx:85-94):
+    // 6 أرقام بالضبط وإلا رسالة verify_default_message بلون الخطأ، ثم فحص البريد.
+    final code = _code.text.trim();
+    if (code.length != 6 || !RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() {
+        _message = i18n.t('auth', 'verify_default_message');
+        _messageIsError = true;
+        _error = null;
+      });
+      return;
+    }
+    if (_email.text.trim().isEmpty) {
+      setState(() {
+        _message = i18n.t('auth', 'verify_email_first');
+        _messageIsError = true;
+        _error = null;
+      });
+      return;
+    }
     setState(() {
       _verifying = true;
       _error = null;
       _message = null;
+      _messageIsError = false;
     });
     final state = context.read<AppState>();
     try {
-      final result = await state.verifyEmail(_email.text.trim(), _code.text.trim());
+      final result = await state.verifyEmail(_email.text.trim(), code);
       if (!mounted) return;
       if (result.sessionCreated) {
+        // Task 68-f — الويب يوجّه إلى /onboarding عندما يطلب الخادم المعالج
+        // (verify-email/page.tsx:108) بدل /home دائمًا.
+        final onboarding =
+            result.onboardingRequired || state.phase == AuthPhase.onboarding;
         setState(() {
           _verified = true;
-          _message = result.onboardingRequired
+          _message = onboarding
               ? i18n.t('auth', 'verify_success_onboarding')
               : i18n.t('auth', 'verify_success_login');
         });
         await Future<void>.delayed(const Duration(milliseconds: 900));
         if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, onboarding ? '/onboarding' : '/home');
         return;
       }
       // خادم قديم: نجاح التحقق بلا جلسة — نجرّب /me فعلًا قبل التسليم (Task 58)
       final probe = await state.probeSessionAfterVerify();
       if (!mounted) return;
       if (probe) {
+        // الويب يقرأ onboarding_required من مستخدم /me (page.tsx:115-122)؛
+        // نموذج المستخدم بالموبايل لا يحمل الحقل فأقرب إشارة مكافئة
+        // (نفس مهلّة boot) هو فراغ اسم الصيدلية في السياق.
+        final onboarding =
+            state.context != null && state.context!.pharmacyName.isEmpty;
         setState(() {
           _verified = true;
-          _message = i18n.t('auth', 'verify_success_login');
+          _message = onboarding
+              ? i18n.t('auth', 'verify_success_onboarding')
+              : i18n.t('auth', 'verify_success_login');
         });
         await Future<void>.delayed(const Duration(milliseconds: 900));
         if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, onboarding ? '/onboarding' : '/home');
         return;
       }
       setState(() {
@@ -104,18 +167,23 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Future<void> _resend() async {
     final i18n = AppI18n.instance;
     if (_resending || _email.text.trim().isEmpty) return;
+    // الويب: setError(false)+setSent(false) عند البدء والرسالة القائمة تبقى ظاهرة
     setState(() {
       _resending = true;
       _error = null;
-      _message = null;
       _sent = false;
+      _messageIsError = false;
     });
     try {
-      await ApiClient.instance.resendVerification(_email.text.trim());
+      // Task 68-f — علم الإرسال: sent=false ⇒ الرمز السابق ما زال صالحًا
+      // (الويب verify-email/page.tsx:149-151 يعرض verify_code_exists).
+      final sent = await ApiClient.instance.resendVerification(_email.text.trim());
       if (!mounted) return;
       setState(() {
-        _sent = true;
-        _message = i18n.t('auth', 'verify_code_sent');
+        _sent = sent;
+        _message = sent
+            ? i18n.t('auth', 'verify_code_sent')
+            : i18n.t('auth', 'verify_code_exists');
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -137,15 +205,19 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     // لون الأيقونة: نجاح → مصمتة بأبيض، خطأ → destructive/10، عادي → primary/10
     final Color iconBg;
     final Color iconFg;
+    final String iconChar;
     if (_verified) {
       iconBg = theme.colorScheme.primary;
       iconFg = theme.colorScheme.onPrimary;
-    } else if (_error != null) {
+      iconChar = '✓';
+    } else if (_error != null || _messageIsError) {
       iconBg = theme.colorScheme.error.withOpacity(0.10);
       iconFg = theme.colorScheme.error;
+      iconChar = '!';
     } else {
       iconBg = theme.colorScheme.primary.withOpacity(0.10);
       iconFg = theme.colorScheme.primary;
+      iconChar = '✓';
     }
     return AuthShell(
       child: Center(
@@ -178,7 +250,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         boxShadow: _verified ? WebShadow.primaryGlow(theme.colorScheme.primary) : null,
                       ),
                       child: Text(
-                        _error != null ? '!' : '✓',
+                        iconChar,
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: iconFg),
                       ),
                     ),
@@ -196,7 +268,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.6,
-                      color: _error != null ? theme.colorScheme.error : theme.colorScheme.onSurface.withOpacity(0.55),
+                      color: _error != null || _messageIsError
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurface.withOpacity(0.55),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -207,7 +281,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                   AuthInput(controller: _email, keyboard: TextInputType.emailAddress, ltr: true, hint: 'name@pharmacy.com'),
                   const SizedBox(height: 16),
 
-                  // الرمز: h-14 بخط 2xl وتباعد واسع
+                  // الرمز: h-14 بخط 2xl وتباعد واسع — Task 68-f: أرقام فقط وبحد
+                  // 6 خانات مثل الويب (maxLength=6 + تنظيف onChange في page.tsx:201)
                   Text(i18n.t('auth', 'code_label'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
                   AuthInput(
@@ -218,6 +293,16 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     height: 56,
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
+                    onChanged: (value) {
+                      final digits = value.replaceAll(RegExp(r'\D'), '');
+                      final clamped = digits.length > 6 ? digits.substring(0, 6) : digits;
+                      if (clamped == value) return;
+                      _code.value = TextEditingValue(
+                        text: clamped,
+                        selection: TextSelection.collapsed(offset: clamped.length),
+                        composing: TextRange.empty,
+                      );
+                    },
                   ),
                   if (_error != null) ...<Widget>[
                     const SizedBox(height: 16),

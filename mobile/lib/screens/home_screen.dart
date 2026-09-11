@@ -85,18 +85,40 @@ class HomeShellState extends State<HomeScreen> {
     _scaffoldKey.currentState?.openDrawer();
   }
 
+  /// ترتيب هبوط الويب LANDING_PRIORITY (permissions.ts) — أول صفحة مسموحة
+  /// تُستخدم للتحويل الصامت عند منع الصفحة النشطة (dashboard.view...).
+  static const List<String> _landingPriority = <String>[
+    'pos', 'inventory', 'sales', 'customers', 'movements',
+    'reports', 'employees', 'attendance', 'branches',
+  ];
+
+  ShellPage? _firstAllowedPage(List<ShellPage> pages) {
+    for (final String key in _landingPriority) {
+      for (final ShellPage p in pages) {
+        if (p.key == key && p.allowed) return p;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final i18n = AppI18n.instance;
     final pages = _pages(state, i18n);
-    final current = pages.firstWhere(
+    // Task 68-a — مثل RequirePermission في الويب: صفحة نشطة ممنوعة تُستبدل
+    // بأول صفحة مسموحة بترتيب LANDING_PRIORITY؛ وبلا أي صفحة تظل شاشة
+    // «غير متاح» الحالية معروضة (pages.first ببوابة allowed=false).
+    ShellPage current = pages.firstWhere(
       (ShellPage p) => p.key == _active,
       orElse: () => pages.first,
     );
+    if (!current.allowed) {
+      current = _firstAllowedPage(pages) ?? pages.first;
+    }
     return Scaffold(
       key: _scaffoldKey,
-      drawer: _SidebarDrawer(active: _active, onSelect: (String key) => goTo(key)),
+      drawer: _SidebarDrawer(active: current.key, onSelect: (String key) => goTo(key)),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -134,7 +156,7 @@ class HomeShellState extends State<HomeScreen> {
         key: 'dashboard',
         icon: Icons.space_dashboard_outlined,
         label: i18n.t('nav', 'dashboard'),
-        allowed: true,
+        allowed: state.can('dashboard.view'), // بوابة الويب RequirePermission 'dashboard.view'
         builder: (_) => const DashboardScreen(),
       ),
       ShellPage(
@@ -204,7 +226,14 @@ class HomeShellState extends State<HomeScreen> {
         key: 'settings',
         icon: Icons.settings_outlined,
         label: i18n.t('nav', 'settings'),
-        allowed: true,
+        // sidebar.tsx: الرابط يختفي كليًا عمن لا يملك أي قسم إعدادات
+        allowed: state.canAny(<String>[
+          'settings.general',
+          'settings.billing',
+          'settings.integrations',
+          'settings.receipts',
+          'inventory.import',
+        ]),
         builder: (_) => const SettingsScreen(),
       ),
     ];
@@ -253,7 +282,7 @@ class _SidebarDrawer extends StatelessWidget {
 
     // عناصر القائمة بترتيب الويب نفسه (عناصر الشل بدون الإعدادات)
     final items = <(String, IconData, String, bool, int?)>[
-      ('dashboard', Icons.space_dashboard_outlined, i18n.t('nav', 'dashboard'), true, null),
+      ('dashboard', Icons.space_dashboard_outlined, i18n.t('nav', 'dashboard'), state.can('dashboard.view'), null),
       ('inventory', Icons.inventory_2_outlined, i18n.t('nav', 'inventory'), state.can('inventory.view'), ctx?.productCount),
       ('pos', Icons.receipt_long_outlined, i18n.t('nav', 'pos'), state.can('pos.access'), null),
       ('sales', Icons.history, i18n.t('nav', 'sales'), state.can('sales.view'), null),
@@ -312,12 +341,13 @@ class _SidebarDrawer extends StatelessWidget {
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
+                    // sidebar.tsx: اسم الفرع (· مدينة) → مدينة الصيدلية → no_branch
                     Text(
                       ctx == null
                           ? i18n.t('nav', 'no_branch')
                           : ((ctx.branchName != null && ctx.branchName!.isNotEmpty)
                               ? '${ctx.branchName}${(ctx.branchCity != null && ctx.branchCity!.isNotEmpty) ? ' · ${ctx.branchCity}' : ''}'
-                              : ''),
+                              : (ctx.city.isNotEmpty ? ctx.city : i18n.t('nav', 'no_branch'))),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55)),
@@ -350,20 +380,29 @@ class _SidebarDrawer extends StatelessWidget {
                           onSelect(key);
                         },
                       ),
-                  // قسم الإعدادات بفاصل علوي
-                  const SizedBox(height: 16),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 12), child: Divider(height: 1, color: theme.dividerColor)),
-                  const SizedBox(height: 16),
-                  _NavItem(
-                    icon: Icons.settings_outlined,
-                    label: i18n.t('nav', 'settings'),
-                    active: active == 'settings',
-                    primary: primary,
-                    onTap: () {
-                      Navigator.pop(context);
-                      onSelect('settings');
-                    },
-                  ),
+                  // قسم الإعدادات بفاصل علوي — يختفي كليًا (بالفاصل) عمن لا
+                  // يملك أي قسم إعدادات (sidebar.tsx settingsAllowed)
+                  if (state.canAny(<String>[
+                    'settings.general',
+                    'settings.billing',
+                    'settings.integrations',
+                    'settings.receipts',
+                    'inventory.import',
+                  ])) ...<Widget>[
+                    const SizedBox(height: 16),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 12), child: Divider(height: 1, color: theme.dividerColor)),
+                    const SizedBox(height: 16),
+                    _NavItem(
+                      icon: Icons.settings_outlined,
+                      label: i18n.t('nav', 'settings'),
+                      active: active == 'settings',
+                      primary: primary,
+                      onTap: () {
+                        Navigator.pop(context);
+                        onSelect('settings');
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -382,8 +421,9 @@ class _SidebarDrawer extends StatelessWidget {
                       color: primary.withOpacity(0.10),
                       shape: BoxShape.circle,
                     ),
+                    // الويب: {t('avatar_initial')} — حرف ثابت للهوية لا أول حرف من الاسم
                     child: Text(
-                      name.isNotEmpty ? name.characters.first.toUpperCase() : 'م',
+                      i18n.t('nav', 'avatar_initial'),
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: primary),
                     ),
                   ),
@@ -680,6 +720,8 @@ class _NotificationsBell extends StatelessWidget {
                                         _row(
                                           theme,
                                           title: it.productName,
+                                          // header.tsx:178 — تركيز الدواء بجانب اسمه بذكاء
+                                          titleSuffix: _extraStrengthLabel(it.productName, it.strength),
                                           subtitle: (it.fullBoxes == 0 && it.strips == 0)
                                               ? i18n.t('nav', 'out_of_stock_line', {'min': _boxWord(it.minStockLevel, i18n)})
                                               : i18n.t('nav', 'low_stock_line', {
@@ -730,9 +772,23 @@ class _NotificationsBell extends StatelessWidget {
     );
   }
 
+  /// نفس extraStrengthLabel في الويب (lib/product.ts): لا نُلحق التركيز
+  /// إذا كان الاسم المسجّل يحمل جرعة أصلًا أو يحتوي نص التركيز نفسه.
+  static final RegExp _doseInNamePattern =
+      RegExp(r'\d\s*(?:mg|µg|mcg|g|ml|iu|ملجم|ملغ|مل|جرام|وحدة)', caseSensitive: false);
+
+  String _extraStrengthLabel(String name, String strength) {
+    final clean = strength.trim();
+    if (clean.isEmpty) return '';
+    if (name.toLowerCase().contains(clean.toLowerCase())) return '';
+    if (_doseInNamePattern.hasMatch(name)) return '';
+    return clean;
+  }
+
   Widget _row(
     ThemeData theme, {
     required String title,
+    String? titleSuffix,
     required String subtitle,
     required String badge,
     required Color badgeFg,
@@ -750,8 +806,25 @@ class _NotificationsBell extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text.rich(
+                    TextSpan(
+                      text: title,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      children: <InlineSpan>[
+                        if (titleSuffix != null && titleSuffix.isNotEmpty)
+                          TextSpan(
+                            text: ' $titleSuffix', // ms-1 text-xs font-normal text-muted-foreground
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: theme.colorScheme.onSurface.withOpacity(0.55),
+                            ),
+                          ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 2),
                   Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),

@@ -111,15 +111,21 @@ class ApiClient {
 
   // ------------------------------------------------------- التسجيل والتحقق
 
-  Future<void> register({
+  /// Task 68-f — يعيد هل أُرسل رمز التحقق عند إنشاء الحساب كما يقرأ الويب
+  /// (register/page.tsx:122: email_verification_sent !== false — غائب/غير منطقي
+  /// ⇒ مُرسل) من استجابة /auth/register (backend auth/handler.go:129).
+  /// الويب يمررها لـ /verify-email?sent=1|0؛ هنا تُقرأ من RegisterScreen عبر
+  /// lastRegisterEmailVerificationSent ليمررها لشاشة التحقق (AppState نفسه
+  /// يبقى Future<void> حفاظًا على عقد الاختبارات).
+  Future<bool> register({
     required String companyName,
     required String companyEmail,
     required String firstName,
     required String lastName,
     required String email,
     required String password,
-  }) {
-    return _send('POST', '/auth/register', allowRefresh: false, body: <String, dynamic>{
+  }) async {
+    final body = await _send('POST', '/auth/register', allowRefresh: false, body: <String, dynamic>{
       'company_name': companyName,
       'company_email': companyEmail,
       'first_name': firstName,
@@ -127,7 +133,15 @@ class ApiClient {
       'email': email,
       'password': password,
     });
+    final sent = body['email_verification_sent'];
+    _lastRegisterEmailVerificationSent = sent is bool ? sent : true;
+    return _lastRegisterEmailVerificationSent;
   }
+
+  /// هل قيل إن رمز التحقق أُرسل في آخر استجابة تسجيل ناجحة؟ يُستهلك فورًا
+  /// بعد نجاح AppState.register — لا معنى له بعد مغادرة مسار التسجيل.
+  bool get lastRegisterEmailVerificationSent => _lastRegisterEmailVerificationSent;
+  bool _lastRegisterEmailVerificationSent = true;
 
   Future<({bool sessionCreated, bool onboardingRequired, User? user})>
       verifyEmail(String email, String code) async {
@@ -142,9 +156,16 @@ class ApiClient {
     );
   }
 
-  Future<void> resendVerification(String email) =>
-      _send('POST', '/auth/resend-verification',
-          body: <String, dynamic>{'email': email}, allowRefresh: false);
+  /// Task 68-f — يعيد علم الإرسال كما يقرأ الويب (verify-email/page.tsx:147:
+  /// response.sent !== false) من استجابة /auth/resend-verification
+  /// (backend auth/handler.go:333): sent=false ⇒ رمز سابق ما زال صالحًا
+  /// فتُعرض verify_code_exists بدل verify_code_sent.
+  Future<bool> resendVerification(String email) async {
+    final body = await _send('POST', '/auth/resend-verification',
+        body: <String, dynamic>{'email': email}, allowRefresh: false);
+    final sent = body['sent'];
+    return sent is bool ? sent : true;
+  }
 
   // ------------------------------------------------------------ الإعداد
 
@@ -209,12 +230,17 @@ class ApiClient {
   Future<void> updateProduct(String id, Map<String, dynamic> payload) =>
       _send('PUT', '/pharmacy/products/$id', body: payload);
 
+  /// Task 68-i (B) — ضبط المخزون يدعم idempotency عبر ترويسة Idempotency-Key
+  /// حصريًا (backend pharmacy_dashboard_handler.go:216 يقرأ الترويسة ولا يقرأ
+  /// حقل الجسم) — تُرسل الترويسة ويبقى حقل الجسم للتوافق الخلفي.
   Future<void> adjustBatchStock(String batchId, int delta, String reason, String idempotencyKey) {
-    return _send('POST', '/pharmacy/inventory/$batchId/adjust', body: <String, dynamic>{
-      'delta': delta,
-      'reason': reason,
-      'idempotency_key': idempotencyKey,
-    });
+    return _send('POST', '/pharmacy/inventory/$batchId/adjust',
+        headers: <String, String>{'Idempotency-Key': idempotencyKey},
+        body: <String, dynamic>{
+          'delta': delta,
+          'reason': reason,
+          'idempotency_key': idempotencyKey,
+        });
   }
 
   Future<({List<StockMovementRow> movements, int total})> stockMovements({
@@ -266,16 +292,24 @@ class ApiClient {
 
   /// إنشاء بيع — قد يرمي 409 price_changed مع رسالة الخادم المفهومة.
   /// الاستجابة: {sale_id, total_amount_piastres, discount_amount_piastres, replayed}
+  /// Task 68-i (B) — مفتاح idempotency يُرسل ترويسة Idempotency-Key أيضًا
+  /// (عقد الترويسة) مع بقاء حقل الجسم للتوافق الخلفي مع
+  /// product_pos_handler.go:411.
   Future<({String saleId, int totalAmount, int discountAmount})> createPOSSale({
     required List<Map<String, dynamic>> items,
     String? idempotencyKey,
     Map<String, dynamic>? options,
   }) async {
-    final body = await _send('POST', '/pharmacy/pos/sales', body: <String, dynamic>{
-      'items': items,
-      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
-      if (options != null) ...options,
-    });
+    final body = await _send(
+      'POST',
+      '/pharmacy/pos/sales',
+      headers: idempotencyKey == null ? null : <String, String>{'Idempotency-Key': idempotencyKey},
+      body: <String, dynamic>{
+        'items': items,
+        if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+        if (options != null) ...options,
+      },
+    );
     final data = unwrapMap(body);
     return (
       saleId: sOf(data['sale_id']),
@@ -312,14 +346,21 @@ class ApiClient {
     return SaleDetail.fromJson(unwrapMap(body));
   }
 
+  /// Task 68-i (B) — مفتاح idempotency يُرسل ترويسة Idempotency-Key أيضًا
+  /// (عقد الترويسة) مع بقاء حقل الجسم للتوافق الخلفي مع
+  /// sales_history_handler.go:534.
   Future<({int returnNumber, int totalAmount, String saleStatus})> createSaleReturn(
       String saleId, List<Map<String, dynamic>> items, String reason, String idempotencyKey) async {
-    final body = await _send('POST', '/pharmacy/pos/sales/$saleId/returns',
-        body: <String, dynamic>{
-          'items': items,
-          'reason': reason,
-          'idempotency_key': idempotencyKey,
-        });
+    final body = await _send(
+      'POST',
+      '/pharmacy/pos/sales/$saleId/returns',
+      headers: <String, String>{'Idempotency-Key': idempotencyKey},
+      body: <String, dynamic>{
+        'items': items,
+        'reason': reason,
+        'idempotency_key': idempotencyKey,
+      },
+    );
     final data = unwrapMap(body);
     return (
       returnNumber: iOf(data['return_number']),
@@ -469,14 +510,15 @@ class ApiClient {
     Map<String, dynamic>? body,
     Map<String, dynamic>? query,
     bool allowRefresh = true,
+    Map<String, String>? headers,
   }) async {
     try {
-      return await _dispatch(method, path, body: body, query: query);
+      return await _dispatch(method, path, body: body, query: query, headers: headers);
     } on ApiException catch (e) {
       final isAuthPath = path.startsWith('/auth/');
       if (allowRefresh && !isAuthPath && e.status == 401) {
         final ok = await refresh();
-        if (ok) return await _dispatch(method, path, body: body, query: query);
+        if (ok) return await _dispatch(method, path, body: body, query: query, headers: headers);
       }
       rethrow;
     }
@@ -487,6 +529,7 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     Map<String, dynamic>? query,
+    Map<String, String>? headers,
   }) async {
     Response<dynamic> res;
     try {
@@ -494,7 +537,7 @@ class ApiClient {
         path,
         data: body,
         queryParameters: query,
-        options: Options(method: method),
+        options: Options(method: method, headers: headers),
       );
     } on DioException catch (e) {
       throw _fromDio(e);
