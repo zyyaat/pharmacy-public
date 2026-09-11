@@ -43,12 +43,30 @@ Map<String, dynamic> unwrapMap(Map<String, dynamic> body) {
   return body;
 }
 
+/// يفك قائمة من أي شكل رد معروف في الخادم — الترتيب حسب أولوية العقد:
+/// 1. مسطح: {"data": [...], "total": n} — عقد الموظفين/الفروع/الحضور
+///    (pharmacy_context_handler.go:118/185/237) والويب يقرؤه response.data.
+///    هذا الشكل يجب فحصه أولًا: كان تمرير مفتاح مسمّى على شكل مسطح يأخذ
+///    القائمة ويحاول قراءة المفتاح منها كخريطة → [] دائمًا، وهذا سبب
+///    «صفحات الموظفين/الفروع لا تجلب البيانات» (Task 71).
+/// 2. متداخل بمفتاح مسمّى: {"data": {"customers": [...]}} — عقد العملاء
+///    (customers_handler.go:102).
+/// 3. متداخل بـ items: {"data": {"items": [...], "total": n}} — سجل
+///    الترحيلات (system_handler.go:52).
+/// 4. قديم: {"employees": [...]} بمفتاح أعلى مباشر.
 List<dynamic> unwrapList(Map<String, dynamic> body, [String? key]) {
-  if (key != null) {
-    final inner = body.containsKey('data') ? body['data'] : body;
-    return lOf(mOf(inner)[key]);
+  final data = body['data'];
+  if (data is List) return data;
+  if (data is Map) {
+    final inner = mOf(data);
+    if (key != null) {
+      final named = inner[key];
+      if (named is List) return named;
+    }
+    if (inner['items'] is List) return lOf(inner['items']);
   }
-  if (body['data'] is List) return lOf(body['data']);
+  if (body['items'] is List) return lOf(body['items']);
+  if (key != null && body[key] is List) return lOf(body[key]);
   return const <dynamic>[];
 }
 

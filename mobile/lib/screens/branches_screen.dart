@@ -8,10 +8,13 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
-/// الفروع — قائمة الفروع + إضافة/تعديل + إيقاف، بنفس حقول صفحة الويب
+/// الفروع — قائمة الفروع + إضافة/تعديل، بنفس حقول صفحة الويب
 /// (الفرع الرئيسي يزامن اسم الصيدلية عبر pharmacy_name).
 /// بوابات التعديل مثل gate.tsx في الويب: الإخفاء لا التعطيل
-/// (الإضافة branches.create، التعديل/الإيقاف branches.update).
+/// (الإضافة branches.create، التعديل branches.update).
+/// Task 71 — مطابقة حرفية: الويب لا يعرض زر حذف إطلاقًا (لا في القائمة
+/// ولا في صفحة التعديل) فأُزيل من البطاقة، وصف الكود يظهر دائمًا بـ«—»
+/// عند الفراغ كما page.tsx:96 بالضبط.
 class BranchesScreen extends StatefulWidget {
   const BranchesScreen({super.key});
 
@@ -68,29 +71,6 @@ class _BranchesScreenState extends State<BranchesScreen> {
     _load();
   }
 
-  Future<void> _deleteBranch(Branch b) async {
-    final i18n = AppI18n.instance;
-    final ok = await confirmDialog(
-      context,
-      title: i18n.t('employees', 'branchDeleteBtn'),
-      body: i18n.t('employees', 'branchDeleteConfirm'),
-      destructive: true,
-    );
-    if (ok != true) return;
-    try {
-      await ApiClient.instance.deleteBranch(b.id);
-      if (!mounted) return;
-      await appSnackbar(context, i18n.t('employees', 'branchDeleted'));
-      _load();
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      await appSnackbar(context, AppI18n.instance.error(e.code, i18n.t('employees', 'branchDeleteError')), error: true);
-    } catch (_) {
-      if (!mounted) return;
-      await appSnackbar(context, i18n.t('employees', 'branchDeleteError'), error: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
@@ -134,7 +114,6 @@ class _BranchesScreenState extends State<BranchesScreen> {
                               _BranchTile(
                                 branch: b,
                                 onEdit: () => _openForm(branch: b),
-                                onDelete: !b.isMain ? () => _deleteBranch(b) : null,
                               ),
                               if (b != _list.last) const SizedBox(height: 16),
                             ],
@@ -156,8 +135,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
 class _BranchTile extends StatelessWidget {
   final Branch branch;
   final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-  const _BranchTile({required this.branch, this.onEdit, this.onDelete});
+  const _BranchTile({required this.branch, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -208,30 +186,19 @@ class _BranchTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // الصفوف المُعنونة كما في الويب: الكود (إن وُجد)، المدير (إن وُجد)، الهاتف، البريد
-            if (b.code.isNotEmpty) _labeledRow(context, i18n.t('employees', 'branchCodeLabel'), b.code),
+            // الصفوف المُعنونة كما في الويب (page.tsx:96-102): الكود دائمًا
+            // بـ«—» عند الفراغ، المدير فقط إن وُجد، الهاتف والبريد بـ«—»
+            _labeledRow(context, i18n.t('employees', 'branchCodeLabel'), b.code.isEmpty ? '—' : b.code),
             if (b.managerName.isNotEmpty) _labeledRow(context, i18n.t('employees', 'branchManagerLabel'), b.managerName),
             _labeledRow(context, i18n.t('employees', 'branchPhoneLabel'), b.phone.isEmpty ? '—' : b.phone),
             _labeledRow(context, i18n.t('employees', 'branchEmailCardLabel'), b.email.isEmpty ? '—' : b.email),
-            if (onEdit != null || onDelete != null) ...<Widget>[
+            if (onEdit != null) ...<Widget>[
               const SizedBox(height: 12),
               Container(height: 1, color: theme.dividerColor), // border-t مثل الويب
               const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  if (onEdit != null)
-                    WButton(i18n.t('employees', 'branchEditBtn'),
-                        icon: Icons.edit_outlined,
-                        variant: WButtonVariant.outline, size: WButtonSize.sm, onPressed: onEdit),
-                  if (onDelete != null) ...<Widget>[
-                    const SizedBox(width: 8),
-                    WButton(i18n.t('employees', 'branchDeleteBtn'),
-                        icon: Icons.block,
-                        variant: WButtonVariant.outline, size: WButtonSize.sm,
-                        color: theme.colorScheme.error, onPressed: onDelete),
-                  ],
-                ],
-              ),
+              WButton(i18n.t('employees', 'branchEditBtn'),
+                  icon: Icons.edit_outlined,
+                  variant: WButtonVariant.outline, size: WButtonSize.sm, onPressed: onEdit),
             ],
           ],
         ),
