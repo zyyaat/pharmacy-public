@@ -174,6 +174,7 @@ class _POSScreenState extends State<POSScreen> {
   final List<_ParkedSale> _parked = <_ParkedSale>[];
   List<_Suggestion> _suggestions = <_Suggestion>[];
   bool _searching = false;
+  bool _searchError = false; // فشل شبكة في البحث — بدل «لا نتائج» المضلّلة
   bool _resolving = false;
   Timer? _debounce;
   int _searchSeq = 0;
@@ -248,6 +249,7 @@ class _POSScreenState extends State<POSScreen> {
       setState(() {
         _suggestions = <_Suggestion>[];
         _searching = false;
+        _searchError = true; // رسالة خطأ مرئية بدل «لا نتائج»
         _searchedFor = q;
       });
       return;
@@ -256,6 +258,7 @@ class _POSScreenState extends State<POSScreen> {
     setState(() {
       _suggestions = results;
       _searching = false;
+      _searchError = false;
       _searchedFor = q;
     });
   }
@@ -374,6 +377,7 @@ class _POSScreenState extends State<POSScreen> {
   bool get _showNoResults =>
       !_searching &&
       !_resolving &&
+      !_searchError &&
       _suggestions.isEmpty &&
       _searchedFor == _searchCtrl.text.trim() &&
       _searchedFor.runes.length >= _minQueryRunes &&
@@ -598,7 +602,8 @@ class _POSScreenState extends State<POSScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        PageHeader(i18n.t('pos', 'title'), subtitle: i18n.t('pos', 'subtitle')),
+        PageHeader(i18n.t('pos', 'title'), subtitle: i18n.t('pos', 'subtitle'),
+            actions: <Widget>[BrandMark(size: 30)]), // شعار الهوية — كعمود الشريط الجانبي بالويب
         const SizedBox(height: 24),
 
         // بطاقة إضافة الأصناف
@@ -626,7 +631,7 @@ class _POSScreenState extends State<POSScreen> {
                         suffixIcon: busy
                             ? const Padding(
                                 padding: EdgeInsets.all(10),
-                                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                                child: LoaderSpin(size: 16)) // Loader2 h-4 text-primary بالويب
                             : (_searchCtrl.text.isEmpty
                                 ? null
                                 : IconButton(
@@ -663,6 +668,27 @@ class _POSScreenState extends State<POSScreen> {
                                 ),
                             ],
                           ),
+                        ),
+                      ),
+                    ],
+                    if (_searchError && !_searching && _searchCtrl.text.trim().isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: AppRadius.br,
+                          border: Border.all(color: theme.colorScheme.error.withOpacity(0.30)),
+                          color: theme.colorScheme.error.withOpacity(0.10),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Icon(Icons.cloud_off, size: 16, color: theme.colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(i18n.t('pos', 'search_failed'),
+                                  style: TextStyle(fontSize: 13, color: theme.colorScheme.error)),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1307,6 +1333,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   final TextEditingController _newPhone = TextEditingController();
   List<Customer> _list = <Customer>[];
   bool _loading = true;
+  bool _loadError = false; // فشل تحميل العملاء — ErrorRetry بدل قائمة فارغة
   bool _adding = false;
   Timer? _debounce;
 
@@ -1333,9 +1360,15 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       setState(() {
         _list = list;
         _loading = false;
+        _loadError = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadError = true; // خطأ مرئي مع إعادة محاولة بدل قائمة فارغة صامتة
+        });
+      }
     }
   }
 
@@ -1359,6 +1392,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _adding = false);
+      appSnackbar(context, AppI18n.instance.t('pos', 'customer_add_failed'), error: true);
     }
   }
 
@@ -1382,6 +1416,8 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
               const SizedBox(height: 12),
               if (_loading)
                 const LoadingBox()
+              else if (_loadError)
+                ErrorRetry(AppI18n.instance.t('pos', 'customers_load_failed'), onRetry: _load)
               else if (_list.isEmpty)
                 Text(i18n.t('common', 'no_options'), style: const TextStyle(fontSize: 14), textAlign: TextAlign.center)
               else

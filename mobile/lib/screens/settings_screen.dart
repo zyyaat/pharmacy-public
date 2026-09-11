@@ -228,11 +228,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
                       ),
                     ),
                     if (_pending == code)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                      const LoaderSpin(size: 16) // Loader2 h-4 لكل صف لغة — مثل الويب
                     else if (state.locale == code)
                       Icon(Icons.check_circle, color: theme.colorScheme.primary),
                   ],

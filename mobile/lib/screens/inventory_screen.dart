@@ -285,6 +285,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                         _load();
                                                       } catch (_) {
                                                         _load();
+                                                        if (context.mounted) {
+                                                          appSnackbar(context, i18n.t('inventory', 'edit_load_failed'), error: true);
+                                                        }
                                                       }
                                                     },
                                                   ),

@@ -107,7 +107,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
       setState(() => _adding = false);
       appSnackbar(context, AppI18n.instance.error(e.code, e.message), error: true);
     } catch (_) {
-      if (mounted) setState(() => _adding = false);
+      if (mounted) {
+        setState(() => _adding = false);
+        appSnackbar(context, AppI18n.instance.t('customers', 'create_failed'), error: true);
+      }
     }
   }
 

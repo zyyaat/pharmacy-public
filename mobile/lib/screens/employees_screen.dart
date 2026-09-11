@@ -300,6 +300,7 @@ class _PermissionsEditorState extends State<_PermissionsEditor> {
   List<PermissionModule> _catalog = <PermissionModule>[];
   List<PermissionTemplate> _templates = <PermissionTemplate>[];
   bool _loading = true;
+  bool _error = false; // فشل تحميل الكتالوج — ErrorRetry بدل «لا صلاحيات معرّفة» المضللة
   String? _appliedTemplateId;
   final Set<String> _collapsed = <String>{};
 
@@ -323,10 +324,14 @@ class _PermissionsEditorState extends State<_PermissionsEditor> {
         _catalog = catalog;
         _templates = results[1].cast<PermissionTemplate>().toList();
         _loading = false;
+        _error = false;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _error = true;
+      });
     }
   }
 
@@ -362,13 +367,11 @@ class _PermissionsEditorState extends State<_PermissionsEditor> {
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     if (_loading) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text(i18n.t('employees', 'loadingPerms'),
-              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-        ),
-      );
+      // مثل GuardLoading في الويب (permissions/gate.tsx): LoadingSpinner py-24
+      return const LoadingBox();
+    }
+    if (_error) {
+      return ErrorRetry(i18n.t('employees', 'perms_load_failed'), onRetry: _load);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,7 +697,12 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
       final branches = await ApiClient.instance.branches();
       if (!mounted) return;
       setState(() => _branches = branches);
-    } catch (_) {}
+    } catch (_) {
+      // فشل صامت سابقًا كانت تجعل قائمة الفروع فارغة بلا سبب ظاهر
+      if (mounted) {
+        appSnackbar(context, AppI18n.instance.t('employees', 'branches_load_failed'), error: true);
+      }
+    }
   }
 
   /// الحمولة كما بالويب (page.tsx:102-111): الصلاحيات المصفوفة هي المرجع،

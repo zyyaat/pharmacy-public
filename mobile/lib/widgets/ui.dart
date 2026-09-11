@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -107,6 +108,552 @@ class BrandLogo extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+// ---------------------------------------------------------------- الدوّارات
+
+/// دوران مشترك 1s خطي — مطابق لـ animate-spin في تويليند.
+class _Spin extends StatefulWidget {
+  final Widget child;
+  const _Spin({required this.child});
+
+  @override
+  State<_Spin> createState() => _SpinState();
+}
+
+class _SpinState extends State<_Spin> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RotationTransition(turns: _c, child: widget.child);
+  }
+}
+
+/// رسّام قوس حلقي — أداة مشتركة لكل الدوّارات أدناه (زوايا براديان،
+/// 0 = الساعة 3، الاتجاه الموجب = مع عقارب الساعة مثل إحداثيات الويب).
+class _RingArcPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double startAngle;
+  final double sweepAngle;
+  final StrokeCap cap;
+  const _RingArcPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.startAngle,
+    required this.sweepAngle,
+    this.cap = StrokeCap.butt,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = cap
+      ..color = color;
+    canvas.drawArc((Offset.zero & size).deflate(strokeWidth / 2), startAngle, sweepAngle, false, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingArcPainter old) =>
+      old.color != color ||
+      old.strokeWidth != strokeWidth ||
+      old.startAngle != startAngle ||
+      old.sweepAngle != sweepAngle ||
+      old.cap != cap;
+}
+
+/// LoadingSpinner في الويب (components/ui/loading.tsx) حرفيًا:
+/// h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full
+/// animate-spin — حلقة 32px بحد 4px أزرق #2563eb وفجوة الربع العلوي.
+class WebLoadingSpinner extends StatelessWidget {
+  final double size;
+  const WebLoadingSpinner({super.key, this.size = 32});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Spin(
+      child: CustomPaint(
+        size: Size.square(size),
+        painter: _RingArcPainter(
+          color: const Color(0xFF2563EB), // blue-600
+          strokeWidth: size / 8, // 4px عند 32px
+          startAngle: -math.pi / 4,
+          sweepAngle: math.pi * 3 / 2,
+        ),
+      ),
+    );
+  }
+}
+
+/// Loader2 الصغير (أيقونة لوسيد الدوّارة) — قوس 270° بأطراف دائرية.
+/// يُستخدم بأحجام الويب h-4/h-6/h-8 وبألوان primary أو muted-foreground.
+class LoaderSpin extends StatelessWidget {
+  final double size;
+  final Color? color;
+  const LoaderSpin({super.key, this.size = 16, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Spin(
+      child: CustomPaint(
+        size: Size.square(size),
+        painter: _RingArcPainter(
+          color: color ?? Theme.of(context).colorScheme.primary,
+          strokeWidth: size * 2 / 24, // lucide stroke-width 2 على viewBox 24
+          startAngle: 0,
+          sweepAngle: math.pi * 3 / 2,
+          cap: StrokeCap.round,
+        ),
+      ),
+    );
+  }
+}
+
+/// دوّار الزر ثنائي اللون (ui/button.tsx) حرفيًا: حلقة كاملة opacity-25
+/// وقوس 90° opacity-75 — h-4 w-4 يلفّ animate-spin.
+class ButtonSpinner extends StatelessWidget {
+  final double size;
+  final Color color;
+  const ButtonSpinner({super.key, this.size = 16, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Spin(
+      child: CustomPaint(
+        size: Size.square(size),
+        painter: _TwoTonePainter(color: color, strokeWidth: size * 4 / 24),
+      ),
+    );
+  }
+}
+
+class _TwoTonePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  const _TwoTonePainter({required this.color, required this.strokeWidth});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Rect rect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final Paint base = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = color.withOpacity(0.25);
+    canvas.drawCircle(rect.center, rect.width / 2, base);
+    final Paint arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt
+      ..color = color.withOpacity(0.75);
+    // الونش الممتلئ في svg يغطي الربع العلوي الأيسر: من الساعة 9 إلى 12
+    canvas.drawArc(rect, math.pi, math.pi / 2, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TwoTonePainter old) => old.color != color;
+}
+
+// ---------------------------------------------------------------- BrandSplash
+
+/// نسخة Flutter حرفية من brand-splash.tsx + brand-splash.css — شاشة التحميل
+/// ذات الهوية كما في الويب: تدرّج خلفي ثلاثي الطبقات، ثلاث كرات ضوئية عائمة
+/// (blur 70px)، منصة 132px بتوهج متنفّس وحلقتَي سونار (2.6s، الثانية بتأخير
+/// 1.3s)، أيقونة 96px تهتز بمنحنى bsWiggle كاملًا، عنوان 30px w800 بتوهج
+/// أخضر، وثلاث نقاط ترقص (1.3s بتأخيرات 0/0.18/0.36) — وخروج fade+scale(1.06)
+/// +blur(10px) خلال 0.5s مثل bs-exiting. تحترم disableAnimations.
+class BrandSplash extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? footer;
+  final bool exiting;
+  const BrandSplash({
+    super.key,
+    this.title = 'Pharmacy OS',
+    this.subtitle,
+    this.footer,
+    this.exiting = false,
+  });
+
+  @override
+  State<BrandSplash> createState() => _BrandSplashState();
+}
+
+class _BrandSplashState extends State<BrandSplash> with TickerProviderStateMixin {
+  static const Color _bg1 = Color(0xFF04150D);
+  static const Color _bg2 = Color(0xFF083F2B);
+  static const Color _bg3 = Color(0xFF0A5C3D);
+  static const Color _text = Color(0xFFECFDF5);
+  static const Color _accent = AppColors.brandGreen; // #00d084
+
+  late final AnimationController _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..forward();
+  late final AnimationController _fades = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..forward();
+  late final AnimationController _wiggle = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+  late final AnimationController _glow = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+  late final AnimationController _ring = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+  late final AnimationController _dots = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..repeat();
+  late final AnimationController _orbA = AnimationController(vsync: this, duration: const Duration(milliseconds: 26000))..repeat(reverse: true);
+  late final AnimationController _orbB = AnimationController(vsync: this, duration: const Duration(milliseconds: 34000))..repeat(reverse: true);
+  late final AnimationController _orbC = AnimationController(vsync: this, duration: const Duration(milliseconds: 22000))..repeat(reverse: true);
+  late final AnimationController _exit = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.exiting) _exit.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant BrandSplash old) {
+    super.didUpdateWidget(old);
+    if (widget.exiting && !old.exiting) _exit.forward();
+  }
+
+  @override
+  void dispose() {
+    for (final AnimationController c in <AnimationController>[_enter, _fades, _wiggle, _glow, _ring, _dots, _orbA, _orbB, _orbC, _exit]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  // ---- أدوات إقلاع المفاتيح (keyframes) ----
+
+  double _seqLerp(double t, List<double> keys, List<double> vals) {
+    for (int i = 0; i < keys.length - 1; i++) {
+      if (t <= keys[i + 1]) {
+        final double f = ((t - keys[i]) / (keys[i + 1] - keys[i])).clamp(0.0, 1.0);
+        return vals[i] + (vals[i + 1] - vals[i]) * Curves.easeInOut.transform(f);
+      }
+    }
+    return vals.last;
+  }
+
+  // ---- الخلفية: linear 160deg + اثنتا radial كما في bs-root ----
+
+  Widget _background() {
+    return Positioned.fill(
+      child: Stack(
+        children: <Widget>[
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment(-0.17, -0.47), // 160deg
+                end: Alignment(0.17, 0.47),
+                colors: <Color>[_bg1, Color(0xFF020B06)],
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0.7, 1.0), // at 85% 100%
+                radius: 1.1,
+                colors: <Color>[_bg2, Color(0x00083F2B)],
+                stops: <double>[0.0, 0.6],
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0.0, -1.0), // at 50% 0%
+                radius: 1.35,
+                colors: <Color>[_bg3, Color(0x000A5C3D)],
+                stops: <double>[0.0, 0.55],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// كرة ضوئية عائمة — blur(70px) يُقارّب بتدرّج شعاعي ناعم.
+  Widget _orb({
+    required double size,
+    required double alpha,
+    required AnimationController c,
+    required Offset drift,
+    required double s0,
+    required double s1,
+    bool flip = false,
+    bool reduce = false,
+  }) {
+    final Color tint = _accent.withOpacity(alpha);
+    return AnimatedBuilder(
+      animation: c,
+      builder: (BuildContext context, Widget? child) {
+        final double t = reduce ? (flip ? 1.0 : 0.0) : Curves.easeInOut.transform(flip ? 1 - c.value : c.value);
+        return Transform.translate(
+          offset: Offset(drift.dx * t, drift.dy * t),
+          child: Transform.scale(scale: s0 + (s1 - s0) * t, child: child),
+        );
+      },
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: <Color>[tint, tint.withOpacity(alpha * 0.7), tint.withOpacity(0)],
+            stops: const <double>[0.0, 0.55, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---- منصة الأيقونة ----
+
+  Widget _stage(bool reduce) {
+    return AnimatedBuilder(
+      animation: _enter,
+      builder: (BuildContext context, Widget? child) {
+        final double t = reduce ? 1.0 : Curves.easeOutBack.transform(_enter.value);
+        return Transform.scale(
+          scale: 0.55 + 0.45 * t,
+          child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
+        );
+      },
+      child: SizedBox(
+        width: 132,
+        height: 132,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: <Widget>[_glowWidget(reduce), _ringWidget(0, reduce), _ringWidget(0.5, reduce), _iconWidget(reduce)],
+        ),
+      ),
+    );
+  }
+
+  Widget _glowWidget(bool reduce) {
+    // keyframes: 0/50/100 → .4/.92؛ 9/20 → .85/1.14
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (BuildContext context, _) {
+        final double t = _glow.value;
+        final double op = reduce
+            ? 0.45
+            : _seqLerp(t, const <double>[0, 9, 20, 50, 100], const <double>[0.40, 0.85, 0.85, 0.40, 0.40]);
+        final double sc = reduce
+            ? 1.0
+            : _seqLerp(t, const <double>[0, 9, 20, 50, 100], const <double>[0.92, 1.14, 1.14, 0.92, 0.92]);
+        return Opacity(
+          opacity: op,
+          child: Transform.scale(
+            scale: sc,
+            child: Container(
+              width: 200, // inset -34px حول المنصة 132
+              height: 200,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: <Color>[Color(0x8000D084), Color(0x2400D084), Color(0x0000D084)],
+                  stops: <double>[0.0, 0.45, 0.7],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// حلقة سونار — scale .82→1.9 وopacity .6→0 خلال 65% من الدورة (2.6s)،
+  /// الثانية بتأخير 1.3s (نصف دورة).
+  Widget _ringWidget(double phase, bool reduce) {
+    return AnimatedBuilder(
+      animation: _ring,
+      builder: (BuildContext context, _) {
+        if (reduce) return const SizedBox.shrink();
+        double t = (_ring.value - phase) % 1.0;
+        if (t < 0) t += 1.0;
+        const double k = 0.65;
+        final double p = (t / k).clamp(0.0, 1.0);
+        final double scale = 0.82 + (1.9 - 0.82) * Curves.easeOutCubic.transform(p);
+        final double op = p >= 1 ? 0 : 0.6 * (1 - p);
+        return Opacity(
+          opacity: op,
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: _accent.withOpacity(0.6), width: 2),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// الأيقونة 96px — اهتزاز bsWiggle كامل (منحنيات الأصل بالدرجات).
+  Widget _iconWidget(bool reduce) {
+    return AnimatedBuilder(
+      animation: _wiggle,
+      builder: (BuildContext context, Widget? child) {
+        final double t = _wiggle.value;
+        final double deg = reduce
+            ? 0
+            : _seqLerp(t, const <double>[0, 7, 17, 27, 36, 44, 50, 100], const <double>[0, -10, 8, -5.5, 3.5, -1.2, 0, 0]);
+        final double sc = reduce
+            ? 1.0
+            : _seqLerp(t, const <double>[0, 7, 17, 27, 36, 44, 50, 100], const <double>[1, 1.06, 1.06, 1.04, 1.02, 1.0, 1.0, 1.0]);
+        return Transform.rotate(
+          angle: deg * math.pi / 180,
+          child: Transform.scale(scale: sc, child: child),
+        );
+      },
+      child: Container(
+        width: 96,
+        height: 96,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: <BoxShadow>[
+            BoxShadow(color: const Color(0xFF020B06).withOpacity(0.9), offset: const Offset(0, 22), blurRadius: 44, spreadRadius: -14),
+            BoxShadow(color: _accent.withOpacity(0.55), offset: const Offset(0, 6), blurRadius: 18, spreadRadius: -6),
+          ],
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.22), width: 1)), // inset 0 1px 0 rgba(255,255,255,.22)
+        ),
+        child: const BrandMark(size: 96),
+      ),
+    );
+  }
+
+  /// دخول العناوين bsFadeUp — تأخيرات 0.18/0.3/0.42 داخل دورة 1.4s.
+  Widget _fadeUp(double delay, bool reduce, Widget child) {
+    final double b = (delay / 1.4).clamp(0.0, 1.0);
+    final double e = ((delay + 0.7) / 1.4).clamp(0.0, 1.0);
+    return AnimatedBuilder(
+      animation: _fades,
+      builder: (BuildContext context, Widget? c) {
+        final double t = reduce ? 1.0 : Curves.ease.transform(Interval(b, e).transform(_fades.value));
+        return Opacity(opacity: t, child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: c));
+      },
+      child: child,
+    );
+  }
+
+  Widget _dot(double delayFrac, bool reduce) {
+    return AnimatedBuilder(
+      animation: _dots,
+      builder: (BuildContext context, _) {
+        double t = (_dots.value - delayFrac) % 1.0;
+        if (t < 0) t += 1.0;
+        // 0/65/100 → y0 s.8 op.4؛ 32 → y-8 s1.12 op1
+        final double f1 = Curves.easeInOut.transform((t / 0.32).clamp(0.0, 1.0));
+        final double f2 = Curves.easeInOut.transform(((t - 0.32) / 0.33).clamp(0.0, 1.0));
+        final double y = reduce ? 0 : (t < 0.32 ? -8 * f1 : -8 * (1 - f2));
+        final double s = reduce ? 1.0 : (t < 0.32 ? 0.8 + 0.32 * f1 : 1.12 - 0.32 * f2);
+        final double op = reduce ? 0.7 : (t < 0.32 ? 0.4 + 0.6 * f1 : 1.0 - 0.6 * f2);
+        return Transform.translate(
+          offset: Offset(0, y),
+          child: Transform.scale(
+            scale: s,
+            child: Opacity(
+              opacity: op,
+              child: Container(width: 9, height: 9, decoration: const BoxDecoration(shape: BoxShape.circle, color: _accent)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduce = MediaQuery.of(context).disableAnimations;
+    return AnimatedBuilder(
+      animation: _exit,
+      builder: (BuildContext context, Widget? child) {
+        final double t = Curves.ease.transform(_exit.value);
+        if (t <= 0.002) return child!;
+        return Opacity(
+          opacity: 1 - t,
+          child: Transform.scale(
+            scale: 1 + 0.06 * t,
+            child: ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 10 * t, sigmaY: 10 * t),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: ColoredBox(
+        color: _bg1,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints cons) {
+            final double w = cons.maxWidth;
+            final double h = cons.maxHeight;
+            return Stack(
+              children: <Widget>[
+                _background(),
+                // orb-1: 320px أعلى اليمين — bsFloat1 13s (translate -50,45 ×1.18)
+                Positioned(top: -80, right: -60, child: _orb(size: 320, alpha: 0.40, c: _orbA, drift: const Offset(-50, 45), s0: 1, s1: 1.18, reduce: reduce)),
+                // orb-2: 260px أسفل اليسار — bsFloat2 17s (translate 55,-40 ×0.92)
+                Positioned(bottom: -70, left: -50, child: _orb(size: 260, alpha: 0.26, c: _orbB, drift: const Offset(55, -40), s0: 1.1, s1: 0.92, reduce: reduce)),
+                // orb-3: 180px bottom 22% right 12% — 11s alternate-reverse
+                Positioned(bottom: h * 0.22, right: w * 0.12, child: _orb(size: 180, alpha: 0.20, c: _orbC, drift: const Offset(-50, 45), s0: 1, s1: 1.18, flip: true, reduce: reduce)),
+                Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        _stage(reduce),
+                        const SizedBox(height: 34),
+                        _fadeUp(0.18, reduce, Text(widget.title, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: _text, shadows: <Shadow>[Shadow(color: _accent.withOpacity(0.4), offset: const Offset(0, 2), blurRadius: 18)]))),
+                        if (widget.subtitle != null) ...<Widget>[
+                          const SizedBox(height: 8),
+                          _fadeUp(0.30, reduce, Text(widget.subtitle!, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _text.withOpacity(0.72)))),
+                        ],
+                        const SizedBox(height: 22),
+                        _fadeUp(
+                          0.42,
+                          reduce,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              _dot(0.0, reduce),
+                              const SizedBox(width: 10),
+                              _dot(0.18 / 1.3, reduce),
+                              const SizedBox(width: 10),
+                              _dot(0.36 / 1.3, reduce),
+                            ],
+                          ),
+                        ),
+                        if (widget.footer != null) ...<Widget>[
+                          const SizedBox(height: 30),
+                          _fadeUp(0.55, reduce, widget.footer!),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -576,13 +1123,8 @@ class _WButtonState extends State<WButton> {
     );
   }
 
-  Widget _spinner(Color color, double size) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CircularProgressIndicator(strokeWidth: 2, color: color),
-    );
-  }
+  /// دوّار الزر في الويب (ui/button.tsx) — ثنائي اللون h-4 w-4 حرفيًا.
+  Widget _spinner(Color color, double size) => ButtonSpinner(size: 16, color: color);
 }
 
 /// PrimaryButton القديم = variant primary بعرض كامل (بنفس التوافق السابق)
@@ -1370,9 +1912,10 @@ class LoadingBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // مثل الويب: LoadingSpinner الأزرق 32px (components/ui/loading.tsx)
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 40),
-      child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      child: Center(child: WebLoadingSpinner()),
     );
   }
 }
