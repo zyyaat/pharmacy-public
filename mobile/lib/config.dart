@@ -4,9 +4,11 @@
 class AppConfig {
   /// عنوان الـ API الافتراضي — يُستبدل بقيمة GitHub Variable/API_BASE_URL
   /// أو إدخال Run workflow عند البناء.
+  /// الافتراضي هو خادم الإنتاج الحقيقي (DockHosting) حتى يعمل التطبيق
+  /// المبني بالإعدادات الافتراضية فورًا بلا أي ضبط إضافي.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://pharmacy-api.example.com/api/v1',
+    defaultValue: 'https://pharmacy-public.dockhosting.dev/api/v1',
   );
 
   static const String appName = 'Pharmacy OS';

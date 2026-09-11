@@ -60,8 +60,8 @@ jobs:
           API_URL="$INPUT_URL"
           if [ -z "$API_URL" ]; then API_URL="$VAR_URL"; fi
           if [ -z "$API_URL" ]; then
-            API_URL="https://pharmacy-api.example.com/api/v1"
-            echo "::warning::API_BASE_URL is not set (neither run input nor repository variable) — using placeholder. The app still allows overriding the server URL from its Settings tab."
+            API_URL="https://pharmacy-public.dockhosting.dev/api/v1"
+            echo "::warning::API_BASE_URL is not set (neither run input nor repository variable) — using the baked-in production default (DockHosting)."
           fi
           printf '{"API_BASE_URL":"%s"}\n' "$API_URL" > env.json
           echo "Built with API_BASE_URL=$API_URL"

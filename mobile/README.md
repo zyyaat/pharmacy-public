@@ -10,7 +10,8 @@
 1. افتح صفحة المستودع على GitHub → تبويب **Actions**
 2. من القائمة الجانبية اختر **flutter-build**
 3. اضغط زر **Run workflow** (أعلى يمين القائمة)
-4. (اختياري) أدخل `api_base_url` — عنوان الـ API مثل `https://api.example.com/api/v1`
+4. (اختياري) أدخل `api_base_url` — اتركه فارغًا وسيُستخدم خادم الإنتاج تلقائيًا:
+   `https://pharmacy-public.dockhosting.dev/api/v1`
 5. اضغط **Run workflow** وانتظر انتهاء البناء (~10 دقائق أول مرة)
 6. من صفحة التشغيل نفسها، في قسم **Artifacts** أسفل الصفحة، نزّل:
    `pharmacy-mobile-apk-<رقم التشغيل>` — بداخله `app-release.apk`
