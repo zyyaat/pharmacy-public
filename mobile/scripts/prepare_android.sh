@@ -7,6 +7,7 @@
 #   3) minSdk 23 (شرط flutter_secure_storage مع EncryptedSharedPreferences)
 #   4) useLegacyPackaging (تثبيت ناجح دائمًا حتى على أجهزة صفحات 16KB الحديثة)
 #   5) التوقيع الثابت من key.properties (إن وُجد) — التحديث فوق النسخة المثبتة يعمل
+#   6) أيقونة التطبيق = الأيقونة الرسمية للبراند (نفسها المعتمدة في تطبيقات الويب)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -75,4 +76,37 @@ else
   echo "WARN: android/key.properties missing — release will use debug signing (update-over-install rejected)"
 fi
 
-echo "OK: android/ prepared (INTERNET + label + minSdk 23 + install-safe packaging + fixed signing)"
+# 6) أيقونة التطبيق — الأيقونة الرسمية للبراند (نفسها المعتمدة في تطبيقات الواجهة
+#    الأمامية: public/brand/pharmacy-os-icon.svg). الملفات الجاهزة في
+#    mobile/brand/launcher/ (مولّدة عبر mobile/scripts/gen_launcher_icons.py):
+#    ic_launcher بكل الكثافات + النسخة الدائرية + الأيقونة التكيفية adaptive
+#    (أعمدة البراند على خلفية #00d084) + أيقونة متجر Play ‏512.
+ICON_SRC="brand/launcher"
+RES="android/app/src/main/res"
+if [ -d "$ICON_SRC" ]; then
+  for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi mipmap-anydpi-v26 values; do
+    if [ -d "$ICON_SRC/$d" ]; then
+      mkdir -p "$RES/$d"
+      cp -f "$ICON_SRC/$d/"* "$RES/$d/" 2>/dev/null || true
+    fi
+  done
+  if [ -f "$RES/mipmap-anydpi-v26/ic_launcher.xml" ] && [ -f "$RES/mipmap-xxxhdpi/ic_launcher.png" ] \
+      && [ -f "$RES/mipmap-xxxhdpi/ic_launcher_foreground.png" ]; then
+    echo "OK: brand launcher icons applied (legacy + round + adaptive v26)"
+  else
+    echo "WARN: launcher icons copy incomplete — default template icon remains"
+  fi
+  # خاصية الأيقونة الدائرية في المانيفست (لونشرات الدوائر)
+  if ! grep -q "android:roundIcon" "$MANIFEST"; then
+    sed -i 's|android:icon="@mipmap/ic_launcher"|android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher_round"|' "$MANIFEST" || true
+  fi
+  if grep -q "android:roundIcon" "$MANIFEST"; then
+    echo "OK: manifest roundIcon wired"
+  else
+    echo "WARN: roundIcon attribute not added (template changed?)"
+  fi
+else
+  echo "WARN: $ICON_SRC missing — default Flutter launcher icon remains"
+fi
+
+echo "OK: android/ prepared (INTERNET + label + minSdk 23 + install-safe packaging + fixed signing + brand icon)"

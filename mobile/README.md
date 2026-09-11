@@ -85,7 +85,10 @@ mobile/
 │   ├── state/app_state.dart      AuthProvider (آلة حالات الجلسة) + LocaleProvider
 │   ├── screens/                  splash / login / register / verify / onboarding / home
 │   └── widgets/ui.dart           الهوية البصرية المشتركة
-├── scripts/prepare_android.sh    ترقيع android/ المولود (شبكة + اسم + minSdk 23 + تغليف + توقيع ثابت)
+├── scripts/
+│   ├── prepare_android.sh        ترقيع android/ المولود (شبكة + اسم + minSdk 23 + تغليف + توقيع ثابت + أيقونة البراند)
+│   └── gen_launcher_icons.py     توليد أيقونات اللانشر من SVG البراند الرسمي
+├── brand/launcher/               الأيقونات المولّدة (كل الكثافات + adaptive + Play ‏512)
 └── test/                         smoke + هيكل الصفحات + سلوك الجلسة الدائمة
 ```
 
@@ -100,14 +103,29 @@ mobile/
 إرسالها، ويحقن `X-CSRF-Token` من كوكي CSRF في كل طلب تغيير، مع مسح الكوكي حين يرسل
 الخادم `Max-Age=-1`. التخزين عبر flutter_secure_storage مشفّر على الجهاز.
 
-## 6) خارطة الطريق
+## 6) أيقونة التطبيق — نفس أيقونة الويب
+
+الأيقونة على شاشة الجهاز هي **نفس الأيقونة الرسمية المعتمدة في تطبيقات الواجهة
+الأمامية الأربعة** (`public/brand/pharmacy-os-icon.svg`): مربع أخضر `#00d084`
+مستدير الزوايا بثلاثة أعمدة داكنة بميل ‎-5°.
+
+- المصدر الرسمي وحيد ولا تُعدّل الأيقونات المشتقة يدويًا؛ تُولَّد بأمر واحد:
+  `python3 mobile/scripts/gen_launcher_icons.py` (يتطلب cairosvg + Pillow)
+- المخرجات في `mobile/brand/launcher/`: ic_launcher بكل الكثافات (mdpi→xxxhdpi)،
+  نسخة دائرية، أيقونة تكيفية adaptive (طبقة foreground بثلاثة أعمدة داخل دائرة
+  الأمان + خلفية بلون البراند)، وأيقونة متجر Play ‏512×512.
+- ينسخها `prepare_android.sh` (الترقيع 6) إلى مجلد `res/` أثناء البناء السحابي
+  ويربط `android:roundIcon` في المانيفست — لذا أي تعديل مستقبلي للأيقونة =
+  توليد + Push فقط، والبناء القادم يظهر على الأجهزة بها.
+
+## 7) خارطة الطريق
 
 - [x] توقيع إصدار حقيقي (Keystore خاص + GitHub Secrets: `ANDROID_KEYSTORE_BASE64` …) بدل توقيع debug — **تم**: التحديث فوق النسخة المثبتة يعمل
 - [ ] iOS (يتطلب حساب Apple Developer مدفوع وعدّة بناء macOS runner)
 - [ ] نقاط بيع مبسطة للموبايل + ماسح باركود بالكاميرا
 - [ ] إشعارات انخفاض المخزون
 
-## 7) إن أردت البناء محليًا (اختياري تمامًا)
+## 8) إن أردت البناء محليًا (اختياري تمامًا)
 
 ```bash
 flutter pub get
@@ -117,7 +135,7 @@ flutter build apk --release --dart-define-from-file=env.json   # أنشئ env.js
 
 ---
 
-## 3) الميزات — تكامل كامل مع تطبيق الويب (Task 61)
+## 9) الميزات — تكامل كامل مع تطبيق الويب (Task 61)
 
 التطبيق يغطي **كل صفحات تطبيق Next.js** بنفس الترتيب والصلاحيات:
 
