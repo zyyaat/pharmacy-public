@@ -48,42 +48,53 @@ class _ReportsScreenState extends State<ReportsScreen> {
           builder: (_) => const MovementsReportScreen(),
         ),
     ];
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('reports', 'title'))),
-      body: reports.isEmpty
-          ? EmptyState(i18n.t('reports', 'empty'), icon: Icons.bar_chart_outlined)
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: reports.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (BuildContext ctx, int i) => AppCard(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: reports[i].builder)),
-                child: Row(
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(reports[i].icon, size: 22, color: theme.colorScheme.primary),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        PageHeader(i18n.t('reports', 'title')),
+        const SizedBox(height: 24),
+        if (reports.isEmpty)
+          AppCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Text(i18n.t('reports', 'empty'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+            ),
+          )
+        else
+          // شبكة بطاقات التقارير — عمود واحد على الهاتف (sm:2 lg:3 في الويب)
+          for (final r in reports) ...<Widget>[
+            AppCard(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: r.builder)),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.10),
+                      borderRadius: AppRadius.brXl,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(reports[i].title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Text(reports[i].desc, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                        ],
-                      ),
+                    child: Icon(r.icon, size: 24, color: theme.colorScheme.primary),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(r.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(r.desc, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                      ],
                     ),
-                    Icon(Icons.chevron_right, color: theme.colorScheme.onSurface.withOpacity(0.35)),
-                  ],
-                ),
+                  ),
+                  Icon(Icons.chevron_right, color: theme.colorScheme.onSurface.withOpacity(0.35)),
+                ],
               ),
             ),
+            const SizedBox(height: 16),
+          ],
+      ],
     );
   }
 }

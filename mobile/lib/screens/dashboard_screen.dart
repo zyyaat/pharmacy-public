@@ -8,13 +8,13 @@ import '../core/theme.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
-import 'movements_screen.dart';
+import 'home_screen.dart';
 import 'product_form_screen.dart';
-import 'pos_screen.dart';
-import 'reports_screen.dart';
 
-/// لوحة التحكم — نفس بنية صفحة الويب: 4 بطاقات إحصائية بنغماتها،
-/// الإجراءات السريعة، حالة المخزون (النواقص)، وسجل النشاط.
+/// Task 62 — لوحة التحكم بنسخة الويب حرفيًا: رأس صفحة بعنوان 2xl وزر
+/// «إضافة دواء» المتدرج، 4 بطاقات إحصائية (عمود واحد على الهاتف مثل
+/// grid-cols-1، عمودان من 640px)، ثم بطاقة حالة المخزون بسطور النواقص
+/// داخل مربعات rounded-xl وبطاقة الإجراءات السريعة بشبكة عمودين.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -24,7 +24,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   DashboardStats? _stats;
-  List<ActivityItem> _activity = <ActivityItem>[];
   bool _loading = true;
   String? _error;
 
@@ -42,14 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final i18n = AppI18n.instance;
     try {
       final stats = await ApiClient.instance.dashboardStats();
-      List<ActivityItem> activity = <ActivityItem>[];
-      try {
-        activity = await ApiClient.instance.dashboardActivity();
-      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _stats = stats;
-        _activity = activity;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -61,16 +55,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = AppI18n.instance.t('dashboard', 'error_load');
+        _error = i18n.t('dashboard', 'error_load');
         _loading = false;
       });
     }
   }
 
+  bool get _canAddProduct {
+    final state = context.read<AppState>();
+    return state.can('inventory.manage_products') || state.permissions?.fullAccess == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    final state = context.watch<AppState>();
     if (_loading) return const LoadingBox();
     if (_error != null) return ErrorRetry(_error!, onRetry: _load);
     final stats = _stats;
@@ -80,126 +78,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16), // p-4
         children: <Widget>[
-          Text(i18n.t('dashboard', 'title'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(i18n.t('dashboard', 'subtitle'),
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55))),
-          const SizedBox(height: 16),
-          LayoutBuilder(builder: (BuildContext ctx, BoxConstraints c) {
-            final cross = c.maxWidth > 520 ? 2 : 1;
-            return GridView.count(
-              crossAxisCount: cross,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: cross == 2 ? 2.6 : 3.4,
-              children: <Widget>[
-                StatCard(
-                  label: i18n.t('dashboard', 'total_products'),
-                  value: Fmt.number(stats.totalProducts),
-                  icon: Icons.medication_outlined,
-                  tone: StatTone.primary,
-                ),
-                StatCard(
-                  label: i18n.t('dashboard', 'low_stock_products'),
-                  value: Fmt.number(stats.lowStockCount),
-                  icon: Icons.warning_amber_outlined,
-                  tone: StatTone.warning,
-                ),
-                StatCard(
-                  label: i18n.t('dashboard', 'sales_units_today'),
-                  value: Fmt.number(stats.salesUnitsToday),
-                  icon: Icons.trending_up,
-                  tone: StatTone.success,
-                ),
-                StatCard(
-                  label: i18n.t('dashboard', 'attendance_today'),
-                  value: '${Fmt.number(stats.activeToday)} / ${Fmt.number(stats.activeEmployees)}',
-                  icon: Icons.group_outlined,
-                  tone: StatTone.info,
-                ),
-              ],
-            );
-          }),
-          const SizedBox(height: 16),
-          _QuickActions(state: state),
-          const SizedBox(height: 16),
-          _LowStockCard(items: stats.lowStockItems),
-          const SizedBox(height: 16),
-          if (_activity.isNotEmpty) _ActivityCard(items: _activity),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActions extends StatelessWidget {
-  final AppState state;
-  const _QuickActions({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final i18n = AppI18n.instance;
-    final actions = <({IconData icon, String label, WidgetBuilder builder})>[
-      if (state.can('inventory.manage_products') || state.can('inventory.import') || state.permissions?.fullAccess == true)
-        (
-          icon: Icons.add_circle_outline,
-          label: i18n.t('dashboard', 'add_product'),
-          builder: (_) => const ProductFormScreen(),
-        ),
-      if (state.can('pos.access'))
-        (
-          icon: Icons.receipt_long_outlined,
-          label: i18n.t('nav', 'pos'),
-          builder: (_) => const POSScreen(),
-        ),
-      if (state.can('inventory.movements.view'))
-        (
-          icon: Icons.swap_horiz,
-          label: i18n.t('dashboard', 'nav_inventory'),
-          builder: (_) => const MovementsScreen(),
-        ),
-      if (state.canAny(<String>['reports.sales', 'reports.inventory', 'reports.movements']))
-        (
-          icon: Icons.bar_chart_outlined,
-          label: i18n.t('dashboard', 'nav_reports'),
-          builder: (_) => const ReportsScreen(),
-        ),
-    ];
-    if (actions.isEmpty) {
-      return AppCard(child: Text(i18n.t('dashboard', 'no_quick_actions'), style: const TextStyle(fontSize: 13)));
-    }
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          CardTitle(i18n.t('dashboard', 'quick_actions')),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              for (final action in actions)
-                ActionChip(
-                  avatar: Icon(action.icon, size: 18, color: Theme.of(context).colorScheme.primary),
-                  label: Text(action.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.darkAccent
-                      : AppColors.lightAccent,
-                  side: BorderSide.none,
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: action.builder)),
+          // رأس الصفحة + زر الإضافة المتدرج
+          PageHeader(
+            i18n.t('dashboard', 'title'),
+            subtitle: i18n.t('dashboard', 'subtitle'),
+            actions: <Widget>[
+              if (_canAddProduct)
+                WButton(
+                  i18n.t('dashboard', 'add_product'),
+                  icon: Icons.add,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const ProductFormScreen()),
+                  ),
+                  variant: WButtonVariant.gradient,
                 ),
             ],
           ),
+          const SizedBox(height: 24), // space-y-6
+
+          // بطاقات الإحصائيات — عمودان من 640px مثل الويب
+          LayoutBuilder(builder: (BuildContext ctx, BoxConstraints c) {
+            final twoCols = c.maxWidth >= 640; // sm:grid-cols-2
+            final cards = <Widget>[
+              StatCard(
+                label: i18n.t('dashboard', 'total_products'),
+                value: Fmt.number(stats.totalProducts),
+                icon: Icons.inventory_2_outlined, // Package
+                tone: StatTone.primary,
+              ),
+              StatCard(
+                label: i18n.t('dashboard', 'low_stock_products'),
+                value: Fmt.number(stats.lowStockCount),
+                icon: Icons.warning_amber_outlined, // AlertTriangle
+                tone: StatTone.warning,
+              ),
+              StatCard(
+                label: i18n.t('dashboard', 'sales_units_today'),
+                value: Fmt.number(stats.salesUnitsToday),
+                icon: Icons.trending_up, // TrendingUp
+                tone: StatTone.success,
+              ),
+              StatCard(
+                label: i18n.t('dashboard', 'attendance_today'),
+                value: '${Fmt.number(stats.activeToday)} / ${Fmt.number(stats.activeEmployees)}',
+                icon: Icons.group_outlined, // Users
+                tone: StatTone.info,
+              ),
+            ];
+            if (!twoCols) {
+              return Column(
+                children: <Widget>[
+                  for (final card in cards) ...<Widget>[card, const SizedBox(height: 16)],
+                ],
+              );
+            }
+            return GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 2.1,
+              children: cards,
+            );
+          }),
+          const SizedBox(height: 24),
+
+          _LowStockCard(items: stats.lowStockItems),
+          const SizedBox(height: 24),
+          const _QuickActionsCard(),
         ],
       ),
     );
   }
 }
 
+/// حالة المخزون — بطاقة بعنوان text-lg ووصف، وسطور النواقص كل سطر في
+/// مربع rounded-xl border p-3.5 بصندوق أيقونة 40 amber وشارة التوفر.
 class _LowStockCard extends StatelessWidget {
   final List<DashboardLowStock> items;
   const _LowStockCard({required this.items});
@@ -207,102 +164,123 @@ class _LowStockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          CardTitle(
-            i18n.t('dashboard', 'inventory_status'),
-            subtitle: i18n.t('dashboard', 'inventory_status_desc'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: CardTitle(
+              i18n.t('dashboard', 'inventory_status'),
+              subtitle: i18n.t('dashboard', 'inventory_status_desc'),
+            ),
           ),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text(i18n.t('dashboard', 'no_low_stock'),
-                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-              ),
-            )
-          else
-            for (final item in items) ...<Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(item.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text(
-                          i18n.t('dashboard', 'reorder_note', {'min': Fmt.number(item.minStockLevel)}),
-                          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                        ),
-                      ],
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: items.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(i18n.t('dashboard', 'no_low_stock'),
+                          style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
                     ),
+                  )
+                : Column(
+                    children: <Widget>[
+                      for (final item in items) ...<Widget>[
+                        LowStockTile(
+                          name: item.name,
+                          subtitle: item.strips > 0 ? '${Fmt.number(item.quantity)} + ${Fmt.number(item.strips)}' : null,
+                          badge: item.strips > 0
+                              ? '${Fmt.number(item.quantity)} + ${Fmt.number(item.strips)}'
+                              : Fmt.number(item.quantity),
+                          badgeTone: AppBadge.stockStatus(item.status),
+                          note: i18n.t('dashboard', 'reorder_note', {'min': Fmt.number(item.minStockLevel)}),
+                          iconBg: AppColors.warningBg,
+                          iconFg: theme.brightness == Brightness.dark ? AppColors.warningFgDark : AppColors.warningFg,
+                        ),
+                        if (item != items.last) const SizedBox(height: 16),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  AppBadge(
-                    item.strips > 0
-                        ? '${Fmt.number(item.quantity)} + ${Fmt.number(item.strips)}'
-                        : Fmt.number(item.quantity),
-                    tone: AppBadge.stockStatus(item.status),
-                  ),
-                ],
-              ),
-              if (item != items.last) const Divider(height: 20),
-            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _ActivityCard extends StatelessWidget {
-  final List<ActivityItem> items;
-  const _ActivityCard({required this.items});
+/// الإجراءات السريعة — شبكة عمودين من مربعات rounded-xl بأيقونة 24
+/// بلون الهوية وتسمية text-xs (مثل الويب: مخزون/موظفون/حضور/تقارير).
+class _QuickActionsCard extends StatelessWidget {
+  const _QuickActionsCard();
 
   @override
   Widget build(BuildContext context) {
+    final i18n = AppI18n.instance;
+    final state = context.watch<AppState>();
+    // الإجراءات الأربعة في الويب مع بواباتها — التنقل عبر مفتاح صفحات
+    // الشل (IndexedStack) نفسه كما في تبديل المسارات بالويب.
+    final tiles = <Widget>[];
+    void addTile(IconData icon, String label, VoidCallback onTap) {
+      tiles.add(QuickActionTile(icon: icon, label: label, onTap: onTap));
+    }
+
+    if (state.can('inventory.view')) {
+      addTile(Icons.inventory_2_outlined, i18n.t('dashboard', 'nav_inventory'),
+          () => _ShellNav.open(context, 'inventory'));
+    }
+    if (state.can('employees.view')) {
+      addTile(Icons.group_outlined, i18n.t('dashboard', 'nav_employees'),
+          () => _ShellNav.open(context, 'employees'));
+    }
+    if (state.can('attendance.view')) {
+      addTile(Icons.event_available_outlined, i18n.t('dashboard', 'nav_attendance'),
+          () => _ShellNav.open(context, 'attendance'));
+    }
+    if (state.canAny(<String>['reports.sales', 'reports.inventory', 'reports.movements', 'reports.financial', 'reports.employees'])) {
+      addTile(Icons.bar_chart_outlined, i18n.t('dashboard', 'nav_reports'),
+          () => _ShellNav.open(context, 'reports'));
+    }
+    if (tiles.isEmpty) {
+      return AppCard(
+        padding: const EdgeInsets.all(24),
+        child: Text(i18n.t('dashboard', 'no_quick_actions'),
+            style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+      );
+    }
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const CardTitle('النشاط الأخير'),
-          const SizedBox(height: 12),
-          for (final item in items) ...<Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Container(
-                  margin: const EdgeInsets.only(top: 6),
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(item.description, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${item.userName} · ${Fmt.dateTime(item.timestamp, locale: AppI18n.instance.locale)}',
-                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: CardTitle(i18n.t('dashboard', 'quick_actions')),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 2.4,
+              children: tiles,
             ),
-            if (item != items.last) const Divider(height: 18),
-          ],
+          ),
         ],
       ),
     );
+  }
+}
+
+/// جسر تنقّل للهيكل: ينشّط صفحة من صفحات الشل بالمعرّف نفسه
+/// (نفس تجربة الويب — النقر على الإجراء السريع يبدّل الصفحة الرئيسية).
+class _ShellNav {
+  static void open(BuildContext context, String key) {
+    HomeNav.go(context, key);
   }
 }

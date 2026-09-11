@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
-import '../core/theme.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
 import 'sale_detail_screen.dart';
 
-/// سجل البيع — نفس بنية صفحة الويب: بحث + بطاقات فواتير بحالتها
-/// (مكتملة/مرتجعة جزئيًا/مرتجعة بالكامل) + آجل + مرتجعات + ترقيم صفحات.
+/// Task 62 — سجل البيع بنسخة الويب حرفيًا: بطاقات فواتير p-4 فيها رقم
+/// INV-000123 بخط أحادي الاتجاه LTR، التاريخ، العدد، شارات الحالة والآجل،
+/// والإجمالي في النهاية، مع زر «تحميل المزيد» أسفل القائمة.
 class SalesListScreen extends StatefulWidget {
   const SalesListScreen({super.key});
 
@@ -85,116 +85,132 @@ class _SalesListScreenState extends State<SalesListScreen> {
     return i18n.t('sales', 'manyUnits', {'count': Fmt.number(units)});
   }
 
+  String _invoiceLabel(int n) {
+    final s = n.toString().padLeft(6, '0');
+    return 'INV-$s';
+  }
+
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: _loading && _sales.isEmpty
-          ? const LoadingBox()
-          : _error != null && _sales.isEmpty
-              ? ErrorRetry(_error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: <Widget>[
-                      Text(i18n.t('sales', 'title'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
-                      Text(i18n.t('sales', 'subtitle'),
-                          style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                      const SizedBox(height: 14),
-                      SearchField(
-                        controller: _searchCtrl,
-                        hint: i18n.t('sales', 'searchPlaceholder'),
-                        onChanged: _onSearch,
-                        onClear: () { _searchCtrl.clear(); _offset = 0; _load(); },
-                      ),
-                      const SizedBox(height: 12),
-                      if (_sales.isEmpty) ...<Widget>[
-                        EmptyState(
-                          _searchCtrl.text.isEmpty ? i18n.t('sales', 'emptyTitle') : i18n.t('sales', 'emptySearchHint'),
-                          icon: Icons.receipt_long_outlined,
+    return _loading && _sales.isEmpty
+        ? const LoadingBox()
+        : _error != null && _sales.isEmpty
+            ? ErrorRetry(_error!, onRetry: _load)
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: <Widget>[
+                    // البحث — نفس صف البحث في الويب
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: SearchField(
+                            controller: _searchCtrl,
+                            hint: i18n.t('sales', 'searchPlaceholder'),
+                            onChanged: _onSearch,
+                            onClear: () { _searchCtrl.clear(); _offset = 0; _load(); },
+                          ),
                         ),
-                        if (_searchCtrl.text.isEmpty)
-                          Text(i18n.t('sales', 'emptyFirstHint'), textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.45))),
-                      ] else ...<Widget>[
-                        for (final SaleSummary s in _sales)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: AppCard(
-                              onTap: () async {
-                                await Navigator.of(context).push(MaterialPageRoute<void>(
-                                  builder: (_) => SaleDetailScreen(saleId: s.id),
-                                ));
-                                _load();
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
+                        const SizedBox(width: 8),
+                        WButton(i18n.t('sales', 'searchButton'),
+                            variant: WButtonVariant.secondary, size: WButtonSize.sm,
+                            onPressed: () { _offset = 0; _load(); }),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    if (_sales.isEmpty) ...<Widget>[
+                      AppCard(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24), // py-16
+                          child: Column(
+                            children: <Widget>[
+                              Text(i18n.t('sales', 'emptyTitle'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 12),
+                              Text(
+                                _searchCtrl.text.isEmpty ? i18n.t('sales', 'emptyFirstHint') : i18n.t('sales', 'emptySearchHint'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...<Widget>[
+                      for (final SaleSummary s in _sales)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12), // space-y-3
+                          child: AppCard(
+                            padding: const EdgeInsets.all(16), // p-4
+                            onTap: () async {
+                              await Navigator.of(context).push(MaterialPageRoute<void>(
+                                builder: (_) => SaleDetailScreen(saleId: s.id),
+                              ));
+                              _load();
+                            },
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: <Widget>[
-                                      Expanded(
-                                        child: Text('#${Fmt.number(s.invoiceNumber)}',
-                                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                                      ),
-                                      AppBadge(_statusLabel(s.status), tone: AppBadge.saleStatus(s.status)),
+                                      Text(_invoiceLabel(s.invoiceNumber),
+                                          textDirection: TextDirection.ltr,
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                                      const SizedBox(height: 2),
+                                      Text(Fmt.dateTime(s.createdAt, locale: i18n.locale),
+                                          style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(Fmt.dateTime(s.createdAt, locale: i18n.locale),
-                                      style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    s.productsCount == 0
-                                        ? i18n.t('sales', 'noProducts')
-                                        : i18n.t('sales', 'productsAndUnits', {
-                                            'products': Fmt.number(s.productsCount),
-                                            'units': _unitsLabel(s.totalQuantityBase),
-                                          }),
-                                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.7)),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: <Widget>[
-                                      if (s.paymentType == 'credit')
-                                        Padding(
-                                          padding: const EdgeInsets.only(right: 8),
-                                          child: AppBadge(
-                                            s.customerName.isEmpty
-                                                ? i18n.t('sales', 'creditBadge')
-                                                : i18n.t('sales', 'creditBadgeWithCustomer', {'customer': s.customerName}),
-                                            tone: BadgeTone.warning,
-                                          ),
-                                        ),
-                                      if (s.discountAmountPiastres > 0)
-                                        Text(i18n.t('sales', 'discount', {'amount': Fmt.money(s.discountAmountPiastres, locale: i18n.locale)}),
-                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                                      const Spacer(),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: <Widget>[
-                                          Text(Fmt.money(s.totalAmountPiastres, locale: i18n.locale),
-                                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                                          if (s.returnedAmountPiastres > 0)
-                                            Text(i18n.t('sales', 'returnedAmount', {'amount': Fmt.money(s.returnedAmountPiastres, locale: i18n.locale)}),
-                                                style: TextStyle(fontSize: 11, color: AppColors.warningFg)),
-                                        ],
-                                      ),
-                                    ],
+                                ),
+                                Text(
+                                  s.productsCount == 0
+                                      ? i18n.t('sales', 'noProducts')
+                                      : i18n.t('sales', 'productsAndUnits', {
+                                          'products': Fmt.number(s.productsCount),
+                                          'units': _unitsLabel(s.totalQuantityBase),
+                                        }),
+                                  style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                ),
+                                const SizedBox(width: 12),
+                                AppBadge(_statusLabel(s.status), tone: AppBadge.saleStatus(s.status)),
+                                if (s.paymentType == 'credit') ...<Widget>[
+                                  const SizedBox(width: 6),
+                                  AppBadge(
+                                    s.customerName.isEmpty
+                                        ? i18n.t('sales', 'creditBadge')
+                                        : i18n.t('sales', 'creditBadgeWithCustomer', {'customer': s.customerName}),
+                                    tone: BadgeTone.warning,
                                   ),
                                 ],
-                              ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: <Widget>[
+                                    Text(Fmt.money(s.totalAmountPiastres, locale: i18n.locale),
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                                    if (s.returnedAmountPiastres > 0)
+                                      Text(i18n.t('sales', 'returnedAmount', {'amount': Fmt.money(s.returnedAmountPiastres, locale: i18n.locale)}),
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.error)),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        PaginationRow(total: _total, limit: 20, offset: _offset, onOffset: (int o) { _offset = o; _load(); }),
-                      ],
+                        ),
+                      // تحميل المزيد — مثل زر الويب الثانوي الصغير
+                      if (_offset + 20 < _total)
+                        Center(
+                          child: WButton(i18n.t('sales', 'loadMore'),
+                              variant: WButtonVariant.secondary, size: WButtonSize.sm,
+                              onPressed: () { _offset += 20; _load(); }),
+                        ),
                     ],
-                  ),
+                  ],
                 ),
-    );
+              );
   }
 
   String _statusLabel(String status) {

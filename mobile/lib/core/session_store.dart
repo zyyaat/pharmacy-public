@@ -9,6 +9,7 @@ class SessionStore {
 
   static const String _kServerOverride = 'server_base_url_override';
   static const String _kLocale = 'ui_locale';
+  static const String _kThemeMode = 'ui_theme_mode';
 
   Future<String?> serverOverride() =>
       _storage.read(key: _kServerOverride);
@@ -25,4 +26,10 @@ class SessionStore {
 
   Future<void> setLocale(String value) =>
       _storage.write(key: _kLocale, value: value);
+
+  /// light / dark / system (افتراضي النظام مثل next-themes في الويب)
+  Future<String?> themeMode() => _storage.read(key: _kThemeMode);
+
+  Future<void> setThemeMode(String value) =>
+      _storage.write(key: _kThemeMode, value: value);
 }

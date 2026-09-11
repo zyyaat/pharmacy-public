@@ -6,8 +6,8 @@ import '../core/strings.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
 
-/// الحضور والانصراف — سجل الحضور الحقيقي كما في صفحة الويب:
-/// موظف، فرع، دخول، خروج، مدة، وحالة (حاضر الآن / مكتمل).
+/// Task 62 — الحضور بنسخة الويب حرفيًا: رأس صفحة + بطاقة واحدة بعنوان
+/// بأيقونة التقويم، وجدول: الموظف/الفرع/الدخول/الخروج/الحالة.
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -48,7 +48,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = AppI18n.instance.t('employees', 'attendanceLoadErrorFallback');
+        _error = i18n.t('employees', 'attendanceLoadErrorFallback');
         _loading = false;
       });
     }
@@ -57,75 +57,65 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('employees', 'attendanceTitle'))),
-      body: _loading
-          ? const LoadingBox()
-          : _error != null
-              ? ErrorRetry(_error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
+    if (_loading) return const LoadingBox();
+    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          PageHeader(
+            i18n.t('employees', 'attendanceTitle'),
+            subtitle: i18n.t('employees', 'attendanceSubtitle'),
+          ),
+          const SizedBox(height: 24),
+          AppCard(
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: CardTitle(i18n.t('employees', 'attendanceListTitle'),
+                      icon: Icons.event_available_outlined),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: _rows.isEmpty
-                      ? ListView(children: <Widget>[EmptyState(i18n.t('employees', 'attendanceEmpty'), icon: Icons.event_available_outlined)])
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _rows.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (BuildContext ctx, int i) {
-                            final AttendanceRow r = _rows[i];
-                            final active = r.clockOut == null || r.clockOut!.isEmpty;
-                            return AppCard(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(child: Text(r.employeeName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
-                                      AppBadge(active ? i18n.t('employees', 'nowActive') : i18n.t('employees', 'completed'),
-                                          tone: active ? BadgeTone.success : BadgeTone.muted),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: <Widget>[
-                                      _TimeCell(label: i18n.t('employees', 'thClockIn'), value: Fmt.time(r.clockIn)),
-                                      const SizedBox(width: 16),
-                                      _TimeCell(label: i18n.t('employees', 'thClockOut'), value: active ? '—' : Fmt.time(r.clockOut)),
-                                      const SizedBox(width: 16),
-                                      _TimeCell(label: i18n.t('employees', 'thDuration').isEmpty ? 'المدة' : 'المدة', value: Fmt.duration(r.totalMinutes)),
-                                    ],
-                                  ),
-                                  if (r.branchName.isNotEmpty) ...<Widget>[
-                                    const SizedBox(height: 6),
-                                    Text('${i18n.t('employees', 'thBranch')}: ${r.branchName}',
-                                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                                  ],
-                                ],
-                              ),
-                            );
-                          },
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('employees', 'attendanceEmpty'),
+                              style: TextStyle(
+                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      : WebTable(
+                          minWidth: 640,
+                          headers: <String>[
+                            i18n.t('employees', 'thEmployee'),
+                            i18n.t('employees', 'thBranch'),
+                            i18n.t('employees', 'thClockIn'),
+                            i18n.t('employees', 'thClockOut'),
+                            i18n.t('employees', 'thStatus'),
+                          ],
+                          rows: <List<Widget>>[
+                            for (final AttendanceRow r in _rows)
+                              <Widget>[
+                                Text(r.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(r.branchName.isEmpty ? '—' : r.branchName),
+                                Text(Fmt.dateTime(r.clockIn, locale: i18n.locale)),
+                                Text((r.clockOut == null || r.clockOut!.isEmpty) ? '—' : Fmt.dateTime(r.clockOut, locale: i18n.locale)),
+                                Text(
+                                  (r.clockOut == null || r.clockOut!.isEmpty)
+                                      ? i18n.t('employees', 'nowActive')
+                                      : i18n.t('employees', 'completed'),
+                                ),
+                              ],
+                          ],
                         ),
                 ),
-    );
-  }
-}
-
-class _TimeCell extends StatelessWidget {
-  final String label;
-  final String value;
-  const _TimeCell({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-      ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

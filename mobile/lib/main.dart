@@ -5,16 +5,10 @@ import 'package:provider/provider.dart';
 import 'core/api_client.dart';
 import 'core/session_store.dart';
 import 'core/theme.dart';
-import 'screens/attendance_screen.dart';
-import 'screens/branches_screen.dart';
-import 'screens/customers_screen.dart';
-import 'screens/employees_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/reports_screen.dart';
-import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/verify_email_screen.dart';
 import 'state/app_state.dart';
@@ -49,7 +43,7 @@ class PharmacyOSApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
-          themeMode: ThemeMode.system,
+          themeMode: s.themeMode,
           locale: Locale(s.locale),
           supportedLocales: const [Locale('ar'), Locale('en')],
           localizationsDelegates: const [
@@ -65,12 +59,8 @@ class PharmacyOSApp extends StatelessWidget {
             '/verify': (_) => const VerifyEmailScreen(),
             '/onboarding': (_) => const OnboardingScreen(),
             '/home': (_) => const HomeScreen(),
-            '/customers': (_) => const CustomersScreen(),
-            '/employees': (_) => const EmployeesScreen(),
-            '/attendance': (_) => const AttendanceScreen(),
-            '/branches': (_) => const BranchesScreen(),
-            '/reports': (_) => const ReportsScreen(),
-            '/settings': (_) => const SettingsScreen(),
+            // صفحات اللوحة كلها داخل هيكل /home (Drawer + Header) مثل الويب —
+            // بلا مسارات مستقلة حتى لا تُعرض بلا إطار.
           },
         ),
       ),

@@ -7,8 +7,9 @@ import '../core/theme.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
 
-/// سجل حركات المخزون — نفس فلاتر صفحة الويب: النوع، الاتجاه، من/إلى،
-/// بحث، مع ترقيم صفحات (تحميل المزيد).
+/// Task 62 — حركات المخزون بنسخة الويب حرفيًا: رأس صفحة، بطاقة فلاتر
+/// (بحث/نوع/اتجاه/من-إلى/مسح) ثم جدول بتمرير أفقي: الصنف/النوع/الكمية
+/// بشارة الاتجاه/التشغيلة/التاريخ/المستخدم/المرجع، مع تحميل المزيد.
 class MovementsScreen extends StatefulWidget {
   const MovementsScreen({super.key});
 
@@ -85,7 +86,7 @@ class _MovementsScreenState extends State<MovementsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = AppI18n.instance.t('movements', 'error_load');
+        _error = i18n.t('movements', 'error_load');
         _loading = false;
       });
     }
@@ -115,154 +116,182 @@ class _MovementsScreenState extends State<MovementsScreen> {
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('movements', 'title'))),
-      body: Column(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
+    final body = <Widget>[
+      PageHeader(i18n.t('movements', 'title'), subtitle: i18n.t('movements', 'subtitle')),
+      const SizedBox(height: 24),
+
+      // بطاقة الفلاتر — مثل بطاقة الفلترة في الويب
+      AppCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: <Widget>[
+            SearchField(
+              controller: _searchCtrl,
+              hint: i18n.t('movements', 'search_placeholder'),
+              onChanged: (_) => _load(reset: true),
+              onClear: () {
+                _searchCtrl.clear();
+                _load(reset: true);
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
               children: <Widget>[
-                SearchField(
-                  controller: _searchCtrl,
-                  hint: i18n.t('movements', 'search_placeholder'),
-                  onChanged: (_) => _load(reset: true),
-                  onClear: () { _searchCtrl.clear(); _load(reset: true); },
+                Expanded(
+                  child: AppDropdown<String>(
+                    value: _type.isEmpty ? '' : _type,
+                    hint: i18n.t('movements', 'filter_all_types'),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(value: '', child: Text(i18n.t('movements', 'filter_all_types'), style: const TextStyle(fontSize: 13))),
+                      for (final (String v, String key) in _types)
+                        DropdownMenuItem<String>(value: v, child: Text(i18n.t('movements', key), style: const TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (String? v) {
+                      setState(() => _type = v ?? '');
+                      _load(reset: true);
+                    },
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppDropdown<String>(
-                        value: _type.isEmpty ? '' : _type,
-                        hint: i18n.t('movements', 'filter_all_types'),
-                        items: <DropdownMenuItem<String>>[
-                          const DropdownMenuItem<String>(value: '', child: Text('كل الحركات', style: TextStyle(fontSize: 13))),
-                          for (final (String v, String key) in _types)
-                            DropdownMenuItem<String>(value: v, child: Text(i18n.t('movements', key), style: const TextStyle(fontSize: 13))),
-                        ],
-                        onChanged: (String? v) { setState(() => _type = v ?? ''); _load(reset: true); },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppDropdown<String>(
-                        value: _direction.isEmpty ? '' : _direction,
-                        hint: i18n.t('movements', 'direction_all'),
-                        items: <DropdownMenuItem<String>>[
-                          DropdownMenuItem<String>(value: '', child: Text(i18n.t('movements', 'direction_all'), style: const TextStyle(fontSize: 13))),
-                          DropdownMenuItem<String>(value: 'in', child: Text(i18n.t('movements', 'direction_in'), style: const TextStyle(fontSize: 13))),
-                          DropdownMenuItem<String>(value: 'out', child: Text(i18n.t('movements', 'direction_out'), style: const TextStyle(fontSize: 13))),
-                        ],
-                        onChanged: (String? v) { setState(() => _direction = v ?? ''); _load(reset: true); },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(isFrom: true),
-                        icon: const Icon(Icons.date_range, size: 16),
-                        label: Text(_from.isEmpty ? i18n.t('movements', 'from_label') : _from, style: const TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(isFrom: false),
-                        icon: const Icon(Icons.date_range, size: 16),
-                        label: Text(_to.isEmpty ? i18n.t('movements', 'to_label') : _to, style: const TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: i18n.t('movements', 'clear_filters'),
-                      onPressed: () {
-                        setState(() {
-                          _type = '';
-                          _direction = '';
-                          _from = '';
-                          _to = '';
-                          _searchCtrl.clear();
-                        });
-                        _load(reset: true);
-                      },
-                      icon: const Icon(Icons.filter_alt_off_outlined, size: 20),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    i18n.t('movements', 'count_shown', {'shown': Fmt.number(_rows.length), 'total': Fmt.number(_total)}),
-                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppDropdown<String>(
+                    value: _direction.isEmpty ? '' : _direction,
+                    hint: i18n.t('movements', 'direction_all'),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(value: '', child: Text(i18n.t('movements', 'direction_all'), style: const TextStyle(fontSize: 13))),
+                      DropdownMenuItem<String>(value: 'in', child: Text(i18n.t('movements', 'direction_in'), style: const TextStyle(fontSize: 13))),
+                      DropdownMenuItem<String>(value: 'out', child: Text(i18n.t('movements', 'direction_out'), style: const TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (String? v) {
+                      setState(() => _direction = v ?? '');
+                      _load(reset: true);
+                    },
                   ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: _loading && _rows.isEmpty
-                ? const LoadingBox()
-                : _error != null
-                    ? ErrorRetry(_error!, onRetry: () => _load(reset: true))
-                    : _rows.isEmpty
-                        ? EmptyState(i18n.t('movements', 'empty_title'), icon: Icons.swap_horiz)
-                        : RefreshIndicator(
-                            onRefresh: () => _load(reset: true),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                              itemCount: _rows.length + (_rows.length < _total ? 1 : 0),
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
-                              itemBuilder: (BuildContext ctx, int i) {
-                                if (i >= _rows.length) {
-                                  return GhostButton(i18n.t('movements', 'load_more'), onPressed: () => _load());
-                                }
-                                final StockMovementRow r = _rows[i];
-                                final isIn = r.quantity > 0;
-                                return AppCard(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Row(
-                                        children: <Widget>[
-                                          Expanded(
-                                            child: Text(r.productName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: isIn ? AppColors.successBg : AppColors.warningBg,
-                                              borderRadius: BorderRadius.circular(999),
-                                            ),
-                                            child: Text(
-                                              '${isIn ? '+' : ''}${Fmt.number(r.quantity)} ${r.unit}',
-                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: isIn ? AppColors.successFg : AppColors.warningFg),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${i18n.t('movements', _typeKey(r.movementType))} · ${Fmt.dateTime(r.createdAt, locale: i18n.locale)}',
-                                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.55)),
-                                      ),
-                                      if (r.batchNumber != null && r.batchNumber!.isNotEmpty)
-                                        Text('${i18n.t('movements', 'th_batch')}: ${r.batchNumber}',
-                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: WButton(
+                    _from.isEmpty ? i18n.t('movements', 'from_label') : _from,
+                    icon: Icons.date_range,
+                    variant: WButtonVariant.outline,
+                    size: WButtonSize.sm,
+                    onPressed: () => _pickDate(isFrom: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: WButton(
+                    _to.isEmpty ? i18n.t('movements', 'to_label') : _to,
+                    icon: Icons.date_range,
+                    variant: WButtonVariant.outline,
+                    size: WButtonSize.sm,
+                    onPressed: () => _pickDate(isFrom: false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButtonGhost(
+                  Icons.filter_alt_off_outlined,
+                  tooltip: i18n.t('movements', 'clear_filters'),
+                  onPressed: () {
+                    setState(() {
+                      _type = '';
+                      _direction = '';
+                      _from = '';
+                      _to = '';
+                      _searchCtrl.clear();
+                    });
+                    _load(reset: true);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+      const SizedBox(height: 24),
+
+      // بطاقة الجدول
+      AppCard(
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: CardTitle(i18n.t('movements', 'title'), icon: Icons.swap_horiz,
+                  subtitle: i18n.t('movements', 'count_shown', {'shown': Fmt.number(_rows.length), 'total': Fmt.number(_total)})),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: _loading && _rows.isEmpty
+                  ? const LoadingBox()
+                  : _error != null
+                      ? ErrorRetry(_error!, onRetry: () => _load(reset: true))
+                      : _rows.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 40),
+                              child: Text(i18n.t('movements', 'empty_title'),
+                                  style: TextStyle(
+                                      fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                            )
+                          : WebTable(
+                              minWidth: 780,
+                              headers: <String>[
+                                i18n.t('movements', 'th_product'),
+                                i18n.t('movements', 'th_type'),
+                                i18n.t('movements', 'th_quantity'),
+                                i18n.t('movements', 'th_batch'),
+                                i18n.t('movements', 'th_date'),
+                                i18n.t('movements', 'th_user'),
+                              ],
+                              rows: <List<Widget>>[
+                                for (final StockMovementRow r in _rows)
+                                  <Widget>[
+                                    Text(r.productName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(i18n.t('movements', _typeKey(r.movementType))),
+                                    // الكمية بشارة الاتجاه (داخل/خارج)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: r.quantity > 0 ? AppColors.successBg : AppColors.warningBg,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        '${r.quantity > 0 ? '+' : ''}${Fmt.number(r.quantity)} ${r.unit}',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: r.quantity > 0 ? AppColors.successFg : AppColors.warningFg),
+                                      ),
+                                    ),
+                                    Text((r.batchNumber == null || r.batchNumber!.isEmpty) ? '—' : r.batchNumber!),
+                                    Text(Fmt.dateTime(r.createdAt, locale: i18n.locale)),
+                                    Text(r.actorName == null || r.actorName!.isEmpty ? '—' : r.actorName!),
+                                  ],
+                              ],
+                            ),
+            ),
+            if (_rows.length < _total && !_loading && _error == null && _rows.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Center(
+                  child: WButton(
+                    i18n.t('movements', 'load_more'),
+                    variant: WButtonVariant.secondary,
+                    size: WButtonSize.sm,
+                    onPressed: () => _load(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+    return RefreshIndicator(
+      onRefresh: () => _load(reset: true),
+      child: ListView(padding: const EdgeInsets.all(16), children: body),
     );
   }
 

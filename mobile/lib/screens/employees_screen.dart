@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
+import '../state/app_state.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
@@ -79,84 +81,95 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('employees', 'title'))),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_employee',
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        onPressed: () async {
-          await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EmployeeFormScreen()));
-          _load();
-        },
-        icon: const Icon(Icons.person_add_alt),
-        label: Text(i18n.t('employees', 'addNew'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-      ),
-      body: _loading
-          ? const LoadingBox()
-          : _error != null
-              ? ErrorRetry(_error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
+    final state = context.watch<AppState>();
+    final canManage = state.can('employees.create') || state.can('employees.update') || state.permissions?.fullAccess == true;
+    if (_loading) return const LoadingBox();
+    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          PageHeader(
+            i18n.t('employees', 'title'),
+            subtitle: i18n.t('employees', 'subtitle'),
+            actions: <Widget>[
+              if (canManage)
+                WButton(
+                  i18n.t('employees', 'addNew'),
+                  icon: Icons.add,
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EmployeeFormScreen()));
+                    _load();
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          AppCard(
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: CardTitle(i18n.t('employees', 'listTitle'), icon: Icons.group_outlined),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: _list.isEmpty
-                      ? ListView(children: <Widget>[EmptyState(i18n.t('employees', 'empty'), icon: Icons.group_outlined)])
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-                          itemCount: _list.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (BuildContext ctx, int i) {
-                            final Employee e = _list[i];
-                            final active = e.status == 'active';
-                            return AppCard(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('employees', 'empty'),
+                              style: TextStyle(
+                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      : WebTable(
+                          minWidth: 760,
+                          headers: <String>[
+                            i18n.t('employees', 'thName'),
+                            i18n.t('employees', 'thEmail'),
+                            i18n.t('employees', 'thJob'),
+                            i18n.t('employees', 'thBranch'),
+                            i18n.t('employees', 'thStatus'),
+                            if (canManage) i18n.t('employees', 'thActions'),
+                          ],
+                          rows: <List<Widget>>[
+                            for (final Employee e in _list)
+                              <Widget>[
+                                Text(e.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(e.email),
+                                Text(e.jobTitle.isEmpty ? '—' : e.jobTitle),
+                                Text((e.branchName == null || e.branchName!.isEmpty) ? '—' : e.branchName!),
+                                AppBadge(
+                                  e.status == 'active' ? i18n.t('employees', 'statusActive') : i18n.t('employees', 'statusInactive'),
+                                  tone: e.status == 'active' ? BadgeTone.success : BadgeTone.destructive,
+                                ),
+                                if (canManage)
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: <Widget>[
-                                      Expanded(
-                                        child: Text(e.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                                      ),
-                                      AppBadge(active ? i18n.t('employees', 'statusActive') : i18n.t('employees', 'statusInactive'),
-                                          tone: active ? BadgeTone.success : BadgeTone.muted),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(e.email, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                                  if (e.jobTitle.isNotEmpty)
-                                    Text(e.jobTitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                                  if (e.branchName != null && e.branchName!.isNotEmpty)
-                                    Text('${i18n.t('employees', 'thBranch')}: ${e.branchName}',
-                                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.45))),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => _openPermissions(e),
-                                          icon: const Icon(Icons.key_outlined, size: 16),
-                                          label: Text(i18n.t('employees', 'permissions'), style: const TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
+                                      WButton(i18n.t('employees', 'permissions'),
+                                          icon: Icons.key_outlined,
+                                          variant: WButtonVariant.ghost, size: WButtonSize.sm,
+                                          onPressed: () => _openPermissions(e)),
+                                      const SizedBox(width: 6),
+                                      WButton(
+                                        e.status == 'active' ? i18n.t('employees', 'deactivate') : i18n.t('employees', 'activate'),
+                                        icon: e.status == 'active' ? Icons.block : Icons.check_circle_outline,
+                                        variant: WButtonVariant.outline, size: WButtonSize.sm,
+                                        color: e.status == 'active' ? Theme.of(context).colorScheme.error : null,
                                         onPressed: () => _toggleStatus(e),
-                                        icon: Icon(active ? Icons.block : Icons.check_circle_outline, size: 16),
-                                        label: Text(active ? i18n.t('employees', 'deactivate') : i18n.t('employees', 'activate'),
-                                            style: const TextStyle(fontSize: 12)),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: active ? AppColors.lightDestructive : AppColors.successFg,
-                                        ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            );
-                          },
+                              ],
+                          ],
                         ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

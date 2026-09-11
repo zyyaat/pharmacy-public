@@ -1,12 +1,12 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/session_store.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
 
-/// حالة التطبيق المركزية: اللغة + آلة حالات الجلسة (boot→me→…) + سياق
-/// الصيدلية + صلاحيات المستخدم — بنفس منطق Task 59 مع توسعة Task 61.
+/// حالة التطبيق المركزية: اللغة + الثيم (فاتح/داكن/النظام) + آلة حالات
+/// الجلسة (boot→me→…) + سياق الصيدلية + صلاحيات المستخدم.
 enum AuthPhase { booting, anonymous, unverified, onboarding, ready }
 
 class AppState extends ChangeNotifier {
@@ -14,6 +14,7 @@ class AppState extends ChangeNotifier {
   final SessionStore store = SessionStore();
 
   String _locale = 'ar';
+  ThemeMode _themeMode = ThemeMode.system;
   AuthPhase _phase = AuthPhase.booting;
   User? user;
   PharmacyContext? context;
@@ -21,6 +22,7 @@ class AppState extends ChangeNotifier {
   String? pendingVerifyEmail;
 
   String get locale => _locale;
+  ThemeMode get themeMode => _themeMode;
   AuthPhase get phase => _phase;
   bool get isRtl => _locale.startsWith('ar');
   String get tns => _locale; // تمرير للتنسيق
@@ -32,7 +34,28 @@ class AppState extends ChangeNotifier {
       final saved = await store.locale();
       if (saved != null && saved.isNotEmpty) _locale = saved;
     } catch (_) {}
+    try {
+      final mode = await store.themeMode();
+      if (mode != null && mode.isNotEmpty) {
+        _themeMode = mode == 'dark'
+            ? ThemeMode.dark
+            : mode == 'light'
+                ? ThemeMode.light
+                : ThemeMode.system;
+      }
+    } catch (_) {}
     await AppI18n.instance.setLocale(_locale);
+  }
+
+  /// تبديل الثيم مثل زر الشمس/القمر في رأس الويب (light ↔ dark)
+  Future<void> toggleTheme() async {
+    _themeMode = _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    await store.setThemeMode(_themeMode == ThemeMode.dark
+        ? 'dark'
+        : _themeMode == ThemeMode.light
+            ? 'light'
+            : 'system');
+    notifyListeners();
   }
 
   Future<void> setLocale(String locale) async {

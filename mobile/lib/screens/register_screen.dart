@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/strings.dart';
+import '../core/theme.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
-/// التسجيل — معالج 4 أسئلة بأسلوب الويب (reg_*): اسم الصيدلية ← الاسم
-/// الشخصي ← البريدان ← كلمة المرور، ثم شاشة التحقق من البريد.
+/// Task 62 — التسجيل بنسخة الويب حرفيًا: معالج 4 أسئلة، شريط علوي فيه
+/// الشعار + «خطوة X من 4» + شريط تقدم h-1.5، بطاقة rounded-3xl ظل 2xl بحقول
+/// h-14 rounded-2xl، زر متابعة flex-1 h-13 بظل primary/20 وزر رجوع محدد.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -27,6 +29,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   String? _error;
 
+  static final RegExp _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
   @override
   void dispose() {
     for (final c in <TextEditingController>[
@@ -37,29 +41,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  bool _validateStep() {
+  bool _validateStep(int step) {
     final i18n = AppI18n.instance;
-    switch (_step) {
+    String? problem;
+    switch (step) {
       case 1:
-        if (_pharmacyName.text.trim().length < 2) {
-          setState(() => _error = i18n.t('auth', 'reg_err_name'));
-          return false;
-        }
+        if (_pharmacyName.text.trim().length < 2) problem = i18n.t('auth', 'reg_err_name');
       case 2:
-        if (_firstName.text.trim().isEmpty) {
-          setState(() => _error = i18n.t('auth', 'reg_err_first'));
-          return false;
-        }
-        if (_lastName.text.trim().isEmpty) {
-          setState(() => _error = i18n.t('auth', 'reg_err_last'));
-          return false;
-        }
+        if (_firstName.text.trim().isEmpty) problem = i18n.t('auth', 'reg_err_first');
+        if (problem == null && _lastName.text.trim().isEmpty) problem = i18n.t('auth', 'reg_err_last');
       case 3:
-        final owner = _ownerEmail.text.trim();
-        if (owner.isEmpty || !owner.contains('@')) {
-          setState(() => _error = i18n.t('auth', 'reg_err_email'));
-          return false;
-        }
+        if (!_emailRe.hasMatch(_pharmacyEmail.text.trim())) problem = i18n.t('auth', 'reg_err_email');
+        if (problem == null && !_emailRe.hasMatch(_ownerEmail.text.trim())) problem = i18n.t('auth', 'reg_err_email');
+      case 4:
+        if (_password.text != _confirm.text) problem = i18n.t('auth', 'password_mismatch');
+        else if (_password.text.length < 10) problem = i18n.t('auth', 'password_hint');
+    }
+    if (problem != null) {
+      setState(() => _error = problem);
+      return false;
     }
     setState(() => _error = null);
     return true;
@@ -68,17 +68,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _next() async {
     final i18n = AppI18n.instance;
     if (_step < 4) {
-      if (!_validateStep()) return;
-      setState(() {
-        _step += 1;
-        _error = null;
-      });
+      if (!_validateStep(_step)) return;
+      setState(() => _step += 1);
       return;
     }
-    if (_password.text != _confirm.text) {
-      setState(() => _error = i18n.t('auth', 'password_mismatch'));
-      return;
-    }
+    if (!_validateStep(4) || !_validateStep(3) || !_validateStep(2) || !_validateStep(1)) return;
     if (_loading) return;
     setState(() {
       _loading = true;
@@ -128,74 +122,96 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(i18n.t('auth', 'register_tagline')),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _back),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text('${i18n.t('auth', 'reg_step')} $_step ${i18n.t('auth', 'reg_of')} 4',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: theme.colorScheme.primary)),
-                    ],
+    final dark = theme.brightness == Brightness.dark;
+    return AuthShell(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 576), // max-w-xl
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                // الشريط العلوي: الهوية + شريط التقدم بأسلوب Upwork
+                Row(
+                  children: <Widget>[
+                    BrandLogo(height: 36, dark: dark),
+                    const Spacer(),
+                    Text('${i18n.t('auth', 'reg_step')} $_step ${i18n.t('auth', 'reg_of')} 4',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                    const SizedBox(width: 12),
+                    ProgressTrack(value: _step / 4),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // بطاقة الخطوة الواحدة
+                Container(
+                  padding: const EdgeInsets.all(28), // p-7
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: AppRadius.br3xl,
+                    border: Border.all(color: theme.dividerColor),
+                    boxShadow: WebShadow.xl2,
                   ),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: _step / 4,
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(2),
-                    backgroundColor: theme.dividerColor,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 18),
-                  AppCard(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300), // animate-fade-in
                     child: Column(
+                      key: ValueKey<int>(_step),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        Text(_stepTitle(i18n), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 4),
-                        Text(_stepSub(i18n), style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                        const SizedBox(height: 16),
-                        _buildStepFields(i18n),
+                        Text(_stepTitle(i18n),
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.4)),
+                        const SizedBox(height: 12),
+                        Text(_stepSub(i18n),
+                            style: TextStyle(fontSize: 14, height: 1.6, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                        const SizedBox(height: 32),
                         if (_error != null) ...<Widget>[
-                          const SizedBox(height: 12),
-                          Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
+                          FormErrorBanner(_error!),
+                          const SizedBox(height: 20),
                         ],
-                        const SizedBox(height: 16),
-                        PrimaryButton(
-                          _step == 4 ? i18n.t('auth', 'create_and_start') : i18n.t('auth', 'reg_continue'),
-                          loading: _loading,
-                          onPressed: _next,
+                        _buildStepFields(i18n),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: <Widget>[
+                            if (_step > 1) ...<Widget>[
+                              WButton(i18n.t('auth', 'reg_back'),
+                                  onPressed: _back,
+                                  variant: WButtonVariant.outline,
+                                  size: WButtonSize.wizard),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              child: WButton(
+                                _step == 4
+                                    ? (_loading ? i18n.t('auth', 'creating_account') : i18n.t('auth', 'create_and_start'))
+                                    : i18n.t('auth', 'reg_continue'),
+                                onPressed: _loading ? null : _next,
+                                loading: _loading,
+                                size: WButtonSize.wizard,
+                                glow: true,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (_step > 1) ...<Widget>[
-                          const SizedBox(height: 6),
-                          SecondaryButton(i18n.t('auth', 'reg_back'), onPressed: _back),
-                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(i18n.t('auth', 'have_account'), style: const TextStyle(fontSize: 13)),
-                      TextButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                        child: Text(i18n.t('auth', 'login_label'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(i18n.t('auth', 'have_account'), style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+                      child: Text(i18n.t('auth', 'login_label'),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: theme.colorScheme.primary)),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -230,45 +246,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildStepFields(AppI18n i18n) {
+    final theme = Theme.of(context);
     switch (_step) {
       case 1:
-        return AppInput(controller: _pharmacyName, hint: i18n.t('auth', 'pharmacy_name_ph'));
+        return WizardInput(controller: _pharmacyName, hint: i18n.t('auth', 'pharmacy_name_ph'));
       case 2:
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            AppInput(controller: _firstName, hint: i18n.t('auth', 'first_name_ph')),
-            const SizedBox(height: 10),
-            AppInput(controller: _lastName, hint: i18n.t('auth', 'last_name_ph')),
+            AppField(label: i18n.t('auth', 'first_name'),
+                child: WizardInput(controller: _firstName, hint: i18n.t('auth', 'first_name_ph'))),
+            const SizedBox(height: 20),
+            AppField(label: i18n.t('auth', 'last_name'),
+                child: WizardInput(controller: _lastName, hint: i18n.t('auth', 'last_name_ph'))),
           ],
         );
       case 3:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(i18n.t('auth', 'pharmacy_email'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            AppInput(controller: _pharmacyEmail, keyboard: TextInputType.emailAddress),
-            const SizedBox(height: 4),
-            Text(i18n.t('auth', 'reg_email_pharmacy_hint'),
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-            const SizedBox(height: 10),
-            Text(i18n.t('auth', 'owner_email'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            AppInput(controller: _ownerEmail, keyboard: TextInputType.emailAddress),
-            const SizedBox(height: 4),
-            Text(i18n.t('auth', 'reg_email_owner_hint'),
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+            AppField(
+              label: i18n.t('auth', 'pharmacy_email'),
+              hint: i18n.t('auth', 'reg_email_pharmacy_hint'),
+              child: WizardInput(controller: _pharmacyEmail, keyboard: TextInputType.emailAddress, ltr: true, hint: 'pharmacy@example.com'),
+            ),
+            const SizedBox(height: 20),
+            AppField(
+              label: i18n.t('auth', 'owner_email'),
+              hint: i18n.t('auth', 'reg_email_owner_hint'),
+              child: WizardInput(controller: _ownerEmail, keyboard: TextInputType.emailAddress, ltr: true, hint: 'owner@example.com'),
+            ),
           ],
         );
       default:
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            AppInput(controller: _password, obscure: true, hint: i18n.t('auth', 'password_ph')),
-            const SizedBox(height: 10),
-            AppInput(controller: _confirm, obscure: true, hint: i18n.t('auth', 'confirm_password_ph')),
+            AppField(label: i18n.t('auth', 'password'),
+                child: WizardInput(controller: _password, obscure: true, ltr: true, hint: i18n.t('auth', 'password_ph'))),
+            const SizedBox(height: 20),
+            AppField(label: i18n.t('auth', 'confirm_password'),
+                child: WizardInput(controller: _confirm, obscure: true, ltr: true, hint: i18n.t('auth', 'confirm_password_ph'))),
             const SizedBox(height: 8),
             Text(i18n.t('auth', 'password_hint'),
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
           ],
         );
     }

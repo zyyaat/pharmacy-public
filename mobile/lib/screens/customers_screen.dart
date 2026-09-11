@@ -1,17 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
+import '../state/app_state.dart';
 import '../widgets/ui.dart';
 import 'customer_statement_screen.dart';
 
-/// حسابات العملاء — نفس صفحة الويب: بحث، إضافة عميل، ديون الآجل
-/// بشاراتها، وكشف حساب مع تحصيل دفعة.
+/// Task 62 — العملاء بنسخة الويب حرفيًا: بطاقة العملاء (رأس بعنوان وزر
+/// «إضافة» outline sm، نموذج إضافة عند التفعيل، وقائمة عملاء بشارات الديون)
+/// — كشف الحساب يُفتح شاشة تفصيلية بنفس بطاقة كشف الويب.
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
 
@@ -24,6 +27,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   List<Customer> _list = <Customer>[];
+  bool _creating = false;
   bool _debtsOnly = false;
   bool _loading = true;
   bool _adding = false;
@@ -67,7 +71,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = AppI18n.instance.t('customers', 'loadError');
+        _error = i18n.t('customers', 'loadError');
         _loading = false;
       });
     }
@@ -89,7 +93,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
       _nameCtrl.clear();
       _phoneCtrl.clear();
       await _load();
-      if (mounted) setState(() => _adding = false);
+      if (mounted) {
+        setState(() {
+          _adding = false;
+          _creating = false;
+        });
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _adding = false);
@@ -103,73 +112,81 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('customers', 'title'))),
-      body: _loading && _list.isEmpty
-          ? const LoadingBox()
-          : _error != null
-              ? ErrorRetry(_error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
+    final state = context.watch<AppState>();
+    final canCreate = state.can('customers.create');
+    if (_loading && _list.isEmpty) return const LoadingBox();
+    if (_error != null && _list.isEmpty) return ErrorRetry(_error!, onRetry: _load);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          PageHeader(i18n.t('customers', 'title'), subtitle: i18n.t('customers', 'subtitle')),
+          const SizedBox(height: 24),
+
+          // بطاقة العملاء (العمود الأول في شبكة الويب)
+          AppCard(
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: CardTitle(
+                    i18n.t('customers', 'customersTitle'),
+                    trailing: canCreate
+                        ? WButton(
+                            _creating ? i18n.t('common', 'cancel') : i18n.t('customers', 'newCustomer'),
+                            variant: _creating ? WButtonVariant.ghost : WButtonVariant.outline,
+                            size: WButtonSize.sm,
+                            onPressed: () => setState(() => _creating = !_creating),
+                          )
+                        : null,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Text(i18n.t('customers', 'subtitle'),
-                          style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                      const SizedBox(height: 12),
                       SearchField(
                         controller: _searchCtrl,
                         hint: i18n.t('customers', 'searchPlaceholder'),
                         onChanged: _onSearch,
-                        onClear: () { _searchCtrl.clear(); _load(); },
+                        onClear: () {
+                          _searchCtrl.clear();
+                          _load();
+                        },
                       ),
-                      const SizedBox(height: 10),
-                      AppCard(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 12),
+                      if (_creating) ...<Widget>[
+                        AppInput(controller: _nameCtrl, hint: i18n.t('customers', 'namePlaceholder')),
+                        const SizedBox(height: 8),
+                        Row(
                           children: <Widget>[
-                            Text(i18n.t('customers', 'newCustomer'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 8),
-                            AppInput(controller: _nameCtrl, hint: i18n.t('customers', 'namePlaceholder')),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: <Widget>[
-                                Expanded(child: AppInput(controller: _phoneCtrl, hint: i18n.t('customers', 'phonePlaceholder'), keyboard: TextInputType.phone)),
-                                const SizedBox(width: 8),
-                                FilledButton(
-                                  onPressed: _adding ? null : _addCustomer,
-                                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                                  child: _adding
-                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                      : const Icon(Icons.person_add_alt_1, size: 20),
-                                ),
-                              ],
+                            Expanded(
+                              child: AppInput(
+                                controller: _phoneCtrl,
+                                hint: i18n.t('customers', 'phonePlaceholder'),
+                                keyboard: TextInputType.phone,
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            WButton(i18n.t('pos', 'add'), icon: Icons.person_add_alt_1, loading: _adding, onPressed: _addCustomer),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: <Widget>[
-                          FilterChip(
-                            label: Text(i18n.t('nav', 'customer_debts'), style: const TextStyle(fontSize: 12)),
-                            selected: _debtsOnly,
-                            onSelected: (bool v) {
-                              _debtsOnly = v;
-                              _load();
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                        const SizedBox(height: 16),
+                      ],
                       if (_list.isEmpty)
-                        EmptyState(i18n.t('customers', 'searchHint'), icon: Icons.note_alt_outlined)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('customers', 'searchHint'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                        )
                       else
                         for (final Customer c in _list)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: AppCard(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: CardBox(
                               onTap: () async {
                                 await Navigator.of(context).push(MaterialPageRoute<void>(
                                   builder: (_) => CustomerStatementScreen(customer: c),
@@ -182,7 +199,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: <Widget>[
-                                        Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                                        Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                                         const SizedBox(height: 2),
                                         Text(
                                           c.phone.isEmpty ? i18n.t('pos', 'noPhone') : c.phone,
@@ -198,14 +215,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                         Fmt.money(c.balancePiastres, locale: i18n.locale),
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
                                           color: c.balancePiastres > 0 ? AppColors.warningFg : AppColors.successFg,
                                         ),
                                       ),
-                                      if (c.balancePiastres > 0) ...<Widget>[
-                                        const SizedBox(height: 2),
-                                        AppBadge(i18n.t('nav', 'debtor_badge'), tone: BadgeTone.warning),
-                                      ],
+                                      const SizedBox(height: 4),
+                                      _debtBadge(i18n, c),
                                     ],
                                   ),
                                 ],
@@ -215,6 +230,23 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _debtBadge(AppI18n i18n, Customer c) {
+    if (c.balancePiastres > 0) {
+      return AppBadge(i18n.t('customers', 'owedBadge', {'amount': Fmt.money(c.balancePiastres, locale: i18n.locale)}),
+          tone: BadgeTone.destructive);
+    }
+    if (c.balancePiastres < 0) {
+      return AppBadge(i18n.t('customers', 'creditBadge', {'amount': Fmt.money(-c.balancePiastres, locale: i18n.locale)}),
+          tone: BadgeTone.success);
+    }
+    return AppBadge(i18n.t('customers', 'settledBadge'), tone: BadgeTone.success);
   }
 }

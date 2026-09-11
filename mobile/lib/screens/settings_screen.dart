@@ -48,69 +48,90 @@ class SettingsScreen extends StatelessWidget {
         builder: (_) => const ImportScreen(),
       ),
     ];
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('nav', 'settings'))),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                CardTitle(ctx?.pharmacyName ?? i18n.t('pos', 'fallbackPharmacyName')),
-                const SizedBox(height: 6),
-                KVRow('المدينة', ctx == null || ctx.city.isEmpty || ctx.city == 'غير محدد' ? i18n.t('employees', 'unspecified') : ctx.city),
-                KVRow('الهاتف', ctx == null || ctx.phone.isEmpty ? '—' : ctx.phone),
-                KVRow('الأصناف', Fmt.number(ctx?.productCount ?? 0)),
-                if (ctx?.branchName != null && ctx!.branchName!.isNotEmpty)
-                  KVRow('الفرع الحالي', ctx.branchName!),
-              ],
-            ),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        PageHeader(i18n.t('nav', 'settings'), subtitle: i18n.t('settings', 'languageNavDesc')),
+        const SizedBox(height: 24),
+        // بطاقة معلومات الصيدلية
+        AppCard(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              CardTitle(ctx?.pharmacyName ?? i18n.t('pos', 'fallbackPharmacyName')),
+              const SizedBox(height: 8),
+              KVRow(i18n.t('employees', 'branchCityLabel'), ctx == null || ctx.city.isEmpty || ctx.city == 'غير محدد' ? i18n.t('employees', 'unspecified') : ctx.city),
+              KVRow(i18n.t('employees', 'branchPhoneLabel'), ctx == null || ctx.phone.isEmpty ? '—' : ctx.phone),
+              KVRow(i18n.t('dashboard', 'total_products'), Fmt.number(ctx?.productCount ?? 0)),
+              if (ctx?.branchName != null && ctx!.branchName!.isNotEmpty)
+                KVRow(i18n.t('employees', 'thBranch'), ctx.branchName!),
+            ],
           ),
-          const SizedBox(height: 14),
-          for (final section in sections)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: section.builder)),
-                padding: const EdgeInsets.all(14),
-                child: Row(
+        ),
+        const SizedBox(height: 24),
+        // بطاقة الأقسام
+        AppCard(
+          child: Column(
+            children: <Widget>[
+              const SizedBox(height: 8),
+              for (final section in sections)
+                Column(
                   children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(10),
+                    InkWell(
+                      borderRadius: AppRadius.br,
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: section.builder)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withOpacity(0.10),
+                                borderRadius: AppRadius.brXl,
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(section.icon, size: 20, color: theme.colorScheme.primary),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(section.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
+                                  Text(section.desc, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.35)),
+                          ],
+                        ),
                       ),
-                      child: Icon(section.icon, size: 20, color: theme.colorScheme.primary),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(section.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Text(section.desc, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.55))),
-                        ],
+                    if (section != sections.last)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Divider(height: 1, color: theme.dividerColor),
                       ),
-                    ),
-                    Icon(Icons.chevron_right, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.35)),
                   ],
                 ),
-              ),
-            ),
-          const SizedBox(height: 6),
-          _ServerOverrideCard(),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              i18n.t('reports', 'brand_tagline'),
-              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.4)),
-            ),
+              const SizedBox(height: 8),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 24),
+        _ServerOverrideCard(),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            i18n.t('reports', 'brand_tagline'),
+            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+          ),
+        ),
+      ],
     );
   }
 }

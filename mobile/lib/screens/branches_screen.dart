@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/strings.dart';
-import '../core/theme.dart';
 import '../models/models.dart';
 import '../widgets/ui.dart';
 
@@ -89,84 +88,112 @@ class _BranchesScreenState extends State<BranchesScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('employees', 'branchesTitle'))),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_branch',
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add_business),
-        label: Text(i18n.t('employees', 'branchesAddBtn'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-      ),
-      body: _loading
-          ? const LoadingBox()
-          : _error != null
-              ? ErrorRetry(_error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
+    if (_loading) return const LoadingBox();
+    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          PageHeader(
+            i18n.t('employees', 'branchesTitle'),
+            subtitle: i18n.t('employees', 'branchesSubtitle'),
+            actions: <Widget>[
+              WButton(i18n.t('employees', 'branchesAddBtn'), icon: Icons.add, onPressed: () => _openForm()),
+            ],
+          ),
+          const SizedBox(height: 24),
+          AppCard(
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: CardTitle(i18n.t('employees', 'branchesTitle'), icon: Icons.storefront_outlined),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: _list.isEmpty
-                      ? ListView(children: <Widget>[EmptyState(i18n.t('employees', 'branchesEmpty'), icon: Icons.storefront_outlined)])
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-                          itemCount: _list.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (BuildContext ctx, int i) {
-                            final Branch b = _list[i];
-                            return AppCard(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(child: Text(b.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
-                                      if (b.isMain) AppBadge(i18n.t('employees', 'branchMainBadge'), tone: BadgeTone.primary),
-                                      if (!b.isActive) ...<Widget>[
-                                        const SizedBox(width: 6),
-                                        AppBadge(i18n.t('employees', 'branchStopped'), tone: BadgeTone.muted),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    <String>[
-                                      if (b.code.isNotEmpty) '${i18n.t('employees', 'branchCodeLabel')} ${b.code}',
-                                      if (b.city.isNotEmpty && b.city != 'غير محدد') b.city,
-                                      if (b.address.isNotEmpty) b.address,
-                                      if (b.phone.isNotEmpty) '${i18n.t('employees', 'branchPhoneLabel')} ${b.phone}',
-                                      if (b.managerName.isNotEmpty) '${i18n.t('employees', 'branchManagerLabel')} ${b.managerName}',
-                                    ].join(' · '),
-                                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.55)),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => _openForm(branch: b),
-                                          icon: const Icon(Icons.edit_outlined, size: 16),
-                                          label: Text(i18n.t('employees', 'branchEditBtn'), style: const TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      if (!b.isMain) ...<Widget>[
-                                        const SizedBox(width: 8),
-                                        OutlinedButton.icon(
-                                          onPressed: () => _deleteBranch(b),
-                                          icon: const Icon(Icons.block, size: 16),
-                                          label: Text(i18n.t('employees', 'branchDeleteBtn'), style: const TextStyle(fontSize: 12)),
-                                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.lightDestructive),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ],
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('employees', 'branchesEmpty'),
+                              style: TextStyle(
+                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      : Column(
+                          children: <Widget>[ // شبكة عمود واحد على الهاتف (md:2 xl:3 في الويب)
+                            for (final Branch b in _list) ...<Widget>[
+                              _BranchTile(
+                                branch: b,
+                                onEdit: () => _openForm(branch: b),
+                                onDelete: b.isMain ? null : () => _deleteBranch(b),
                               ),
-                            );
-                          },
+                              if (b != _list.last) const SizedBox(height: 16),
+                            ],
+                          ],
                         ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// بلاطة فرع — rounded-xl border مثل شبكة الويب
+ class _BranchTile extends StatelessWidget {
+  final Branch branch;
+  final VoidCallback onEdit;
+  final VoidCallback? onDelete;
+  const _BranchTile({required this.branch, required this.onEdit, this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
+    final Branch b = branch;
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(child: Text(b.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+              if (b.isMain) AppBadge(i18n.t('employees', 'branchMainBadge'), tone: BadgeTone.primary),
+              if (!b.isActive) ...<Widget>[
+                const SizedBox(width: 6),
+                AppBadge(i18n.t('employees', 'branchStopped'), tone: BadgeTone.muted),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            <String>[
+              if (b.code.isNotEmpty) b.code,
+              if (b.city.isNotEmpty && b.city != 'غير محدد') b.city,
+              if (b.address.isNotEmpty) b.address,
+              if (b.phone.isNotEmpty) b.phone,
+            ].join(' · '),
+            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              WButton(i18n.t('employees', 'branchEditBtn'),
+                  icon: Icons.edit_outlined,
+                  variant: WButtonVariant.outline, size: WButtonSize.sm, onPressed: onEdit),
+              if (onDelete != null) ...<Widget>[
+                const SizedBox(width: 8),
+                WButton(i18n.t('employees', 'branchDeleteBtn'),
+                    icon: Icons.block,
+                    variant: WButtonVariant.outline, size: WButtonSize.sm,
+                    color: theme.colorScheme.error, onPressed: onDelete),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
