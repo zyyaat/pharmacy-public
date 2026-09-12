@@ -347,12 +347,14 @@ class _BrandSplashState extends State<BrandSplash> with TickerProviderStateMixin
         children: <Widget>[
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment(-0.17, -0.47), // 160deg
-                end: Alignment(0.17, 0.47),
-                colors: <Color>[_bg1, Color(0xFF020B06)],
-              ),
-            ),
+                // Task 72 — شبكة أمان Impeller نفسها: لون صلب تحت التدرّج
+                // يظهر فقط إن سقط رسم التدرّج فلا تبقى الشاشة شفافة.
+                color: Color(0xFF04150D),
+                gradient: LinearGradient(
+                  begin: Alignment(-0.17, -0.47), // 160deg
+                  end: Alignment(0.17, 0.47),
+                  colors: <Color>[_bg1, Color(0xFF020B06)],
+                )),
           ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -1001,7 +1003,15 @@ class _WButtonState extends State<WButton> {
         shadows = WebShadow.sm;
       case WButtonVariant.gradient:
         fg = scheme.onPrimary;
-        bg = Colors.transparent; // التدرج يرسم الخلفية — بلا هذه القيمة يبقى late bg غير مهيأ (تعطل)
+        // Task 72 — «شكل الزر غريب»: على أندرويد يفعّل Flutter 3.24 محرك
+        // Impeller افتراضيًا، وقد أبلغ مستخدم عن زر يظهر رماديًا باهتًا:
+        // تحليل بكسلات اللقطة أثبت أن التدرّج لم يُرسم أصلًا (رماديّة الزر
+        // = ظلّاه 10% متراكبان يظهران عبر تعبئة شفافة). لذلك bg = primary
+        // كشبكة أمان: BoxDecoration يرسم color أولًا ثم التدرّج فوقه —
+        // إذا رُسم التدرّج فلا فرق بصريًا، وإذا سقط (خلل Impeller مع
+        // التدرّجات داخل AnimatedContainer) يظهر الزر أخضر صلبًا بلون
+        // بداية التدرّج نفسه كالويب from-primary لا شفافًا.
+        bg = primary;
         gradient = LinearGradient(colors: <Color>[primary, AppColors.gradientEnd]);
         shadows = WebShadow.md;
       case WButtonVariant.link:
