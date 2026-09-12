@@ -2073,6 +2073,56 @@ class FormErrorBanner extends StatelessWidget {
   }
 }
 
+/// Task 82 — شريط «لا يوجد اتصال» أعلى الصفحات عند العمل من الكاش المحلي:
+/// نغمات التحذير الكهرمانية (warning amber-600 على amber/10 مثل شارات الويب)
+/// — دلالة «وضع منخفض مبدئي» لا «خطأ» — وبنفس هندسة الأشرطة (p-12 + AppRadius)
+/// مع أيقونة wifi-off خافتة وعنوانه وتلميح البيانات المخزّنة.
+/// مكوّن نقي (نصوص صريحة) ليبقى مستقلًا عن i18n في الاختبارات.
+class OfflineBanner extends StatelessWidget {
+  final String title;
+  final String? hint;
+  const OfflineBanner({super.key, required this.title, this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    // نغمة التحذير تتبع السطوع: amber-600 فاتح / amber-400 داكن (مثل الويب)
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = dark ? AppColors.warningFgDark : AppColors.warningFg;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: fg.withOpacity(0.10),
+        borderRadius: AppRadius.br,
+        border: Border.all(color: fg.withOpacity(0.30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(children: <Widget>[
+            Icon(Icons.wifi_off_rounded, size: 15, color: fg.withOpacity(0.90)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, height: 1.4, color: fg)),
+            ),
+          ]),
+          if (hint != null && hint!.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 23),
+              child: Text(hint!,
+                  style: TextStyle(
+                      fontSize: 11.5, height: 1.5, color: fg.withOpacity(0.75))),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------- حوارات
 
 /// Modal في الويب: طبقة سوداء 50% + بطاقة rounded-lg p-6 max-w-md

@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
+import 'core/offline.dart';
 import 'core/theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -41,6 +42,8 @@ Future<void> main() async {
       );
   // استعادة كوكيز الجلسة واللغة قبل أول إطار
   await ApiClient.instance.cookies.restore();
+  // Task 82 — مراقب واجهات الشبكة: كشف الانقطاع فوريًا فوق إشارة نتائج API
+  await startConnectivityWatch();
   final state = AppState();
   try {
     await state.loadInitialLocale();

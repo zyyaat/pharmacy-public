@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../config.dart';
 import '../models/models.dart';
 import 'cookies.dart';
+import 'offline.dart';
 
 /// استثناء موحّد يحمل كود الباك اند (EMAIL_NOT_VERIFIED / csrf_failed …)
 /// وحالته HTTP ليترجمة المستوى الأعلى رسالة مفهومة للمستخدم.
@@ -540,9 +541,27 @@ class ApiClient {
         options: Options(method: method, headers: headers),
       );
     } on DioException catch (e) {
-      throw _fromDio(e);
+      final ApiException err = _fromDio(e);
+      // Task 82 — stale-if-error: انقطاع الشبكة + نسخة مخزّنة لطلب GET
+      // = نعيد الكاش بدل رمي الخطأ (قراءات فقط — الكتابة تحتاج الخادم دائمًا)
+      if (err.isNetwork) {
+        NetworkSignal.noteNetworkFailure();
+        if (method == 'GET') {
+          final Map<String, dynamic>? cached =
+              await OfflineCache.instance.get(OfflineCache.cacheKey(method, path, query));
+          if (cached != null) return cached;
+        }
+      }
+      throw err;
     }
-    return mOf(res.data);
+    NetworkSignal.noteSuccess();
+    final Map<String, dynamic> parsed = mOf(res.data);
+    // Task 82 — قراءة-عبر: كل استجابة GET ناجحة تُكتب للكاش المحلي المشفّر
+    // (السياق، الصلاحيات، المخزون، المبيعات، العملاء… حتى يعمل التنقل بلا إنترنت)
+    if (method == 'GET') {
+      await OfflineCache.instance.put(OfflineCache.cacheKey(method, path, query), parsed);
+    }
+    return parsed;
   }
 
   ApiException _fromDio(DioException e) {

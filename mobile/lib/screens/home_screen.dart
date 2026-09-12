@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
+import '../core/offline.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
@@ -130,6 +131,20 @@ class HomeShellState extends State<HomeScreen> {
                   (state.can('customers.view') ? _debts.length : 0),
               lowStock: state.can('inventory.view') ? _lowStock : const <LowStockItem>[],
               debts: state.can('customers.view') ? _debts : const <Customer>[],
+            ),
+            // Task 82 — شريط «لا يوجد اتصال» أسفل الرأس مباشرة: يظهر حين تكون
+            // الصفحات تعرض الكاش المحلي (إشارة نتائج API + مراقب الواجهات)
+            ValueListenableBuilder<bool>(
+              valueListenable: NetworkSignal.offline,
+              builder: (BuildContext context, bool offline, _) => offline
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: OfflineBanner(
+                        title: i18n.t('common', 'offline_banner_title'),
+                        hint: i18n.t('common', 'offline_banner_hint'),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
             Expanded(
               child: IndexedStack(

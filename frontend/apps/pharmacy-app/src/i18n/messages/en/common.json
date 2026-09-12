@@ -11,5 +11,9 @@
   "no_access_title": "This page is not available for your account",
   "no_access_body": "The pharmacy owner has not granted you access to this section. If you need it for your work, contact them to grant you the appropriate permission.",
   "back_home": "Back to home",
-  "context_load_failed": "Could not load pharmacy data"
+  "context_load_failed": "Could not load pharmacy data",
+  "splash_offline": "Cannot reach the server",
+  "splash_offline_hint": "Retrying automatically…",
+  "offline_banner_title": "No internet connection",
+  "offline_banner_hint": "Showing data stored on your device from the last sync"
 }

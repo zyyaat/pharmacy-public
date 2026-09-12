@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/offline.dart';
 import '../core/session_store.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
@@ -96,6 +97,9 @@ class AppState extends ChangeNotifier {
         user = null;
         context = null;
         permissions = null;
+        // Task 82 — رفض الخادم فعليًا (كلمة المرور تغيّرت/جلسة ملغاة):
+        // كاش أعمال الجلسة لا يجوز أن يبقى على الجهاز
+        await OfflineCache.instance.clear();
         _phase = AuthPhase.anonymous;
         notifyListeners();
         return;
@@ -155,6 +159,8 @@ class AppState extends ChangeNotifier {
     } on ApiException catch (e) {
       if (e.isNetwork) rethrow;
       await store.clearCredentials();
+      // Task 82 — رفض الدخول فعليًا = انتهاء بيانات الجلسة وكاشها معًا
+      await OfflineCache.instance.clear();
       return false;
     } catch (_) {
       return false;
@@ -239,6 +245,8 @@ class AppState extends ChangeNotifier {
       // لا شبكة/خطأ خادم — لا يمنع الخروج المحلي
     }
     await store.clearCredentials();
+    // Task 82 — الخروج اليدوي يمسح كاش بيانات الأعمال أيضًا (جهاز مشترك)
+    await OfflineCache.instance.clear();
     _pendingRegisterEmail = null;
     _pendingRegisterPassword = null;
     user = null;

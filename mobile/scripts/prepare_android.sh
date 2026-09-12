@@ -23,6 +23,12 @@ if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
   echo "OK: INTERNET permission added"
 fi
 
+# 1-ب) إذن حالة الشبكة — connectivity_plus (Task 82) يطلبه لكشف wifi/البيانات
+if ! grep -q "android.permission.ACCESS_NETWORK_STATE" "$MANIFEST"; then
+  sed -i 's|<application|<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n    <application|' "$MANIFEST"
+  echo "OK: ACCESS_NETWORK_STATE permission added"
+fi
+
 # 2) اسم التطبيق
 sed -i 's|android:label="pharmacy_mobile"|android:label="Pharmacy OS"|' "$MANIFEST"
 grep -q 'android:label="Pharmacy OS"' "$MANIFEST" || echo "WARN: label pattern not found (template changed?)"
