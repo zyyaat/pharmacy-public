@@ -12,6 +12,15 @@ import '../widgets/ui.dart';
 /// صندوق أيقونة الخطوة 52 rounded-2xl bg-primary/10، حقول h-14 rounded-2xl،
 /// جدول مراجعة rounded-2xl بصفوف متناوبة وأزرار تعديل، وشاشة نجاح بدائرة
 /// primary نابضة مع نقاط احتفال.
+///
+/// Task 79 — درس شكوى «بيانات المعالج ليست الكاملة اللي في صفحة تعديل الفرع»:
+/// 1) اكتملت الحقول: اسم الفرع الرئيسي وكود الفرع والبريد صارت تُجمع من أول
+///    مرة إلى جانب حقول الصيدلية الثمانية (نفس حقول صفحة تعديل الفرع حرفيًا)،
+///    وكل حقل يُظهر حالته: * حمراء للإجباري وكلمة «اختياري» لغيره + مفتاح
+///    تفسيري أعلى الحقول.
+/// 2) تنسيق العناوين: سطر تصنيف علوي بلون الهوية (التعريف/التواصل/الموقع/
+///    المراجعة) فوق العنوان الكبير، يفصله خط فاصل عن الحقول — بدل كتلة
+///    الأيقونة والعنوان السابقة بلا هيكل.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -21,7 +30,10 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _name = TextEditingController();
+  final TextEditingController _branchName = TextEditingController();
+  final TextEditingController _branchCode = TextEditingController();
   final TextEditingController _phone = TextEditingController();
+  final TextEditingController _email = TextEditingController();
   final TextEditingController _website = TextEditingController();
   final TextEditingController _city = TextEditingController();
   final TextEditingController _state = TextEditingController();
@@ -32,21 +44,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   bool _loading = true;
   bool _saving = false;
   String? _error;
-  late final AnimationController _pop = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 500),
-    value: 0,
-  );
+  late final AnimationController _pop;
 
   @override
   void initState() {
     super.initState();
+    // Task 79: الإنشاء هنا لا في تهيئة حقل late — أول وصول لـ _pop كان يحدث
+    // داخل dispose() إن لم يصل المستخدم لشاشة النجاح، والـ vsync يبحث حينها
+    // عن أصل TickerMode وعنصر الشاشة مُلغى تنشيطه فترمي "Looking up a
+    // deactivated widget's ancestor is unsafe" (فشلت بها اختبارات المعالج).
+    _pop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+      value: 0,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
   void dispose() {
-    for (final TextEditingController c in <TextEditingController>[_name, _phone, _website, _city, _state, _address1, _address2, _postal]) {
+    for (final TextEditingController c in <TextEditingController>[
+      _name, _branchName, _branchCode, _phone, _email,
+      _website, _city, _state, _address1, _address2, _postal,
+    ]) {
       c.dispose();
     }
     _pop.dispose();
@@ -60,6 +80,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       if (!mounted) return;
       setState(() {
         _name.text = s.pharmacy.name;
+        _branchName.text = s.branch.name;
+        _branchCode.text = s.branch.code;
+        _email.text = s.branch.email;
         _phone.text = s.pharmacy.phone;
         _website.text = s.pharmacy.website;
         _city.text = s.pharmacy.city == 'غير محدد' ? '' : s.pharmacy.city;
@@ -84,13 +107,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     }
   }
 
-  bool _validateName() {
+  /// تحقق الخطوة 1: اسم الصيدلية واسم الفرع الرئيسي كلاهما إجباري
+  /// (مطابق لنموذج الفرع على الويب: name + pharmacy_name مطلوبان).
+  bool _validateStep1() {
     final i18n = AppI18n.instance;
     if (_name.text.trim().length < 2) {
       setState(() => _error = i18n.t('auth', 'ob_name_required'));
       return false;
     }
+    if (_branchName.text.trim().isEmpty) {
+      setState(() => _error = i18n.t('auth', 'ob_branch_required'));
+      return false;
+    }
     setState(() => _error = null);
+    return true;
+  }
+
+  /// تحقق قبل الحفظ: البريد (إن وُجد) بصيغة سليمة — نفس قاعدة الخادم.
+  bool _validateEmail() {
+    final i18n = AppI18n.instance;
+    final email = _email.text.trim();
+    if (email.isNotEmpty && (!email.contains('@') || email.contains(RegExp(r'[ \t]')))) {
+      setState(() => _error = i18n.t('auth', 'ob_invalid_email'));
+      return false;
+    }
     return true;
   }
 
@@ -101,10 +141,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       _error = null;
     });
     try {
-      // الويب: PUT كل الحقول الثمانية دائمًا (الفراغات مشمولة) + complete دائمًا
+      // الويب: PUT كل الحقول دائمًا (الفراغات مشمولة) + complete دائمًا.
+      // Task 79: أُضيفت حقول الفرع الرئيسي (branch_name/branch_code/email)
+      // لتطابق ما تعرضه صفحة تعديل الفرع من أول مرة.
       await ApiClient.instance.updateOnboarding(<String, dynamic>{
         'name': _name.text.trim(),
+        'branch_name': _branchName.text.trim(),
+        'branch_code': _branchCode.text.trim(),
         'phone': _phone.text.trim(),
+        'email': _email.text.trim(),
         'website': _website.text.trim(),
         'city': _city.text.trim(),
         'state_province': _state.text.trim(),
@@ -136,15 +181,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   }
 
   Future<void> _finish() async {
-    if (!_validateName()) {
+    if (!_validateStep1()) {
       setState(() => _step = 1);
+      return;
+    }
+    if (!_validateEmail()) {
+      setState(() => _step = 2);
       return;
     }
     await _save();
   }
 
   void _next() {
-    if (_step == 1 && !_validateName()) return;
+    if (_step == 1 && !_validateStep1()) return;
+    if (_step == 2 && !_validateEmail()) return;
     setState(() {
       _error = null;
       _step = _step < 4 ? _step + 1 : 4;
@@ -249,7 +299,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       key: ValueKey<int>(_step),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        // صندوق أيقونة الخطوة + العنوان
+                        // رأس الخطوة — Task 79: سطر تصنيف بلون الهوية (التعريف /
+                        // التواصل / الموقع / المراجعة) فوق العنوان الكبير، ثم خط
+                        // فاصل يفصل الرأس عن الحقول — هيكل واضح بدل كتلة بلا تنسيق.
                         Row(
                           children: <Widget>[
                             Container(
@@ -267,17 +319,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
+                                  Text(_stepCat(i18n),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.8,
+                                          color: theme.colorScheme.primary)),
+                                  const SizedBox(height: 4),
                                   Text(_stepTitle(i18n),
-                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, height: 1.4)),
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.4)),
                                   const SizedBox(height: 4),
                                   Text(_stepSub(i18n),
-                                      style: TextStyle(fontSize: 14, height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+                                      style: TextStyle(fontSize: 13.5, height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.55))),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
+                        Divider(height: 1, thickness: 1, color: theme.dividerColor),
+                        const SizedBox(height: 16),
+                        // المفتاح التفسيري: الحقول المعلّمة بـ * إجبارية — مرجع سريع قبل الحقول
+                        if (_step < 4)
+                          Row(
+                            children: <Widget>[
+                              Text('*', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: theme.colorScheme.error)),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(i18n.t('auth', 'ob_required_legend'),
+                                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                              ),
+                            ],
+                          ),
+                        if (_step < 4) const SizedBox(height: 20) else const SizedBox(height: 28),
                         if (_error != null) ...<Widget>[
                           FormErrorBanner(_error!),
                           const SizedBox(height: 20),
@@ -365,20 +439,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     }
   }
 
+  /// سطر التصنيف العلوي لكل خطوة (Task 79) — يضبط سياق العنوان
+  String _stepCat(AppI18n i18n) {
+    switch (_step) {
+      case 1:
+        return i18n.t('auth', 'ob_s1_cat');
+      case 2:
+        return i18n.t('auth', 'ob_s2_cat');
+      case 3:
+        return i18n.t('auth', 'ob_s3_cat');
+      default:
+        return i18n.t('auth', 'ob_s4_cat');
+    }
+  }
+
   Widget _buildStepFields(AppI18n i18n) {
     final user = context.watch<AppState>().user;
     switch (_step) {
       case 1:
-        return AppField(
-          label: '${i18n.t('auth', 'ob_welcome')} ${user?.firstName ?? ''}، ${i18n.t('auth', 'ob_app_label')}',
-          child: WizardInput(controller: _name, hint: i18n.t('auth', 'pharmacy_name_ph')),
-        );
-      case 2:
+        // Task 79 — هوية الصيدلية والفرع الرئيسي معًا (نفس حقول صفحة تعديل
+        // الفرع): الاسم إجباري (*)، اسم الفرع إجباري (*)، الكود اختياري.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            AppField(label: i18n.t('auth', 'ob_phone'),
-                child: WizardInput(controller: _phone, hint: i18n.t('auth', 'ob_phone_ph'), keyboard: TextInputType.phone, ltr: true, alignEnd: true)),
+            AppField(
+              isRequired: true,
+              label: '${i18n.t('auth', 'ob_welcome')} ${user?.firstName ?? ''}، ${i18n.t('auth', 'ob_app_label')}',
+              child: WizardInput(key: const Key('ob_pharmacy_name'), controller: _name, hint: i18n.t('auth', 'pharmacy_name_ph')),
+            ),
+            const SizedBox(height: 20),
+            AppField(
+              isRequired: true,
+              label: i18n.t('auth', 'ob_branch_name'),
+              child: WizardInput(key: const Key('ob_branch_name'), controller: _branchName, hint: i18n.t('auth', 'ob_branch_name_ph')),
+            ),
+            const SizedBox(height: 20),
+            AppField(
+              label: i18n.t('auth', 'ob_branch_code'),
+              hint: i18n.t('auth', 'ob_optional'),
+              child: WizardInput(key: const Key('ob_branch_code'), controller: _branchCode, hint: i18n.t('auth', 'ob_branch_code_ph'), ltr: true, alignEnd: true),
+            ),
+          ],
+        );
+      case 2:
+        // التواصل كله اختياري — الهاتف والبريد والموقع
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            AppField(
+              label: i18n.t('auth', 'ob_phone'),
+              hint: i18n.t('auth', 'ob_optional'),
+              child: WizardInput(controller: _phone, hint: i18n.t('auth', 'ob_phone_ph'), keyboard: TextInputType.phone, ltr: true, alignEnd: true),
+            ),
+            const SizedBox(height: 20),
+            AppField(
+              label: i18n.t('auth', 'ob_email'),
+              hint: i18n.t('auth', 'ob_optional'),
+              child: WizardInput(key: const Key('ob_email'), controller: _email, hint: i18n.t('auth', 'ob_email_ph'), keyboard: TextInputType.emailAddress, ltr: true, alignEnd: true),
+            ),
             const SizedBox(height: 20),
             AppField(
               label: i18n.t('auth', 'ob_website'),
@@ -394,8 +512,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             Row(
               children: <Widget>[
                 Expanded(
-                  child: AppField(label: i18n.t('auth', 'ob_city'),
-                      child: WizardInput(controller: _city, hint: i18n.t('auth', 'ob_city_ph'))),
+                  child: AppField(
+                    label: i18n.t('auth', 'ob_city'),
+                    hint: i18n.t('auth', 'ob_optional'),
+                    child: WizardInput(controller: _city, hint: i18n.t('auth', 'ob_city_ph')),
+                  ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
@@ -444,12 +565,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     final theme = Theme.of(context);
     final rows = <(String, String, int)>[
       (i18n.t('auth', 'pharmacy_name'), _name.text, 1),
+      // Task 79: صفوف الفرع الرئيسي والبريد في المراجعة أيضًا
+      (i18n.t('auth', 'ob_branch_name_short'), _branchName.text, 1),
+      (i18n.t('auth', 'ob_branch_code'), _branchCode.text, 1),
       (i18n.t('auth', 'ob_phone'), _phone.text, 2),
+      (i18n.t('auth', 'ob_email'), _email.text, 2),
       (i18n.t('auth', 'ob_website'), _website.text, 2),
       (i18n.t('auth', 'ob_city'), _city.text, 3),
       (i18n.t('auth', 'ob_state'), _state.text, 3),
       (i18n.t('auth', 'ob_address1'), _address1.text, 3),
-      // الويب: 8 صفوف — عنوان إضافي بين العنوان الأول والبريد
+      // الويب: عنوان إضافي بين العنوان الأول والبريد
       (i18n.t('auth', 'ob_address2'), _address2.text, 3),
       (i18n.t('auth', 'ob_postal'), _postal.text, 3),
     ];
@@ -468,7 +593,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               child: Row(
                 children: <Widget>[
                   SizedBox(
-                    width: 112, // w-28
+                    width: 128, // w-32 — يتسع ل«البريد الإلكتروني» و«اسم الفرع»
                     child: Text(rows[i].$1, style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55))),
                   ),
                   Expanded(

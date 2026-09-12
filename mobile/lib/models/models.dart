@@ -812,15 +812,16 @@ class MigrationItem {
 // ------------------------------------------------------------- الإعداد والتوريد
 
 class OnboardingProfile {
-  final String name, phone, website, addressLine1, addressLine2, city, stateProvince, postalCode, country;
+  final String name, phone, website, email, addressLine1, addressLine2, city, stateProvince, postalCode, country;
   OnboardingProfile({required this.name, required this.phone, required this.website,
-      required this.addressLine1, required this.addressLine2, required this.city,
-      required this.stateProvince, required this.postalCode, required this.country});
+      required this.email, required this.addressLine1, required this.addressLine2,
+      required this.city, required this.stateProvince, required this.postalCode, required this.country});
 
   factory OnboardingProfile.fromJson(Map<String, dynamic> j) => OnboardingProfile(
         name: sOf(j['name']),
         phone: sOf(j['phone']),
         website: sOf(j['website']),
+        email: sOf(j['email']),
         addressLine1: sOf(j['address_line1']),
         addressLine2: sOf(j['address_line2']),
         city: sOf(j['city']),
@@ -830,14 +831,29 @@ class OnboardingProfile {
       );
 }
 
+/// بيانات الفرع الرئيسي للحفظ المسبق في معالج الإعداد (Task 79) — نفس الحقول
+/// التي تعرضها صفحة تعديل الفرع: الاسم والكود والبريد.
+class OnboardingBranch {
+  final String name, code, email;
+  OnboardingBranch({required this.name, required this.code, required this.email});
+
+  factory OnboardingBranch.fromJson(Map<String, dynamic> j) => OnboardingBranch(
+        name: sOf(j['name']),
+        code: sOf(j['code']),
+        email: sOf(j['email']),
+      );
+}
+
 class OnboardingState {
   final bool onboardingRequired;
   final OnboardingProfile pharmacy;
-  OnboardingState({required this.onboardingRequired, required this.pharmacy});
+  final OnboardingBranch branch;
+  OnboardingState({required this.onboardingRequired, required this.pharmacy, required this.branch});
 
   factory OnboardingState.fromJson(Map<String, dynamic> j) => OnboardingState(
         onboardingRequired: bOf(j['onboarding_required']),
         pharmacy: OnboardingProfile.fromJson(mOf(j['pharmacy'])),
+        branch: OnboardingBranch.fromJson(mOf(j['branch'])),
       );
 }
 

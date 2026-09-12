@@ -1557,7 +1557,11 @@ class AppField extends StatelessWidget {
   final Widget child;
   final String? hint;
   final Widget? trailing;
-  const AppField({super.key, required this.label, required this.child, this.hint, this.trailing});
+
+  /// إجباري — يعقب التسمية بنجمة حمراء كما في نموذج الفرع على الويب
+  /// (Task 79: كل حقل يجب أن يُظهر حالته إجباري/اختياري بوضوح).
+  final bool isRequired;
+  const AppField({super.key, required this.label, required this.child, this.hint, this.trailing, this.isRequired = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1567,7 +1571,21 @@ class AppField extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  ),
+                  if (isRequired) ...<Widget>[
+                    const SizedBox(width: 3),
+                    Text('*',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: theme.colorScheme.error)),
+                  ],
+                ],
+              ),
+            ),
             if (trailing != null) trailing!,
           ],
         ),
