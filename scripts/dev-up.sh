@@ -28,11 +28,17 @@ start_pg() {
 start_backend() {
   # اقتل أي نسخة قديمة ثم أعد البناء لو الكود أحدث من الثنائي
   pkill -f pharmacy-backend 2>/dev/null; sleep 0.5
+  # أداة Go: من PATH أولًا ثم المسار القديم /tmp/go (بيئات سابقة) —
+  # مع GOPATH مستقل عن GOROOT لأن تثبيت $HOME/go يجعلهما متطابقين
+  GO_BIN="$(command -v go || true)"
+  [ -z "$GO_BIN" ] && [ -x /tmp/go/bin/go ] && GO_BIN=/tmp/go/bin/go
+  [ -n "$GO_BIN" ] || { echo "go not found"; return 1; }
+  export GOPATH="${GOPATH:-$HOME/gopath}"
   if [ -x /tmp/pharmacy-backend ]; then
     STALE=$(find backend internal -name "*.go" -newer /tmp/pharmacy-backend 2>/dev/null | head -1)
     [ -n "$STALE" ] && rm -f /tmp/pharmacy-backend
   fi
-  [ -x /tmp/pharmacy-backend ] || (cd backend && GOTOOLCHAIN=auto CGO_ENABLED=0 GOFLAGS=-mod=vendor /tmp/go/bin/go build -o /tmp/pharmacy-backend ./cmd/server) || return 1
+  [ -x /tmp/pharmacy-backend ] || (cd backend && GOTOOLCHAIN=auto CGO_ENABLED=0 GOFLAGS=-mod=vendor "$GO_BIN" build -o /tmp/pharmacy-backend ./cmd/server) || return 1
   setsid nohup /tmp/pharmacy-backend > /tmp/backend.log 2>&1 &
   for _ in $(seq 1 60); do
     curl -s -o /dev/null --max-time 2 http://localhost:8080/api/v1/health && return 0

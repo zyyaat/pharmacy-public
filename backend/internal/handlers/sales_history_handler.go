@@ -166,20 +166,10 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
                 return
         }
 
+        // Columns + scan + returns attachment live in sync_rows.go — shared
+        // with the delta-sync endpoint so the two can never drift apart.
         rows, err := h.db.Query(c.Request.Context(), `
-                SELECT s.id::text,
-                       s.invoice_number::int8,
-                       s.status::text,
-                       s.total_amount::int8,
-                       s.created_at,
-                       COALESCE(s.payment_type::text, 'cash'),
-                       COALESCE(c.name::text, ''),
-                       COALESCE(s.discount_amount::int8, 0),
-                       (SELECT COUNT(DISTINCT si.pharmacy_product_id) FROM sale_items si WHERE si.sale_id = s.id)::int8,
-                       (SELECT ROUND(COALESCE(SUM(si.quantity), 0))::int8 FROM sale_items si WHERE si.sale_id = s.id),
-                       (SELECT COALESCE(SUM(r.total_amount_piastres), 0)::int8 FROM sale_returns r WHERE r.sale_id = s.id)
-                FROM sales s
-                LEFT JOIN customers c ON c.id = s.customer_id
+                `+saleSummarySelectColumns+`
                 WHERE s.pharmacy_id = $1
                   AND (
                       $2 = ''
@@ -203,48 +193,18 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
                 return
         }
 
-        type saleSummary struct {
-                row     gin.H
-                returns []gin.H
-        }
-        sales := make([]*saleSummary, 0)
+        sales := make([]*saleSummaryRow, 0)
         saleIDs := make([]string, 0)
         for rows.Next() {
-                var (
-                        id, status             string
-                        invoiceNumber          int64
-                        totalAmount            money.Piastres
-                        createdAt              time.Time
-                        paymentType            string
-                        customerName           string
-                        discountAmount         int64
-                        productsCount          int64
-                        totalQuantityBase      int64
-                        returnedAmountPiastres int64
-                )
-                if err := rows.Scan(&id, &invoiceNumber, &status, &totalAmount, &createdAt,
-                        &paymentType, &customerName, &discountAmount,
-                        &productsCount, &totalQuantityBase, &returnedAmountPiastres); err != nil {
+                s, err := scanSaleSummaryRow(rows)
+                if err != nil {
                         rows.Close()
                         log.Printf("[SALES] scan failed: %v", err)
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
                         return
                 }
-                sales = append(sales, &saleSummary{row: gin.H{
-                        "id":                       id,
-                        "invoice_number":           invoiceNumber,
-                        "status":                   status,
-                        "total_amount_piastres":    totalAmount,
-                        "discount_amount_piastres": discountAmount,
-                        "payment_type":             paymentType,
-                        "customer_name":            customerName,
-                        "created_at":               createdAt,
-                        "products_count":           productsCount,
-                        "total_quantity_base":      totalQuantityBase,
-                        "returned_amount_piastres": returnedAmountPiastres,
-                        "returns":                  []gin.H{},
-                }})
-                saleIDs = append(saleIDs, id)
+                sales = append(sales, s)
+                saleIDs = append(saleIDs, s.ID)
         }
         rows.Close()
         if err := rows.Err(); err != nil {
@@ -253,55 +213,15 @@ func (h *Handler) ListPOSSales(c *gin.Context) {
                 return
         }
 
-        if len(saleIDs) > 0 {
-                returnRows, err := h.db.Query(c.Request.Context(), `
-                        SELECT r.sale_id::text, r.id::text, r.return_number::int8,
-                               r.total_amount_piastres::int8, r.reason, r.created_at
-                        FROM sale_returns r
-                        WHERE r.sale_id = ANY($1::uuid[])
-                        ORDER BY r.created_at ASC, r.return_number ASC
-                `, saleIDs)
-                if err != nil {
-                        log.Printf("[SALES] returns list failed: %v", err)
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
-                        return
-                }
-                bySale := make(map[string][]gin.H, len(sales))
-                for returnRows.Next() {
-                        var saleID, id, reason string
-                        var returnNumber int64
-                        var totalAmount money.Piastres
-                        var createdAt time.Time
-                        if err := returnRows.Scan(&saleID, &id, &returnNumber, &totalAmount, &reason, &createdAt); err != nil {
-                                returnRows.Close()
-                                log.Printf("[SALES] returns scan failed: %v", err)
-                                c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
-                                return
-                        }
-                        bySale[saleID] = append(bySale[saleID], gin.H{
-                                "id":                    id,
-                                "return_number":         returnNumber,
-                                "total_amount_piastres": totalAmount,
-                                "reason":                reason,
-                                "created_at":            createdAt,
-                        })
-                }
-                returnRows.Close()
-                if err := returnRows.Err(); err != nil {
-                        log.Printf("[SALES] returns rows failed: %v", err)
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
-                        return
-                }
-                for _, s := range sales {
-                        if returns, ok := bySale[s.row["id"].(string)]; ok {
-                                s.row["returns"] = returns
-                        }
-                }
+        if err := attachSaleReturns(c.Request.Context(), h.db, saleIDs, sales); err != nil {
+                log.Printf("[SALES] returns list failed: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "sales_query_failed", "message": "تعذر قراءة سجل البيع"})
+                return
         }
 
         payload := make([]gin.H, 0, len(sales))
         for _, s := range sales {
-                payload = append(payload, s.row)
+                payload = append(payload, s.Row)
         }
         c.JSON(http.StatusOK, gin.H{"data": gin.H{
                 "sales":  payload,

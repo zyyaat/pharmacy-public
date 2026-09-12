@@ -101,6 +101,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 perm := h.requirePharmacyPermission
 
                 pharmacy.GET("/context", h.GetPharmacyContext)
+                // Delta sync (offline-first smart synchronization): one cheap
+                // round-trip returns only what changed since the caller's
+                // cursor + tombstoned deletions, in row shapes identical to
+                // the list endpoints (sync_rows.go). Sections self-filter by
+                // the same permission keys as their list endpoints, so no
+                // route-level permission guard is needed — exactly like
+                // /context and /settings.
+                pharmacy.GET("/sync", h.GetPharmacySync)
                 pharmacy.GET("/dashboard/stats", perm("dashboard.view"), h.GetPharmacyDashboardStats)
                 pharmacy.GET("/dashboard/activity", perm("dashboard.view"), h.GetPharmacyDashboardActivity)
                 pharmacy.GET("/inventory", perm("inventory.view"), h.GetPharmacyInventory)
@@ -207,7 +215,9 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // registration — verifying the email OTP now opens the session immediately
 // and the pharmacy onboarding wizard ships with api_level 57; if /health
 // reports a lower value, the running backend predates the deploy).
-const APILevel = 58
+// 59 — delta sync: migration 25 (sales/customers updated_at + triggers,
+// sync_tombstones) + GET /pharmacy/sync for the mobile offline cache.
+const APILevel = 59
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

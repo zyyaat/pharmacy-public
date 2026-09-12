@@ -461,6 +461,62 @@ The frontend must not:
 - Put a secret in `NEXT_PUBLIC_*`.
 - Treat a successful page render as proof that the API request succeeded.
 
+### 7.1 Mobile offline-first cache and delta sync (api_level 59)
+
+The Flutter client (`mobile/`) carries an offline-first layer:
+
+- `core/offline.dart` — `OfflineCache`: a read-through / stale-if-error cache
+  of GET responses on encrypted storage (Keystore via
+  EncryptedSharedPreferences), plus `NetworkSignal` (the single source the
+  offline banner listens to).
+- `core/prefetch.dart` — `PrefetchService`: full cache warming after session
+  readiness (inventory, low-stock, customers, 30-day report, 3 sale pages,
+  2 movement pages), throttled by a marker inside the cache itself
+  (`minInterval` 6h). Returns `true` only for a complete run.
+- `core/sync.dart` — `SyncService` (Task 87): smart delta synchronization.
+
+Why delta sync exists: the response-level cache used to be re-downloaded
+whole on every warm — the device re-transferred data it already had, and
+server-side deletions never reached the device. The contract now:
+
+1. `GET /pharmacy/sync` (no `since`) → `{"server_time"}` only. The client
+   calls this once after a fully successful warm; **the cursor is born from
+   the server clock, never the device clock** (skew-proof).
+2. `GET /pharmacy/sync?since=<RFC3339>` → per-section deltas:
+   `inventory` / `customers` / `sales` / `movements`, each
+   `{items, deleted_ids, overflow}`. Sections are filtered by the same
+   permission keys as their list endpoints (`pharmacyAllows` mirrors
+   `requirePharmacyPermission`'s resolution order).
+3. Row shapes are byte-identical to the list endpoints because the column
+   lists, scans, and the returns attachment live in one shared file
+   (`handlers/sync_rows.go`) consumed by both. Never duplicate them.
+4. Change detection: `inventory_batches.updated_at` (bumped by every
+   sale/adjustment write), `pharmacy_products` / `global_products` triggers,
+   `sales.updated_at` + `customers.updated_at` (migration 25, triggers — the
+   returns flow always `UPDATE sales SET status`, so credit notes surface),
+   movement `created_at` (append-only).
+5. Deletions flow through `sync_tombstones` (migration 25): any future delete
+   path for a synced entity must write a tombstone in the same transaction;
+   the endpoint surfaces them as `deleted_ids` and the client retracts the
+   rows from its cached bodies.
+6. Caps (500/200/300/200) mirror the prefetch volumes. `overflow=true` means
+   the changed-set exceeded the cap → the client falls back to a full refetch
+   of that entity instead of merging a partial delta.
+7. Client merges go straight into the cached response bodies (upsert by
+   `batch_id`/`id`, delete `deleted_ids`, re-sort in the server's order,
+   re-slice paginated windows). The cursor advances only after a fully
+   successful delta — and after a bootstrap only when the warm actually ran
+   (`warm() == true`), never on a skipped/aborted warm.
+
+Time-derived fields (`days_until_expiry`, inventory `status`) are recomputed
+locally at merge time with the exact server semantics (migration 16
+precedence: out_of_stock → low_stock → expiring_soon → quarantined-sticky →
+normal), so a cached countdown never stays frozen at its last sync date.
+
+Tests: `mobile/test/offline_delta_sync_test.dart` (client contract) and
+`scripts/sync_e2e.py` (server contract against a live DB, including the
+tombstone retraction and shape-identity checks).
+
 ---
 
 ## 8. Domain and database model

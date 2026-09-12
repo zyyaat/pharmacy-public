@@ -107,6 +107,9 @@ var migrationChain = []migration{
         {
                 name: "00000000000024_sale_quantity_snapshot.sql",
         },
+        {
+                name: "00000000000025_delta_sync.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

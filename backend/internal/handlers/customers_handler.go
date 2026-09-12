@@ -43,24 +43,12 @@ func (h *Handler) ListPharmacyCustomers(c *gin.Context) {
         search := strings.TrimSpace(c.Query("search"))
         debtsOnly := c.Query("debts") == "1"
 
+        // Balance expression + scan live in sync_rows.go — shared with the
+        // delta-sync endpoint so the two can never drift apart.
         rows, err := h.db.Query(c.Request.Context(), `
                 SELECT t.id, t.name, t.phone, t.created_at, t.balance FROM (
                 SELECT c.id::text AS id, c.name::text AS name, COALESCE(c.phone::text, '') AS phone, c.created_at AS created_at,
-                       COALESCE((
-                           SELECT SUM(s.total_amount - COALESCE(r.total, 0))::int8
-                           FROM sales s
-                           LEFT JOIN (
-                               SELECT sale_id, SUM(total_amount_piastres) AS total
-                               FROM sale_returns
-                               GROUP BY sale_id
-                           ) r ON r.sale_id = s.id
-                           WHERE s.customer_id = c.id AND s.payment_type = 'credit'
-                       ), 0)
-                       - COALESCE((
-                           SELECT SUM(p.amount)::int8
-                           FROM customer_payments p
-                           WHERE p.customer_id = c.id
-                       ), 0) AS balance
+                       `+customerBalanceExpr+` AS balance
                 FROM customers c
                 WHERE c.pharmacy_id = $1
                   AND ($2 = '' OR c.name ILIKE '%' || $2 || '%' OR c.phone LIKE '%' || $2 || '%')
@@ -78,21 +66,13 @@ func (h *Handler) ListPharmacyCustomers(c *gin.Context) {
 
         customers := make([]gin.H, 0)
         for rows.Next() {
-                var id, name, phone string
-                var createdAt time.Time
-                var balance money.Piastres
-                if err := rows.Scan(&id, &name, &phone, &createdAt, &balance); err != nil {
+                customer, err := scanCustomerRow(rows)
+                if err != nil {
                         log.Printf("[CUSTOMERS] list scan failed: %v", err)
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "customers_query_failed", "message": "تعذر قراءة حسابات العملاء"})
                         return
                 }
-                customers = append(customers, gin.H{
-                        "id":                id,
-                        "name":              name,
-                        "phone":             phone,
-                        "balance_piastres":  balance,
-                        "created_at":        createdAt,
-                })
+                customers = append(customers, customer)
         }
         if err := rows.Err(); err != nil {
                 log.Printf("[CUSTOMERS] list rows failed: %v", err)

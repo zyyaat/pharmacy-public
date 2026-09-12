@@ -118,16 +118,10 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
                 return
         }
 
+        // Columns + scan live in sync_rows.go — shared with the delta-sync
+        // endpoint so the two can never drift apart.
         const query = `
-                SELECT batch_id::text, pharmacy_product_id::text, global_product_id::text,
-                       COALESCE(product_name::text, ''),
-                       COALESCE(generic_name::text, ''), COALESCE(brand_name::text, ''), COALESCE(barcode::text, ''),
-                       COALESCE(dosage_form::text, ''), COALESCE(strength::text, ''),
-                       COALESCE(batch_number::text, ''), COALESCE(unit::text, ''),
-                       ROUND(quantity)::int8, cost_per_unit::int8, total_cost::int8,
-                       expiry_date, days_until_expiry, selling_price::int8, COALESCE(partial_selling_price::int8, 0),
-                       COALESCE(packaging_type::text, ''), COALESCE(units_per_box::int8, 1), ROUND(min_stock_level)::int8,
-                       COALESCE(branch_name::text, ''), COALESCE(status::text, 'normal')
+                SELECT ` + inventorySelectColumns + `
                 FROM current_inventory
                 WHERE pharmacy_id = $1
                 ORDER BY product_name, expiry_date NULLS LAST
@@ -142,37 +136,12 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 
         items := make([]map[string]interface{}, 0)
         for rows.Next() {
-                var (
-                        batchID, pharmacyProductID, globalProductID, name, dosageForm, batchNumber, unit, status string
-                        genericName, brandName, barcode, strength, branchName, expiryDate, daysUntilExpiry       interface{}
-                        quantity, minStockLevel                                                                 int64
-                        costPerUnit, totalCost, sellingPrice, partialSellingPrice                               int64
-                        packagingType                                                                            string
-                        unitsPerBox                                                                              int64
-                )
-                if err := rows.Scan(
-                        &batchID, &pharmacyProductID, &globalProductID, &name,
-                        &genericName, &brandName, &barcode, &dosageForm, &strength,
-                        &batchNumber, &unit, &quantity, &costPerUnit, &totalCost,
-                        &expiryDate, &daysUntilExpiry, &sellingPrice, &partialSellingPrice,
-                        &packagingType, &unitsPerBox, &minStockLevel,
-                        &branchName, &status,
-                ); err != nil {
+                item, err := scanInventoryRow(rows)
+                if err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not read inventory"})
                         return
                 }
-                items = append(items, gin.H{
-                        "batch_id": batchID, "pharmacy_product_id": pharmacyProductID,
-                        "global_product_id": globalProductID, "product_name": name,
-                        "generic_name": genericName, "brand_name": brandName, "barcode": barcode,
-                        "dosage_form": dosageForm, "strength": strength, "batch_number": batchNumber,
-                        "unit": unit, "quantity": quantity, "cost_per_unit_piastres": costPerUnit,
-                        "total_cost_piastres": totalCost, "expiry_date": expiryDate,
-                        "days_until_expiry": daysUntilExpiry, "selling_price_piastres": sellingPrice,
-                        "partial_selling_price_piastres": partialSellingPrice, "packaging_type": packagingType,
-                        "units_per_box": unitsPerBox, "min_stock_level": minStockLevel,
-                        "branch_name": branchName, "status": status,
-                })
+                items = append(items, item)
         }
         if err := rows.Err(); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not read inventory"})

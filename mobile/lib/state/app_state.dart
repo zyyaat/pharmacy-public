@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/offline.dart';
-import '../core/prefetch.dart';
 import '../core/session_store.dart';
+import '../core/sync.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
 
@@ -82,12 +82,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Task 84 — إحماء الكاش بعد جاهزية الجلسة (المرحلة 4): fire-and-forget
-  /// لا يمس الإقلاع ولا الواجهة — يملأ الكاش بسجلات شهر تقريبًا ليعمل
-  /// التنقل وتصدير PDF بلا إنترنت من أول لحظة. البوابة (enabled) تُفعّل
-  /// من main() فقط، والخدمة لا ترمي أبدًا.
+  /// Task 84/87 — المزامنة الذكية بعد جاهزية الجلسة: fire-and-forget لا
+  /// يمس الإقلاع ولا الواجهة. أول مرة: إحماء كامل (سجلات شهر تقريبًا) +
+  /// مؤشر من ساعة الخادم. كل فتح تالٍ مع اتصال: طلب /sync واحد يجلب فقط
+  /// ما تغيّر منذ المؤشر + قبور الحذف — بلا إعادة تنزيل ما هو مخزّن
+  /// أصلًا. البوابة (PrefetchService.enabled) تُفعّل من main() فقط،
+  /// والخدمة لا ترمي أبدًا.
   void _warmPrefetch() {
-    unawaited(PrefetchService.instance.maybeWarm());
+    unawaited(SyncService.instance.maybeRun());
   }
 
   // ------------------------------------------------------------- الجلسة

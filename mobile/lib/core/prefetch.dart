@@ -77,12 +77,15 @@ class PrefetchService {
   }
 
   /// يشغّل الإحماء بالكامل. لا يرمي أبدًا — كل خطأ يوقف العمل بهدوء.
-  Future<void> warm() async {
-    if (NetworkSignal.offline.value) return;
+  /// تعيد true فقط عند إكمال المسار كاملًا (تجاهلها يعني: تخطي بسبب
+  /// النافذة/الانقطاع أو قطع في المنتصف — والكاش حينها ليس محدّثًا بالكامل
+  /// فلا يجوز لمؤشر المزامنة التدريجية أن يتقدم على أساسه — Task 87).
+  Future<bool> warm() async {
+    if (NetworkSignal.offline.value) return false;
 
     final int? last = await _readMarker();
     final int nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (last != null && nowMs - last < minInterval.inMilliseconds) return;
+    if (last != null && nowMs - last < minInterval.inMilliseconds) return false;
 
     bool aborted = false;
 
@@ -134,7 +137,9 @@ class PrefetchService {
     // العلامة بعد نجاح كامل فقط — المسار المقطوع يعاد كاملًا لاحقًا
     if (!aborted) {
       await _cache.put(_markerKey, <String, dynamic>{'at': nowMs});
+      return true;
     }
+    return false;
   }
 
   /// طول قائمة داخل استجابة خام (data.sales / data.movements) — 0 عند أي شك
