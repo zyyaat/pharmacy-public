@@ -17,6 +17,10 @@ import 'home_screen.dart';
 /// ترحيل المنتجات — خطوات صفحة الويب الثلاث: رفع الملف (+ نموذج جاهز
 /// للتنزيل) ← المعاينة والربط (اقتراح تلقائي قابل للتعديل) ← التقرير.
 /// خيارات الترحيل (التكرار، وحدة الكمية، ترحيل المخزون) كما هي تمامًا.
+/// Task 76 — حالة التحميل كالويب: هيكل الصفحة (العنوان + مؤشر الخطوات +
+/// البطاقات) ظاهر دائمًا، والانشغال يظهر داخل منطقة الرفع (سبينر +
+/// parsingFile بدل الأيقونة وdropHere) وداخل زر التنفيذ (loading) —
+/// لا سبينر يستبدل الصفحة كلها.
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
   @override
@@ -241,9 +245,8 @@ class _ImportScreenState extends State<ImportScreen> {
     final int step = _report != null ? 3 : (_preview != null ? 2 : 1);
     return Scaffold(
       appBar: AppBar(title: Text(i18n.t('settings', 'importTitle'))),
-      body: _busy
-          ? const LoadingBox()
-          : ListView(
+      // Task 76: الهيكل ظاهر دائمًا — الانشغال يُعرض داخل البطاقات نفسها
+      body: ListView(
               padding: const EdgeInsets.all(16),
               children: <Widget>[
                 Text(i18n.t('settings', 'importSubtitle'),
@@ -267,13 +270,23 @@ class _ImportScreenState extends State<ImportScreen> {
       AppCard(
         child: Column(
           children: <Widget>[
-            Icon(Icons.upload_file_outlined, size: 40, color: theme.colorScheme.primary.withOpacity(0.6)),
+            // منطقة الرفع كالويب: السبينر يحلّ محل الأيقونة أثناء التحليل (page.tsx:224-229)
+            if (_busy)
+              const LoaderSpin(size: 28)
+            else
+              Icon(Icons.upload_file_outlined, size: 40, color: theme.colorScheme.primary.withOpacity(0.6)),
             const SizedBox(height: 10),
             Text(i18n.t('settings', 'uploadTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
             const SizedBox(height: 4),
             Text(i18n.t('settings', 'uploadDesc', {'rows': Fmt.number(5000)}), style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55)), textAlign: TextAlign.center),
             const SizedBox(height: 14),
-            PrimaryButton(i18n.t('settings', 'dropHere'), icon: Icons.folder_open_outlined, onPressed: _pickFile),
+            // أثناء التحليل: نص parsingFile وزر معطّل — كـ busy ? parsingFile : dropHere
+            PrimaryButton(
+              _busy ? i18n.t('settings', 'parsingFile') : i18n.t('settings', 'dropHere'),
+              icon: _busy ? null : Icons.folder_open_outlined,
+              loading: _busy,
+              onPressed: _busy ? null : _pickFile,
+            ),
             const SizedBox(height: 6),
             Text(i18n.t('settings', 'firstRowHint'), style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
             const SizedBox(height: 14),
@@ -426,13 +439,19 @@ class _ImportScreenState extends State<ImportScreen> {
         Text(_error!, style: TextStyle(fontSize: 12, color: theme.colorScheme.error), textAlign: TextAlign.center),
       ],
       const SizedBox(height: 14),
+      // زر التنفيذ يدور داخلًا أثناء الانشغال (busy → Loader2 في الويب) ويُقفل
       PrimaryButton(
         i18n.t('settings', 'executeBtn', {'rows': Fmt.number(preview.validEstimate)}),
-        icon: Icons.upload,
-        onPressed: _execute,
+        icon: _busy ? null : Icons.upload,
+        loading: _busy,
+        onPressed: _busy ? null : _execute,
       ),
       const SizedBox(height: 8),
-      SecondaryButton(i18n.t('settings', 'anotherFile'), icon: Icons.refresh, onPressed: _reset),
+      SecondaryButton(
+        i18n.t('settings', 'anotherFile'),
+        icon: Icons.refresh,
+        onPressed: _busy ? null : _reset,
+      ),
     ];
   }
 

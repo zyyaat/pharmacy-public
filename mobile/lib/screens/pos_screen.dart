@@ -1421,7 +1421,8 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
               else if (_list.isEmpty)
                 Text(i18n.t('common', 'no_options'), style: const TextStyle(fontSize: 14), textAlign: TextAlign.center)
               else
-                ..._list.take(8).map((Customer c) => ListTile(
+                // الويب slice(0, 6) — أول 6 عملاء فقط في نتائج البحث
+                ..._list.take(6).map((Customer c) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                       title: Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
