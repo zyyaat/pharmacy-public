@@ -599,12 +599,30 @@ class _POSScreenState extends State<POSScreen> {
     final i18n = AppI18n.instance;
     final theme = Theme.of(context);
     final bool busy = _resolving || (_searching && _suggestions.isEmpty);
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // Task 77 — Scaffold إلزامي: الشاشة تُفتح أيضًا بمسار مستقل (فتح نقطة البيع
+    // من المخزون) خارج HomeShell، وبغيابه كان DefaultTextStyle الجذري في
+    // MaterialApp — نمط التحذير الأحمر/الأصفر (material/app.dart:33 «fallback
+    // style; consider putting your text in a Material») يسرّب لكل نصوص الشاشة:
+    // عناوين حمراء وتسطير أصفر مزدوج وخلفية سوداء. نفس عُرف بقية الشاشات المستقلة.
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(i18n.t('pos', 'title')),
+        actions: <Widget>[
+          // شعار الهوية — كعمود الشريط الجانبي بالويب
+          const Padding(
+            padding: EdgeInsetsDirectional.only(end: 16),
+            child: BrandMark(size: 28),
+          ),
+        ],
+      ),
+      // جسم الشاشة كما هو — الصفحة في الويب تبدأ بوصف صغير تحت العنوان
+      body: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       children: <Widget>[
-        PageHeader(i18n.t('pos', 'title'), subtitle: i18n.t('pos', 'subtitle'),
-            actions: <Widget>[BrandMark(size: 30)]), // شعار الهوية — كعمود الشريط الجانبي بالويب
-        const SizedBox(height: 24),
+        Text(i18n.t('pos', 'subtitle'),
+            style: TextStyle(
+                fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55))),
+        const SizedBox(height: 20),
 
         // بطاقة إضافة الأصناف
         AppCard(
@@ -1000,6 +1018,7 @@ class _POSScreenState extends State<POSScreen> {
         ),
         const SizedBox(height: 24),
       ],
+      ),
     );
   }
 }
