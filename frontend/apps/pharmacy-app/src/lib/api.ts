@@ -940,6 +940,7 @@ export interface OnboardingProfile {
   name: string
   phone: string
   website: string
+  email: string
   address_line1: string
   address_line2: string
   city: string
@@ -948,16 +949,29 @@ export interface OnboardingProfile {
   country: string
 }
 
+/** Task 80 — بيانات الفرع الرئيسي للحفظ المسبق في المعالج: نفس الحقول
+ * التي تعرضها صفحة تعديل الفرع حتى يكون ما يُجمع أول مرة هو ما يُعرض لاحقًا. */
+export interface OnboardingBranch {
+  name: string
+  code: string
+  email: string
+}
+
 export interface OnboardingState {
   onboarding_required: boolean
   pharmacy: OnboardingProfile
+  branch: OnboardingBranch
 }
 
 export const onboardingApi = {
   get() {
     return apiFetch<{ data: OnboardingState }>('/pharmacy/onboarding')
   },
-  update(payload: Partial<Omit<OnboardingProfile, 'country'>> & { complete?: boolean }) {
+  update(payload: Partial<Omit<OnboardingProfile, 'country'>> & {
+    branch_name?: string
+    branch_code?: string
+    complete?: boolean
+  }) {
     return apiFetch<{ data: OnboardingState }>('/pharmacy/onboarding', {
       method: 'PUT',
       body: JSON.stringify(payload),

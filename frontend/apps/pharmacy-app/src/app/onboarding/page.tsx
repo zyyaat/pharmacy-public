@@ -4,18 +4,30 @@
 // من البريد (الجلسة تُفتح هناك فورًا)، سؤال واحد في كل شاشة، شريط تقدم،
 // تخطي للخطوات الاختيارية، مراجعة أخيرة ثم احتفال بالدخول إلى اللوحة.
 // البيانات تُحفظ مرة واحدة في النهاية عبر PUT /pharmacy/onboarding.
+//
+// Task 80 — درس شكوى «بيانات المعالج ليست الكاملة اللي في صفحة تعديل الفرع»:
+// المعالج كان يجمع حقول الصيدلية الثمانية فقط ولا يلمس الفرع الرئيسي، فيفتح
+// المالك صفحة تعديل الفرع بعده ويجد اسم الفرع وكوده فارغين. صار الخطوة الأولى
+// تجمع اسم الفرع الرئيسي (إجباري) وكود الفرع (اختياري)، وخطوة التواصل تضيف
+// بريد الصيدلية — مطابقة لحقول صفحة تعديل الفرع من أول مرة. كل حقل يُظهر
+// حالته: نجمة حمراء للإجباري وكلمة «اختياري» لغيره، مع مفتاح تفسيري تحت
+// رأس الخطوة ورأس مُعاد تنظيمه بسطر تصنيف بلون الهوية وخط فاصل — نفس لغة
+// إصلاح تطبيق الجوال المرافق (mobile onboarding_screen.dart).
 
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClipboardList, MapPin, Phone, Store } from 'lucide-react'
 import BrandSplash from '@/components/brand-splash'
 import { useAuth } from '@/hooks/useAuth'
-import { onboardingApi } from '@/lib/api'
+import { ApiError, onboardingApi } from '@/lib/api'
 import { useT } from '@/i18n/provider'
 
 type Fields = {
   name: string
+  branch_name: string
+  branch_code: string
   phone: string
+  email: string
   website: string
   address_line1: string
   address_line2: string
@@ -26,13 +38,28 @@ type Fields = {
 
 const emptyFields: Fields = {
   name: '',
+  branch_name: '',
+  branch_code: '',
   phone: '',
+  email: '',
   website: '',
   address_line1: '',
   address_line2: '',
   city: '',
   state_province: '',
   postal_code: '',
+}
+
+// Task 80 — عنوان الحقل بحالته الصريحة: نجمة حمراء للإجباري وكلمة
+// «اختياري» لغيره — كي لا يخمّن المستخدم أبدًا ما هو مطلوب منه.
+function FieldLabel({ text, required, optionalLabel }: { text: string; required?: boolean; optionalLabel?: string }) {
+  return (
+    <span className="mb-2 block text-sm font-medium">
+      {text}
+      {required && <span className="text-destructive" aria-hidden="true"> *</span>}
+      {optionalLabel && <span className="text-xs font-normal text-muted-foreground"> ({optionalLabel})</span>}
+    </span>
+  )
 }
 
 // أحجام نقاط الاحتفال: مواقع جانبية + ألوان الهوية + تأخيرات متدرجة
@@ -70,7 +97,8 @@ export default function OnboardingPage() {
     }
   }, [authLoading, user, router])
 
-  // التعبئة المسبقة من ملف الصيدلية الحالي (اسم التسجيل موجود أصلًا)
+  // التعبئة المسبقة من ملف الصيدلية الحالي + الفرع الرئيسي (Task 80)
+  // — نفس مصادر صفحة تعديل الفرع. branch محصّن ضد خوادم قديمة لا تُعيده.
   useEffect(() => {
     if (authLoading || !user) return
     let cancelled = false
@@ -78,9 +106,13 @@ export default function OnboardingPage() {
       .then((response) => {
         if (cancelled) return
         const pharmacy = response.data.pharmacy
+        const branch = response.data.branch ?? { name: '', code: '', email: '' }
         setFields({
           name: pharmacy.name ?? '',
+          branch_name: branch.name ?? '',
+          branch_code: branch.code ?? '',
           phone: pharmacy.phone ?? '',
+          email: branch.email || pharmacy.email || '',
           website: pharmacy.website ?? '',
           address_line1: pharmacy.address_line1 ?? '',
           address_line2: pharmacy.address_line2 ?? '',
@@ -108,8 +140,13 @@ export default function OnboardingPage() {
     setFields((current) => ({ ...current, [field]: value }))
   }
 
+  // Task 80 — تحقق الخطوة الأولى: اسم الصيدلية واسم الفرع الرئيسي كلاهما
+  // إجباري (مطابق لنموذج تعديل الفرع: name + pharmacy_name مطلوبان).
   function validateStep(target: number): string {
-    if (target === 0 && fields.name.trim().length < 2) return t('ob_name_required')
+    if (target === 0) {
+      if (fields.name.trim().length < 2) return t('ob_name_required')
+      if (!fields.branch_name.trim()) return t('ob_branch_required')
+    }
     return ''
   }
 
@@ -145,10 +182,28 @@ export default function OnboardingPage() {
     setSaving(true)
     setError('')
     try {
-      await onboardingApi.update({ ...fields, complete: true })
+      await onboardingApi.update({
+        name: fields.name,
+        branch_name: fields.branch_name,
+        branch_code: fields.branch_code,
+        phone: fields.phone,
+        email: fields.email,
+        website: fields.website,
+        address_line1: fields.address_line1,
+        address_line2: fields.address_line2,
+        city: fields.city,
+        state_province: fields.state_province,
+        postal_code: fields.postal_code,
+        complete: true,
+      })
       setStep(4)
-    } catch {
-      setError(t('ob_err_save'))
+    } catch (cause) {
+      // تعارض كود الفرع له رسالته الخاصة — رسالة عامة لغيره
+      setError(
+        cause instanceof ApiError && cause.code === 'branch_code_conflict'
+          ? t('ob_code_conflict')
+          : t('ob_err_save'),
+      )
     } finally {
       setSaving(false)
     }
@@ -164,6 +219,8 @@ export default function OnboardingPage() {
   ]
   const stepTitles = [t('ob_s1_title'), t('ob_s2_title'), t('ob_s3_title'), t('ob_s4_title')]
   const stepSubs = [t('ob_s1_sub'), t('ob_s2_sub'), t('ob_s3_sub'), t('ob_s4_sub')]
+  // Task 80 — سطر التصنيف العلوي لكل خطوة: يضبط سياق العنوان قبل قراءته
+  const stepCats = [t('ob_s1_cat'), t('ob_s2_cat'), t('ob_s3_cat'), t('ob_s4_cat')]
 
   if (loadState === 'error') {
     return (
@@ -216,7 +273,10 @@ export default function OnboardingPage() {
 
   const reviewRows: { label: string; value: string; target: number }[] = [
     { label: t('pharmacy_name'), value: fields.name, target: 0 },
+    { label: t('ob_branch_name_short'), value: fields.branch_name, target: 0 },
+    { label: t('ob_branch_code'), value: fields.branch_code, target: 0 },
     { label: t('ob_phone'), value: fields.phone, target: 1 },
+    { label: t('ob_email'), value: fields.email, target: 1 },
     { label: t('ob_website'), value: fields.website, target: 1 },
     { label: t('ob_city'), value: fields.city, target: 2 },
     { label: t('ob_state'), value: fields.state_province, target: 2 },
@@ -247,39 +307,73 @@ export default function OnboardingPage() {
 
       <main className="relative mx-auto flex w-full max-w-xl flex-1 items-center">
         <div key={step} className="animate-fade-in w-full rounded-3xl border border-border bg-card p-7 shadow-2xl sm:p-10">
+          {/* رأس الخطوة — Task 80: سطر تصنيف بلون الهوية (التعريف/التواصل/الموقع/
+          المراجعة) فوق العنوان، ثم خط فاصل يفصل الرأس عن الحقول — هيكل واضح */}
           <div className="flex items-center gap-4">
             <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               {stepIcons[step]}
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-relaxed sm:text-2xl">{stepTitles[step]}</h1>
+              <p className="text-[11px] font-extrabold text-primary">{stepCats[step]}</p>
+              <h1 className="mt-0.5 text-xl font-extrabold leading-snug sm:text-2xl">{stepTitles[step]}</h1>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">{stepSubs[step]}</p>
             </div>
           </div>
 
-          <div className="mt-8 grid gap-5">
+          <div className="mt-6 border-t border-border" aria-hidden="true" />
+
+          {/* المفتاح التفسيري: الحقول المعلّمة بـ * إجبارية — مرجع سريع قبل الحقول */}
+          <p className="mt-4 flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+            <span className="text-sm font-extrabold leading-5 text-destructive" aria-hidden="true">*</span>
+            {t('ob_required_legend')}
+          </p>
+
+          <div className="mt-5 grid gap-5">
             {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive" role="alert">{error}</p>}
 
             {step === 0 && (
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium">
-                  {t('ob_welcome')} {firstName}، {t('ob_app_label')}
-                </span>
-                <input
-                  className={inputClass}
-                  autoFocus
-                  value={fields.name}
-                  onChange={(event) => update('name', event.target.value)}
-                  onKeyDown={onKeyDown}
-                  placeholder={t('pharmacy_name_ph')}
-                />
-              </label>
+              <>
+                <label className="block">
+                  <FieldLabel text={`${t('ob_welcome')} ${firstName}، ${t('ob_app_label')}`} required />
+                  <input
+                    className={inputClass}
+                    autoFocus
+                    value={fields.name}
+                    onChange={(event) => update('name', event.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder={t('pharmacy_name_ph')}
+                  />
+                </label>
+                {/* Task 80 — الفرع الرئيسي من أول مرة: الاسم إجباري والكود اختياري
+                — نفس حقول صفحة تعديل الفرع حتى لا تتفاجأ صفحة الفرع لاحقًا */}
+                <label className="block">
+                  <FieldLabel text={t('ob_branch_name')} required />
+                  <input
+                    className={inputClass}
+                    value={fields.branch_name}
+                    onChange={(event) => update('branch_name', event.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder={t('ob_branch_name_ph')}
+                  />
+                </label>
+                <label className="block">
+                  <FieldLabel text={t('ob_branch_code')} optionalLabel={t('ob_optional')} />
+                  <input
+                    className={`${inputClass} text-end`}
+                    dir="ltr"
+                    value={fields.branch_code}
+                    onChange={(event) => update('branch_code', event.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder={t('ob_branch_code_ph')}
+                  />
+                </label>
+              </>
             )}
 
             {step === 1 && (
               <>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium">{t('ob_phone')}</span>
+                  <FieldLabel text={t('ob_phone')} optionalLabel={t('ob_optional')} />
                   <input
                     className={`${inputClass} text-end`}
                     dir="ltr"
@@ -292,9 +386,19 @@ export default function OnboardingPage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium">
-                    {t('ob_website')} <span className="text-xs font-normal text-muted-foreground">({t('ob_optional')})</span>
-                  </span>
+                  <FieldLabel text={t('ob_email')} optionalLabel={t('ob_optional')} />
+                  <input
+                    className={`${inputClass} text-end`}
+                    dir="ltr"
+                    type="email"
+                    value={fields.email}
+                    onChange={(event) => update('email', event.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder={t('ob_email_ph')}
+                  />
+                </label>
+                <label className="block">
+                  <FieldLabel text={t('ob_website')} optionalLabel={t('ob_optional')} />
                   <input
                     className={`${inputClass} text-end`}
                     dir="ltr"
@@ -311,7 +415,7 @@ export default function OnboardingPage() {
               <>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium">{t('ob_city')}</span>
+                    <FieldLabel text={t('ob_city')} optionalLabel={t('ob_optional')} />
                     <input
                       className={inputClass}
                       autoFocus
@@ -322,9 +426,7 @@ export default function OnboardingPage() {
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium">
-                      {t('ob_state')} <span className="text-xs font-normal text-muted-foreground">({t('ob_optional')})</span>
-                    </span>
+                    <FieldLabel text={t('ob_state')} optionalLabel={t('ob_optional')} />
                     <input
                       className={inputClass}
                       value={fields.state_province}
@@ -335,9 +437,7 @@ export default function OnboardingPage() {
                   </label>
                 </div>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium">
-                    {t('ob_address1')} <span className="text-xs font-normal text-muted-foreground">({t('ob_optional')})</span>
-                  </span>
+                  <FieldLabel text={t('ob_address1')} optionalLabel={t('ob_optional')} />
                   <input
                     className={inputClass}
                     value={fields.address_line1}
@@ -348,9 +448,7 @@ export default function OnboardingPage() {
                 </label>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium">
-                      {t('ob_address2')} <span className="text-xs font-normal text-muted-foreground">({t('ob_optional')})</span>
-                    </span>
+                    <FieldLabel text={t('ob_address2')} optionalLabel={t('ob_optional')} />
                     <input
                       className={inputClass}
                       value={fields.address_line2}
@@ -360,9 +458,7 @@ export default function OnboardingPage() {
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium">
-                      {t('ob_postal')} <span className="text-xs font-normal text-muted-foreground">({t('ob_optional')})</span>
-                    </span>
+                    <FieldLabel text={t('ob_postal')} optionalLabel={t('ob_optional')} />
                     <input
                       className={`${inputClass} text-end`}
                       dir="ltr"
@@ -383,7 +479,7 @@ export default function OnboardingPage() {
                     key={row.label}
                     className={`flex items-center gap-3 px-4 py-3 text-sm ${index > 0 ? 'border-t border-border' : ''} ${index % 2 === 1 ? 'bg-muted/40' : ''}`}
                   >
-                    <span className="w-28 shrink-0 text-muted-foreground sm:w-36">{row.label}</span>
+                    <span className="w-32 shrink-0 text-muted-foreground sm:w-40">{row.label}</span>
                     <span className="min-w-0 flex-1 truncate font-medium" title={row.value}>
                       {row.value.trim() ? row.value : '—'}
                     </span>
