@@ -130,5 +130,16 @@
   "strip_word_two": "شريطين",
   "strip_word_many": "{count} شرائط",
   "strip_word_other": "{count} شريط",
-  "availability_box_and_strip": "{boxes} علبة و{strips}"
+  "availability_box_and_strip": "{boxes} علبة و{strips}",
+  "barcode_badge_internal": "باركود داخلي",
+  "barcode_badge_gtin": "باركود مصنع",
+  "barcode_badge_custom": "باركود مخصص",
+  "barcode_generate_button": "إنشاء باركود داخلي",
+  "barcode_generating": "جارٍ التوليد…",
+  "barcode_generate_checkbox": "توليد باركود داخلي تلقائيًا عند الحفظ",
+  "barcode_optional_hint": "اختياري — اتركه فارغًا لمنتج بلا باركود",
+  "barcode_rcn_warning": "الأكواد التي تبدأ بـ2 محجوزة للاستخدام الداخلي (GS1 RCN) — سيُصنَّف هذا الكود باركودًا داخليًا",
+  "barcode_generated_notice": "تم توليد الباركود الداخلي وحفظه للمنتج",
+  "barcode_generate_error": "تعذر توليد الباركود الداخلي",
+  "barcode_print_label": "طباعة الملصق"
 }

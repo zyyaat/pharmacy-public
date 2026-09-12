@@ -130,5 +130,16 @@
   "strip_word_two": "deux bandes",
   "strip_word_many": "{count} bandes",
   "strip_word_other": "{count} bande",
-  "availability_box_and_strip": "{boxes} et {strips}"
+  "availability_box_and_strip": "{boxes} et {strips}",
+  "barcode_badge_internal": "Code interne",
+  "barcode_badge_gtin": "Fabricant (GTIN)",
+  "barcode_badge_custom": "Code personnalisé",
+  "barcode_generate_button": "Créer un code interne",
+  "barcode_generating": "Génération…",
+  "barcode_generate_checkbox": "Générer automatiquement un code interne à l’enregistrement",
+  "barcode_optional_hint": "Facultatif — laissez vide pour un produit sans code",
+  "barcode_rcn_warning": "Les codes commençant par 2 sont réservés à l’usage interne (GS1 RCN) — ce code sera classé comme interne",
+  "barcode_generated_notice": "Code interne généré et enregistré",
+  "barcode_generate_error": "Échec de la génération du code interne",
+  "barcode_print_label": "Imprimer l’étiquette"
 }

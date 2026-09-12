@@ -413,7 +413,9 @@ func (h *Handler) GetPOSSale(c *gin.Context) {
                        si.unit_price::int8,
                        si.amount_piastres::int8,
                        COALESCE(rb.returned_qty, 0)::int8,
-                       COALESCE(rb.returned_amount, 0)::int8
+                       COALESCE(rb.returned_amount, 0)::int8,
+                       si.sale_quantity::float8,
+                       si.units_per_box_snapshot::int8
                 FROM sale_items si
                 JOIN pharmacy_products pp ON pp.id = si.pharmacy_product_id
                 JOIN global_products gp ON gp.id = pp.global_product_id
@@ -443,10 +445,13 @@ func (h *Handler) GetPOSSale(c *gin.Context) {
                         unitPrice, amount                             money.Piastres
                         returnedQty                                   int64
                         returnedAmount                                int64
+                        saleQuantity                                  *float64
+                        unitsPerBoxSnapshot                           *int64
                 )
                 if err := itemRows.Scan(&itemID, &productID, &name, &genericName, &strength, &barcode,
                         &packagingType, &unitsPerBox, &saleUnit, &batchNumber,
-                        &quantityBase, &unitPrice, &amount, &returnedQty, &returnedAmount); err != nil {
+                        &quantityBase, &unitPrice, &amount, &returnedQty, &returnedAmount,
+                        &saleQuantity, &unitsPerBoxSnapshot); err != nil {
                         itemRows.Close()
                         log.Printf("[SALES] detail items scan failed: %v", err)
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "sale_query_failed", "message": "تعذر قراءة الفاتورة"})
@@ -469,6 +474,11 @@ func (h *Handler) GetPOSSale(c *gin.Context) {
                         "returned_quantity_base":   returnedQty,
                         "returnable_quantity_base": quantityBase - returnedQty,
                         "returned_amount_piastres": returnedAmount,
+                        // Quantity snapshot (Final Decision 12): NULL for rows
+                        // written before migration 24 — clients fall back to the
+                        // documented legacy interpretation.
+                        "sale_quantity":          saleQuantity,
+                        "units_per_box_snapshot": unitsPerBoxSnapshot,
                 })
         }
         itemRows.Close()

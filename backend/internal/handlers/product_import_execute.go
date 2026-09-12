@@ -13,6 +13,7 @@ import (
         "github.com/jackc/pgx/v5/pgconn"
 
         "github.com/pharmacy-os/backend/internal/auth"
+        "github.com/pharmacy-os/backend/internal/barcode"
         "github.com/pharmacy-os/backend/internal/money"
 )
 
@@ -459,14 +460,21 @@ func (h *Handler) ExecuteProductImport(c *gin.Context) {
                                 defaultUnit = "strip"
                         }
                         var globalProductID string
+                        // barcode_type is derived mechanically even on the import
+                        // path, so the locked vocabulary stays consistent no matter
+                        // which door a code entered through (review §2.2).
+                        importBarcodeType := any(nil)
+                        if ir.barcode != "" {
+                                importBarcodeType = barcode.DeriveType(ir.barcode)
+                        }
                         err := tx.QueryRow(c.Request.Context(), `
                                 INSERT INTO global_products (
-                                        name, generic_name, dosage_form, strength, barcode, default_unit,
+                                        name, generic_name, dosage_form, strength, barcode, barcode_type, default_unit,
                                         product_category, requires_prescription, is_active, created_by
-                                ) VALUES ($1, NULLIF($2, ''), $3::dosage_form, NULLIF($4, ''), NULLIF($5, ''), $6::unit_type,
+                                ) VALUES ($1, NULLIF($2, ''), $3::dosage_form, NULLIF($4, ''), NULLIF($5, ''), $8, $6::unit_type,
                                           'medication'::product_category, 'no'::prescription_required, true, NULLIF($7, '')::uuid)
                                 RETURNING id::text
-                        `, ir.name, ir.genericName, ir.dosageForm, ir.strength, ir.barcode, defaultUnit, employeeID).Scan(&globalProductID)
+                        `, ir.name, ir.genericName, ir.dosageForm, ir.strength, ir.barcode, defaultUnit, employeeID, importBarcodeType).Scan(&globalProductID)
                         if err != nil {
                                 var pgErr *pgconn.PgError
                                 if errors.As(err, &pgErr) && pgErr.Code == "23505" {

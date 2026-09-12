@@ -79,11 +79,20 @@ export function ProductFormFields({
   onPackagingTypeChange,
   defaults = EMPTY_PRODUCT_FORM,
   showInitialStock = false,
+  /** نوع الباركود الحالي (التعديل فقط) — يقود الشارة الدلالية (Final Decision 2/5) */
+  barcodeType = '',
+  /** توليد باركود داخلي لمنتج قائم بلا باركود (التعديل فقط) */
+  onGenerateBarcode,
+  /** إظهار خيار التوليد التلقائي عند إنشاء منتج جديد بلا باركود */
+  showGenerateBarcodeOption = false,
 }: {
   packagingType: 'WHOLE_ONLY' | 'BOX_STRIP'
   onPackagingTypeChange: (type: 'WHOLE_ONLY' | 'BOX_STRIP') => void
   defaults?: ProductFormDefaults
   showInitialStock?: boolean
+  barcodeType?: string
+  onGenerateBarcode?: () => Promise<string | null>
+  showGenerateBarcodeOption?: boolean
 }) {
   const t = useT('inventory')
   // التركيز حقلان: رقم + وحدة من القائمة (طلب المستخدم: الدكتور يكتب رقم فقط
@@ -91,6 +100,29 @@ export function ProductFormFields({
   // وما لا يُفكّك يبقى كاملاً تحت وحدة «أخرى».
   const strengthSplit = splitStrength(defaults.strength)
   const [strengthUnit, setStrengthUnit] = useState(strengthSplit.unit)
+  // حالة حقل الباركود: متابعة الفراغ لإظهار خيار التوليد + تحذير بادئة 2
+  // (الأكواد الداخلية RCN — استبعاد بنيوي من GTIN، مراجعة §1.2)
+  const [barcodeValue, setBarcodeValue] = useState(defaults.barcode)
+  const [generatingBarcode, setGeneratingBarcode] = useState(false)
+  const barcodeEmpty = barcodeValue.trim() === ''
+  const rcnWarning = /^2\d{12}$/.test(barcodeValue.trim())
+
+  const badge =
+    barcodeType === 'RCN_EAN13'
+      ? { label: t('barcode_badge_internal'), className: 'border-primary/40 bg-primary/10 text-primary' }
+      : barcodeType === 'GTIN_EAN13' || barcodeType === 'GTIN_UPCA'
+        ? { label: t('barcode_badge_gtin'), className: 'border-border bg-muted text-muted-foreground' }
+        : barcodeType
+          ? { label: t('barcode_badge_custom'), className: 'border-border bg-muted text-muted-foreground' }
+          : null
+
+  async function handleGenerate() {
+    if (!onGenerateBarcode || generatingBarcode) return
+    setGeneratingBarcode(true)
+    const generated = await onGenerateBarcode()
+    if (generated) setBarcodeValue(generated)
+    setGeneratingBarcode(false)
+  }
 
   return (
     <>
@@ -133,7 +165,44 @@ export function ProductFormFields({
               </div>
             </div>
           </div>
-          <Input name="barcode" label={t('label_barcode')} required defaultValue={defaults.barcode} placeholder={t('placeholder_barcode')} />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-foreground/80">{t('label_barcode')}</label>
+              {badge && <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span>}
+            </div>
+            <Input
+              name="barcode"
+              defaultValue={defaults.barcode}
+              placeholder={t('placeholder_barcode')}
+              dir="ltr"
+              inputMode="numeric"
+              onChange={(event) => setBarcodeValue(event.currentTarget.value)}
+            />
+            <div className="space-y-1">
+              {rcnWarning && (
+                <p className="text-xs text-amber-600">{t('barcode_rcn_warning')}</p>
+              )}
+              {barcodeEmpty && showGenerateBarcodeOption && (
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input type="checkbox" name="generate_barcode" defaultChecked className="h-3.5 w-3.5" />
+                  {t('barcode_generate_checkbox')}
+                </label>
+              )}
+              {barcodeEmpty && onGenerateBarcode && (
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={generatingBarcode}
+                  className="text-xs font-semibold text-primary underline-offset-4 hover:underline disabled:opacity-50"
+                >
+                  {generatingBarcode ? t('barcode_generating') : t('barcode_generate_button')}
+                </button>
+              )}
+              {barcodeEmpty && !showGenerateBarcodeOption && !onGenerateBarcode && (
+                <p className="text-xs text-muted-foreground">{t('barcode_optional_hint')}</p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

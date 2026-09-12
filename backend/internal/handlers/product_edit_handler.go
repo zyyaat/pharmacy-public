@@ -10,6 +10,7 @@ import (
         "github.com/jackc/pgx/v5/pgconn"
 
         "github.com/pharmacy-os/backend/internal/auth"
+        "github.com/pharmacy-os/backend/internal/barcode"
         "github.com/pharmacy-os/backend/internal/money"
 )
 
@@ -44,17 +45,17 @@ func (h *Handler) GetPharmacyProduct(c *gin.Context) {
         }
 
         var (
-                name, genericName, barcode, packagingType string
-                strength, dosageForm                      string
-                unitsPerBox                               int64
-                costPrice, sellingPrice                   money.Piastres
-                partialPrice                              *int64
-                minStockLevel                             int64
-                isActive                                  bool
+                name, genericName, barcode, barcodeType, packagingType string
+                strength, dosageForm                                   string
+                unitsPerBox                                            int64
+                costPrice, sellingPrice                                money.Piastres
+                partialPrice                                           *int64
+                minStockLevel                                          int64
+                isActive                                               bool
         )
         err := h.db.QueryRow(c.Request.Context(), `
                 SELECT COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''),
-                       COALESCE(gp.barcode::text, ''),
+                       COALESCE(gp.barcode::text, ''), COALESCE(gp.barcode_type::text, ''),
                        COALESCE(gp.strength::text, ''), COALESCE(gp.dosage_form::text, 'tablet'),
                        COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int8, 1),
                        pp.cost_price::int8, pp.selling_price::int8, pp.partial_selling_price::int8,
@@ -63,7 +64,7 @@ func (h *Handler) GetPharmacyProduct(c *gin.Context) {
                 JOIN global_products gp ON gp.id = pp.global_product_id
                 WHERE pp.id = $1::uuid AND pp.pharmacy_id = $2
         `, idFromParam(c, "id"), pharmacyID).
-                Scan(&name, &genericName, &barcode, &strength, &dosageForm, &packagingType, &unitsPerBox,
+                Scan(&name, &genericName, &barcode, &barcodeType, &strength, &dosageForm, &packagingType, &unitsPerBox,
                         &costPrice, &sellingPrice, &partialPrice, &minStockLevel, &isActive)
         if errors.Is(err, pgx.ErrNoRows) {
                 c.JSON(http.StatusNotFound, gin.H{"error": "product_not_found", "message": "المنتج غير موجود في هذه الصيدلية"})
@@ -75,7 +76,7 @@ func (h *Handler) GetPharmacyProduct(c *gin.Context) {
         }
         c.JSON(http.StatusOK, gin.H{"data": gin.H{
                 "id": idFromParam(c, "id"), "name": name, "generic_name": genericName,
-                "barcode": barcode, "strength": strength, "dosage_form": dosageForm,
+                "barcode": barcode, "barcode_type": barcodeType, "strength": strength, "dosage_form": dosageForm,
                 "packaging_type": packagingType,
                 "units_per_box": unitsPerBox, "cost_price_piastres": costPrice,
                 "selling_price_piastres": sellingPrice,
@@ -115,10 +116,11 @@ func (h *Handler) UpdatePharmacyProduct(c *gin.Context) {
         boxCost := money.Piastres(request.CostPricePiastres)
         boxPrice := money.Piastres(request.SellingPricePiastres)
         validMoney := boxCost.Valid() && boxPrice.Valid() && request.MinStockLevel >= 0
-        if request.Name == "" || request.Barcode == "" ||
+        // Barcode optional on edit too (parity with creation and import).
+        if request.Name == "" ||
                 (request.PackagingType != packagingWholeOnly && request.PackagingType != packagingBoxStrip) ||
                 !validMoney {
-                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_product", "message": "يرجى إدخال اسم المنتج والباركود والأسعار والقيم غير السالبة"})
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_product", "message": "يرجى إدخال اسم المنتج والأسعار والقيم غير السالبة"})
                 return
         }
         if request.PackagingType == packagingWholeOnly {
@@ -156,15 +158,17 @@ func (h *Handler) UpdatePharmacyProduct(c *gin.Context) {
 
         // Lock the pharmacy product together with its catalog row and verify
         // ownership in the same statement: a product of another pharmacy is
-        // indistinguishable from a missing one (404 for both).
-        var globalProductID string
+        // indistinguishable from a missing one (404 for both). The current
+        // barcode is read in the same breath so a replacement (or removal)
+        // can be audit-logged with its previous value.
+        var globalProductID, previousBarcode string
         err = tx.QueryRow(c.Request.Context(), `
-                SELECT pp.global_product_id::text
+                SELECT pp.global_product_id::text, COALESCE(gp.barcode::text, '')
                 FROM pharmacy_products pp
                 JOIN global_products gp ON gp.id = pp.global_product_id
                 WHERE pp.id = $1::uuid AND pp.pharmacy_id = $2
-                FOR UPDATE
-        `, productID, principal.PharmacyID).Scan(&globalProductID)
+                FOR UPDATE OF gp
+        `, productID, principal.PharmacyID).Scan(&globalProductID, &previousBarcode)
         if errors.Is(err, pgx.ErrNoRows) {
                 c.JSON(http.StatusNotFound, gin.H{"error": "product_not_found", "message": "المنتج غير موجود في هذه الصيدلية"})
                 return
@@ -174,13 +178,22 @@ func (h *Handler) UpdatePharmacyProduct(c *gin.Context) {
                 return
         }
 
+        barcodeType := ""
+        if request.Barcode != "" {
+                barcodeType = barcode.DeriveType(request.Barcode)
+        }
+        var barcodeTypeArg any
+        if barcodeType != "" {
+                barcodeTypeArg = barcodeType
+        }
+
         if _, err := tx.Exec(c.Request.Context(), `
                 UPDATE global_products
-                SET name = $2, generic_name = NULLIF($3, ''), barcode = $4,
-                    strength = NULLIF($5, ''), dosage_form = $6
+                SET name = $2, generic_name = NULLIF($3, ''), barcode = NULLIF($4, ''),
+                    barcode_type = $5, strength = NULLIF($6, ''), dosage_form = $7
                 WHERE id = $1::uuid
         `, globalProductID, request.Name, request.GenericName, request.Barcode,
-                request.Strength, request.DosageForm); err != nil {
+                barcodeTypeArg, request.Strength, request.DosageForm); err != nil {
                 var pgErr *pgconn.PgError
                 if errors.As(err, &pgErr) && pgErr.Code == "23505" {
                         c.JSON(http.StatusConflict, gin.H{"error": "barcode_already_exists", "message": "هذا الباركود مستخدم من قبل منتج آخر"})
@@ -192,6 +205,21 @@ func (h *Handler) UpdatePharmacyProduct(c *gin.Context) {
                 }
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "product_update_failed", "message": "تعذر حفظ بيانات المنتج"})
                 return
+        }
+
+        // Replacement or removal of a barcode is a conscious decision in the
+        // edit form — record it with the old and new values (Final Decision
+        // 14: barcode.replaced). Generation never happens here.
+        if previousBarcode != "" && previousBarcode != request.Barcode {
+                if auditErr := writeAuditLog(c.Request.Context(), tx, principal,
+                        "barcode.replaced", "update", "global_product", globalProductID,
+                        map[string]any{
+                                "old_barcode": previousBarcode, "new_barcode": request.Barcode,
+                                "new_barcode_type": barcodeType, "product_name": request.Name,
+                        },
+                        "استبدال باركود المنتج: " + request.Name); auditErr != nil {
+                        auditFailure("barcode.replaced", auditErr)
+                }
         }
 
         if _, err := tx.Exec(c.Request.Context(), `
@@ -222,7 +250,7 @@ func (h *Handler) UpdatePharmacyProduct(c *gin.Context) {
 
         c.JSON(http.StatusOK, gin.H{"data": gin.H{
                 "id": productID, "name": request.Name, "generic_name": request.GenericName,
-                "barcode": request.Barcode, "strength": request.Strength, "dosage_form": request.DosageForm,
+                "barcode": request.Barcode, "barcode_type": barcodeType, "strength": request.Strength, "dosage_form": request.DosageForm,
                 "packaging_type": request.PackagingType,
                 "units_per_box": request.UnitsPerBox,
                 "cost_price_piastres": boxCost, "selling_price_piastres": boxPrice,

@@ -54,6 +54,7 @@ export const PAGE_PERMISSIONS: Record<string, string[]> = {
 export const SETTINGS_SECTION_PERMISSIONS: Record<string, string[]> = {
   '/settings/import': ['inventory.import'],
   '/settings/receipts': ['settings.receipts'],
+  '/settings/labels': ['settings.labels'],
   '/settings/database': [],
 }
 

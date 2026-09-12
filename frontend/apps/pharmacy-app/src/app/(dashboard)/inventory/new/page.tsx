@@ -31,6 +31,7 @@ export default function NewProductPage() {
 
     const value: CreatePharmacyProductInput = {
       ...common.values,
+      generate_barcode: data.get('generate_barcode') === 'on',
       initial_boxes: Number(data.get('initial_boxes') || 0),
       initial_strips: packagingType === 'BOX_STRIP' ? Number(data.get('initial_strips') || 0) : 0,
       batch_number: String(data.get('batch_number') || '').trim(),
@@ -58,7 +59,7 @@ export default function NewProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <ProductFormFields packagingType={packagingType} onPackagingTypeChange={setPackagingType} showInitialStock />
+        <ProductFormFields packagingType={packagingType} onPackagingTypeChange={setPackagingType} showInitialStock showGenerateBarcodeOption />
 
         {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-3">

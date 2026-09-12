@@ -231,6 +231,13 @@ class ApiClient {
   Future<void> updateProduct(String id, Map<String, dynamic> payload) =>
       _send('PUT', '/pharmacy/products/$id', body: payload);
 
+  /// توليد باركود داخلي خادمي لمنتج قائم بلا باركود (القرار النهائي 6) —
+  /// يُولّد في معاملة الخادم عبر sequence ذرية ويعيد الرمز المولَّد.
+  Future<String> generateProductBarcode(String id) async {
+    final body = await _send('POST', '/pharmacy/products/$id/barcode/generate');
+    return sOf(unwrapMap(body)['barcode']);
+  }
+
   /// Task 68-i (B) — ضبط المخزون يدعم idempotency عبر ترويسة Idempotency-Key
   /// حصريًا (backend pharmacy_dashboard_handler.go:216 يقرأ الترويسة ولا يقرأ
   /// حقل الجسم) — تُرسل الترويسة ويبقى حقل الجسم للتوافق الخلفي.

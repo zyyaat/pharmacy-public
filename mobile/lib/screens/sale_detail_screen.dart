@@ -106,25 +106,20 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     return i18n.t('sales', packagingType == 'BOX_STRIP' ? 'unitStrip' : 'unitUnit');
   }
 
-  /// formatBaseQuantity — عدد بالوحدة الأساسية بصيغة الجمع العربية
-  String _baseQuantity(String packagingType, int quantity) {
-    final i18n = AppI18n.instance;
-    final isStrip = packagingType == 'BOX_STRIP';
-    if (quantity == 1) return i18n.t('sales', isStrip ? 'oneStrip' : 'oneUnit');
-    if (quantity == 2) return i18n.t('sales', isStrip ? 'twoStrips' : 'twoUnits');
-    return i18n.t('sales', isStrip ? 'manyStrips' : 'manyUnits', {'count': Fmt.number(quantity)});
-  }
-
-  /// formatSoldQuantity — سطر البيع: سطور العلبة تُعرض بعدد العلب، وسطور
-  /// الشريط بعدد الشرائط (لا «وحدة» إجمالية دائمًا كما كان سابقًا).
-  String _soldQuantity(String saleUnit, String packagingType, int unitsPerBox, int quantityBase) {
-    final i18n = AppI18n.instance;
-    if (saleUnit == 'box') {
-      if (quantityBase == 1) return i18n.t('sales', 'oneBox');
-      if (quantityBase == 2) return i18n.t('sales', 'twoBoxes');
-      return i18n.t('sales', 'manyBoxes', {'count': Fmt.number(quantityBase)});
-    }
-    return _baseQuantity(packagingType, quantityBase);
+  /// formatSoldQuantity عبر المنسق الموحد SSOT (القرار النهائي 12) — سطر
+  /// البيع يعرض نية الكاشير من الـsnapshot عند توفره، وإلا fallback موثق.
+  String _soldQuantity(String saleUnit, String packagingType, int unitsPerBox, int quantityBase,
+      {double? saleQuantity}) {
+    return SoldQuantity.text(
+      SoldQuantity.intent(
+        saleUnit: saleUnit,
+        packagingType: packagingType,
+        unitsPerBox: unitsPerBox,
+        quantityBase: quantityBase,
+        saleQuantity: saleQuantity,
+      ),
+      AppI18n.instance,
+    );
   }
 
   /// boxConversionHint — «العلبة = N شريط» لحقول الاسترجاع
@@ -289,7 +284,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${i18n.t('sales', 'sold', {'quantity': _soldQuantity(it.saleUnit, it.packagingType, it.unitsPerBox, it.quantityBase)})}'
+                                  '${i18n.t('sales', 'sold', {'quantity': _soldQuantity(it.saleUnit, it.packagingType, it.unitsPerBox, it.quantityBase, saleQuantity: it.saleQuantity)})}'
                                   '${_boxHint(it.packagingType, it.unitsPerBox) != null ? ' · ${_boxHint(it.packagingType, it.unitsPerBox)}' : ''}',
                                   style: TextStyle(
                                       fontSize: 11,

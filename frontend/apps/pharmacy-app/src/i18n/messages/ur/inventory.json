@@ -130,5 +130,16 @@
   "strip_word_two": "دو پٹیاں",
   "strip_word_many": "{count} پٹیاں",
   "strip_word_other": "{count} پٹی",
-  "availability_box_and_strip": "{boxes} اور {strips}"
+  "availability_box_and_strip": "{boxes} اور {strips}",
+  "barcode_badge_internal": "اندرونی بارکوڈ",
+  "barcode_badge_gtin": "مینوفیکچرر (GTIN)",
+  "barcode_badge_custom": "کسٹم کوڈ",
+  "barcode_generate_button": "اندرونی بارکوڈ بنائیں",
+  "barcode_generating": "بنایا جا رہا ہے…",
+  "barcode_generate_checkbox": "محفوظ کرتے وقت خودکار اندرونی بارکوڈ بنائیں",
+  "barcode_optional_hint": "اختیاری — بغیر بارکوڈ پروڈکٹ کے لیے خالی چھوڑیں",
+  "barcode_rcn_warning": "2 سے شروع ہونے والے کوڈ اندرونی استعمال کے لیے مخصوص ہیں (GS1 RCN) — یہ کوڈ اندرونی شمار ہوگا",
+  "barcode_generated_notice": "اندرونی بارکوڈ بنا کر محفوظ ہو گیا",
+  "barcode_generate_error": "اندرونی بارکوڈ نہیں بن سکا",
+  "barcode_print_label": "لیبل پرنٹ کریں"
 }

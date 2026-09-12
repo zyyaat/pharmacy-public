@@ -130,5 +130,16 @@
   "strip_word_two": "two strips",
   "strip_word_many": "{count} strips",
   "strip_word_other": "{count} strip",
-  "availability_box_and_strip": "{boxes} and {strips}"
+  "availability_box_and_strip": "{boxes} and {strips}",
+  "barcode_badge_internal": "Internal barcode",
+  "barcode_badge_gtin": "Manufacturer (GTIN)",
+  "barcode_badge_custom": "Custom code",
+  "barcode_generate_button": "Create internal barcode",
+  "barcode_generating": "Generating…",
+  "barcode_generate_checkbox": "Generate an internal barcode automatically on save",
+  "barcode_optional_hint": "Optional — leave empty for a product without a barcode",
+  "barcode_rcn_warning": "Codes starting with 2 are reserved for internal use (GS1 RCN) — this code will be classified as internal",
+  "barcode_generated_notice": "Internal barcode generated and saved",
+  "barcode_generate_error": "Failed to generate the internal barcode",
+  "barcode_print_label": "Print label"
 }

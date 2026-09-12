@@ -503,6 +503,46 @@ The distinction is intentional:
 Inventory writes should use database transactions and create an auditable
 movement record instead of silently overwriting quantities.
 
+### Barcodes and labels (Task 86)
+
+Barcodes live on `global_products.barcode` with a locked, server-derived
+`barcode_type` vocabulary (`GTIN_EAN13 | GTIN_UPCA | RCN_EAN13 | CODE128 |
+OTHER`, CHECK-constrained in migration 22). Generated codes are INTERNAL
+RCN EAN-13s: `20 + 10-digit platform sequence + Mod-10`, drawn from the
+atomic `product_internal_barcode_seq` inside the writing transaction and
+retried on `23505`. Uniqueness for ALL writes (generated and manual) stays
+enforced by the unique partial index on `global_products.barcode`.
+
+- Generation is server-only: `POST /pharmacy/products/:id/barcode/generate`
+  (single) and `POST /pharmacy/barcodes/bulk-generate` (batch, skips
+  products that already have a code), both under
+  `inventory.manage_products`. The create form accepts an optional
+  `generate_barcode` flag; the barcode field itself is optional everywhere
+  (creation, edit, import) matching the import contract.
+- `inventory_batches.barcode` is intentionally dormant (documented in the
+  migration): POS resolves `global_products.barcode` only, and the batch is
+  chosen server-side by FEFO. Do not merge the two barcode domains.
+- Label templates live in `pharmacies.settings` JSONB under the `labels`
+  namespace (same pattern as the receipt settings): a central size registry
+  (35x15, 35x25, 50x25, 58x30 mm), immutable system templates, and named
+  custom templates. Template management is gated by the `settings.labels`
+  permission (migration 23). Label printing is browser-based
+  (`@page` sized in mm) — no server rendering, no direct Bluetooth printing.
+- Invoice quantity display is snapshot-based (migration 24):
+  `sale_items.sale_quantity` + `sale_items.units_per_box_snapshot` freeze
+  the cashier's intent at write time, so later packaging edits never
+  reinterpret historical invoices. The display rule set (sale intent, not
+  forced unit conversion) is implemented once per platform
+  (`frontend/apps/*/src/lib/quantity.ts` and `mobile/lib/core/format.dart`
+  `SoldQuantity`) and pinned by the SHARED golden vectors in
+  `scripts/golden_quantity_vectors.json`, executed by both
+  `scripts/run_golden_quantity_vectors.js` and
+  `mobile/test/quantity_golden_test.dart`. The formatter is display-only:
+  money, discounts and returns keep reading `base_quantity`/piastres.
+- Audit events `barcode.generated`, `barcode.bulk_generated`,
+  `barcode.replaced` and `label_template.updated` are written by the
+  handlers themselves (first writers of `audit_logs`).
+
 ### Attendance and audit
 
 Attendance belongs to employees and branches. Audit data should explain who

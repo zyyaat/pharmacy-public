@@ -130,5 +130,16 @@
   "strip_word_two": "iki şerit",
   "strip_word_many": "{count} şerit",
   "strip_word_other": "{count} şerit",
-  "availability_box_and_strip": "{boxes} ve {strips}"
+  "availability_box_and_strip": "{boxes} ve {strips}",
+  "barcode_badge_internal": "İç barkod",
+  "barcode_badge_gtin": "Üretici (GTIN)",
+  "barcode_badge_custom": "Özel kod",
+  "barcode_generate_button": "İç barkod oluştur",
+  "barcode_generating": "Üretiliyor…",
+  "barcode_generate_checkbox": "Kaydederken otomatik iç barkod üret",
+  "barcode_optional_hint": "İsteğe bağlı — barkodsuz ürün için boş bırakın",
+  "barcode_rcn_warning": "2 ile başlayan kodlar iç kullanım içindir (GS1 RCN) — bu kod iç barkod olarak sınıflandırılır",
+  "barcode_generated_notice": "İç barkod üretildi ve kaydedildi",
+  "barcode_generate_error": "İç barkod üretilemedi",
+  "barcode_print_label": "Etiketi yazdır"
 }

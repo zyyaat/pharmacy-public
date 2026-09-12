@@ -249,10 +249,13 @@ class Product {
 
 class ProductDetail {
   final String id, name, genericName, strength, barcode, dosageForm, packagingType;
+  /// النوع المقفل المشتق خادميًا (GTIN_EAN13/RCN_EAN13/…) — شارة «داخلي»
+  final String barcodeType;
   final int unitsPerBox, costPricePiastres, sellingPricePiastres, partialSellingPricePiastres, minStockLevel, stock;
   final bool isActive, boxStrip;
   ProductDetail({required this.id, required this.name, required this.genericName,
-      required this.strength, required this.barcode, required this.dosageForm,
+      required this.strength, required this.barcode, required this.barcodeType,
+      required this.dosageForm,
       required this.packagingType, required this.unitsPerBox,
       required this.costPricePiastres, required this.sellingPricePiastres,
       required this.partialSellingPricePiastres, required this.minStockLevel,
@@ -265,6 +268,7 @@ class ProductDetail {
         genericName: sOf(j['generic_name']),
         strength: sOf(j['strength']),
         barcode: sOf(j['barcode']),
+        barcodeType: sOf(j['barcode_type']),
         dosageForm: sOf(j['dosage_form']),
         packagingType: sOf(j['packaging_type'], 'WHOLE_ONLY'),
         unitsPerBox: iOf(j['units_per_box'], 1),
@@ -407,12 +411,16 @@ class SaleItemRow {
   final String packagingType, saleUnit, batchNumber;
   final int unitsPerBox, quantityBase, unitPricePiastres, amountPiastres;
   final int returnedQuantityBase, returnableQuantityBase, returnedAmountPiastres;
+  /// snapshot نية البيع (migration 24) — null للصفوف القديمة قبل المهاجرة
+  final double? saleQuantity;
+  final int? unitsPerBoxSnapshot;
   SaleItemRow({required this.saleItemId, required this.productId, required this.productName,
       required this.genericName, required this.strength, required this.barcode,
       required this.packagingType, required this.saleUnit, required this.batchNumber,
       required this.unitsPerBox, required this.quantityBase, required this.unitPricePiastres,
       required this.amountPiastres, required this.returnedQuantityBase,
-      required this.returnableQuantityBase, required this.returnedAmountPiastres});
+      required this.returnableQuantityBase, required this.returnedAmountPiastres,
+      this.saleQuantity, this.unitsPerBoxSnapshot});
 
   factory SaleItemRow.fromJson(Map<String, dynamic> j) => SaleItemRow(
         saleItemId: sOf(j['sale_item_id']),
@@ -431,6 +439,8 @@ class SaleItemRow {
         returnedQuantityBase: iOf(j['returned_quantity_base']),
         returnableQuantityBase: iOf(j['returnable_quantity_base']),
         returnedAmountPiastres: iOf(j['returned_amount_piastres']),
+        saleQuantity: j['sale_quantity'] == null ? null : (j['sale_quantity'] as num).toDouble(),
+        unitsPerBoxSnapshot: j['units_per_box_snapshot'] == null ? null : iOf(j['units_per_box_snapshot']),
       );
 }
 

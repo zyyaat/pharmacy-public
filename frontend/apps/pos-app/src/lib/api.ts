@@ -286,6 +286,49 @@ export interface PharmacyAttendance {
   status: string
 }
 
+// ==== نظام الباركود والملصقات (Final Decision 7) ====
+
+/** مقاس من السجل المركزي للقياسات (mm) */
+export interface LabelSize {
+  id: string
+  width_mm: number
+  height_mm: number
+  name: string
+}
+
+/** قالب ملصق — قوالب النظام (system) تُدار من الكود ولا تُخزن */
+export interface LabelTemplate {
+  id: string
+  name: string
+  system: boolean
+  size_id: string
+  fields: string[]
+  font_scale: number
+  show_pharmacy: boolean
+}
+
+/** حزمة قراءة لوحة الملصقات: السجل + القوالب المدمجة */
+export interface LabelSettingsData {
+  default_template_id: string
+  templates: LabelTemplate[]
+  sizes: LabelSize[]
+  fields: string[]
+}
+
+/** حمولة حفظ القوالب المخصصة (القوالب النظامية تُتجاهل خادميًا) */
+export interface LabelSettingsUpdate {
+  default_template_id: string
+  templates: Array<{
+    id?: string
+    name: string
+    system?: boolean
+    size_id: string
+    fields: string[]
+    font_scale: number
+    show_pharmacy: boolean
+  }>
+}
+
 export const pharmacyApi = {
   getContext() {
     return apiFetch<PharmacyContext>('/pharmacy/context')
@@ -299,8 +342,12 @@ export const pharmacyApi = {
   getInventory() {
     return apiFetch<{ data: PharmacyInventoryItem[] }>('/pharmacy/inventory')
   },
-  listProducts(search = '') {
-    return apiFetch<{ data: PharmacyProduct[] }>(`/pharmacy/products${search ? `?search=${encodeURIComponent(search)}` : ''}`)
+  listProducts(search = '', missingBarcode = false) {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (missingBarcode) params.set('missing_barcode', 'true')
+    const query = params.toString()
+    return apiFetch<{ data: PharmacyProduct[] }>(`/pharmacy/products${query ? `?${query}` : ''}`)
   },
   createProduct(input: CreatePharmacyProductInput) {
     return apiFetch<{ data: { id: string; initial_base_quantity: number } }>('/pharmacy/products', {
@@ -315,6 +362,28 @@ export const pharmacyApi = {
     return apiFetch<{ data: PharmacyProductDetail }>(`/pharmacy/products/${productId}`, {
       method: 'PUT',
       body: JSON.stringify(input),
+    })
+  },
+  // ==== نظام الباركود (Final Decisions 1/4/6/7) ====
+  generateProductBarcode(productId: string) {
+    return apiFetch<{ data: { pharmacy_product_id: string; global_product_id: string; barcode: string; barcode_type: string; internal: boolean } }>(
+      `/pharmacy/products/${productId}/barcode/generate`,
+      { method: 'POST' },
+    )
+  },
+  bulkGenerateBarcodes(ids: string[]) {
+    return apiFetch<{ data: { requested: number; generated: number; items: Array<{ pharmacy_product_id: string; status: string; reason?: string; barcode?: string; barcode_type?: string }> } }>(
+      '/pharmacy/barcodes/bulk-generate',
+      { method: 'POST', body: JSON.stringify({ ids }) },
+    )
+  },
+  getLabelSettings() {
+    return apiFetch<{ data: LabelSettingsData }>('/pharmacy/settings/labels')
+  },
+  updateLabelSettings(payload: LabelSettingsUpdate) {
+    return apiFetch<{ data: { labels: { default_template_id: string; templates: LabelTemplate[] } } }>('/pharmacy/settings/labels', {
+      method: 'PUT',
+      body: JSON.stringify({ labels: payload }),
     })
   },
   adjustBatchStock(batchId: string, delta: number, reason: string, idempotencyKey: string) {
@@ -489,6 +558,8 @@ export interface PharmacyProduct {
   /** تركيز الدواء (500mg…) — يُعرض بجانب الاسم في الاقتراحات والسلة والإيصال */
   strength: string
   barcode: string
+  /** النوع المقفل المشتق خادميًا: GTIN_EAN13 | GTIN_UPCA | RCN_EAN13 | CODE128 | OTHER — فارغ = بلا باركود */
+  barcode_type: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
   selling_price_piastres: number
@@ -518,6 +589,8 @@ export interface CreatePharmacyProductInput {
   dosage_form: string
   strength: string
   barcode: string
+  /** طلب توليد باركود داخلي خادمي عند الفراغ (Final Decision 6) */
+  generate_barcode?: boolean
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
   cost_price_piastres: number
@@ -538,6 +611,7 @@ export interface PharmacyProductDetail {
   /** تركيز الدواء (500mg…) — حقول الإضافة نفسها في صفحة التعديل */
   strength: string
   barcode: string
+  barcode_type: string
   packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
   units_per_box: number
   cost_price_piastres: number
@@ -696,6 +770,9 @@ export interface POSSaleItemRow {
   returned_quantity_base: number
   returnable_quantity_base: number
   returned_amount_piastres: number
+  /** snapshot نية البيع (Final Decision 12) — NULL للصفوف القديمة قبل مهاجرة 24 */
+  sale_quantity: number | null
+  units_per_box_snapshot: number | null
 }
 
 export interface POSSaleDetail {

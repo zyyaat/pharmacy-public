@@ -130,5 +130,16 @@
   "strip_word_two": "dos tiras",
   "strip_word_many": "{count} tiras",
   "strip_word_other": "{count} tira",
-  "availability_box_and_strip": "{boxes} y {strips}"
+  "availability_box_and_strip": "{boxes} y {strips}",
+  "barcode_badge_internal": "Código interno",
+  "barcode_badge_gtin": "Fabricante (GTIN)",
+  "barcode_badge_custom": "Código personalizado",
+  "barcode_generate_button": "Crear código interno",
+  "barcode_generating": "Generando…",
+  "barcode_generate_checkbox": "Generar un código interno automáticamente al guardar",
+  "barcode_optional_hint": "Opcional — déjelo vacío para un producto sin código",
+  "barcode_rcn_warning": "Los códigos que empiezan por 2 están reservados para uso interno (GS1 RCN) — este código se clasificará como interno",
+  "barcode_generated_notice": "Código interno generado y guardado",
+  "barcode_generate_error": "No se pudo generar el código interno",
+  "barcode_print_label": "Imprimir etiqueta"
 }

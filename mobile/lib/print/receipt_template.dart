@@ -10,6 +10,8 @@ import '../core/format.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
 
+export '../core/format.dart' show SoldQuantity;
+
 // ------------------------------------------------------------- ثوابت المظهر
 
 /// px/[3mm] وpy/[4mm] بالويب — عرض mm في CSS = mm × 96/25.4
@@ -81,24 +83,20 @@ class ReceiptTemplate extends StatelessWidget {
     return clean;
   }
 
-  /// trim — receipt-template.tsx:47-49: صحيح بلا كسور، وإلا كسران ثم إسقاط الأصفار
-  static String _trimQuantity(num value) {
-    final double v = value.toDouble();
-    if (v == v.truncateToDouble()) return v.truncate().toString();
-    String s = v.toStringAsFixed(2);
-    s = s.replaceAll(RegExp(r'\.?0+$'), '');
-    return s;
-  }
-
-  /// displayQuantity — receipt-template.tsx:41-45: الشريط كما هو، والعلبة =
-  /// quantity_base ÷ units_per_box (الخطأ القديم كان عرض الـ base كعلب)
+  /// displayQuantity عبر المنسق الموحد SSOT (القرار النهائي 12) — نفس
+  /// lib/quantity.ts + format.dart SoldQuantity: نية البيع من الـsnapshot
+  /// عند توفره وإلا fallback القص، بلا أي منطق عرض محلي ثالث.
   static String _displayQuantity(SaleItemRow item, AppI18n i18n) {
-    if (item.saleUnit != 'box') {
-      return i18n.t('pos', 'qtyStrip', {'count': _trimQuantity(item.quantityBase)});
-    }
-    final double boxes =
-        item.unitsPerBox > 0 ? item.quantityBase / item.unitsPerBox : item.quantityBase.toDouble();
-    return i18n.t('pos', 'qtyBox', {'count': _trimQuantity(boxes)});
+    return SoldQuantity.text(
+      SoldQuantity.intent(
+        saleUnit: item.saleUnit,
+        packagingType: item.packagingType,
+        unitsPerBox: item.unitsPerBox,
+        quantityBase: item.quantityBase,
+        saleQuantity: item.saleQuantity,
+      ),
+      i18n,
+    );
   }
 
   /// receiptDate — fmtDateTime(iso, {dateStyle:'short', timeStyle:'short'}):

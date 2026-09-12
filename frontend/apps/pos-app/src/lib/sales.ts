@@ -11,6 +11,7 @@
 import type { POSSaleStatus } from './api'
 import { fmtDate } from '@/i18n/format'
 import { runtimeTranslator } from '@/i18n/runtime'
+import { soldQuantityIntent, type SoldLineInput, type QuantityIntent } from './quantity'
 
 export function saleStatusLabel(status: string): string {
   const t = runtimeTranslator('sales')
@@ -62,15 +63,46 @@ export function formatBaseQuantity(packagingType: string, quantity: number): str
   return isStrip ? t('manyStrips', { count: quantity }) : t('manyUnits', { count: quantity })
 }
 
-/** How the line was sold: box lines show the box count, strip lines the strip count. */
-export function formatSoldQuantity(saleUnit: 'box' | 'strip', packagingType: string, unitsPerBox: number, quantityBase: number): string {
+/** كيفية العرض من نية الكمية عبر قواعد الجمع العربية الموحدة (SSOT §6). */
+function formatIntent(intent: QuantityIntent): string {
   const t = runtimeTranslator('sales')
-  if (saleUnit === 'box') {
-    if (quantityBase === 1) return t('oneBox')
-    if (quantityBase === 2) return t('twoBoxes')
-    return t('manyBoxes', { count: quantityBase })
+  if (intent.unit === 'box') {
+    if (intent.count === 1) return t('oneBox')
+    if (intent.count === 2) return t('twoBoxes')
+    return t('manyBoxes', { count: intent.count })
   }
-  return formatBaseQuantity(packagingType, quantityBase)
+  if (intent.unit === 'strip') {
+    if (intent.count === 1) return t('oneStrip')
+    if (intent.count === 2) return t('twoStrips')
+    return t('manyStrips', { count: intent.count })
+  }
+  if (intent.count === 1) return t('oneUnit')
+  if (intent.count === 2) return t('twoUnits')
+  return t('manyUnits', { count: intent.count })
+}
+
+/**
+ * عرض سطر مبيع من مدخله الكامل — الواجهة الوحيدة للقوالب والصفحات (SSOT).
+ * الصفوف الجديدة تُقرأ من snapshot الخادم، والقديمة عبر fallback موثق.
+ */
+export function formatSoldLine(line: SoldLineInput): string {
+  return formatIntent(soldQuantityIntent(line))
+}
+
+/**
+ * How the line was sold: box lines show the box count, strip lines the
+ * strip count. Backward-compatible positional wrapper around formatSoldLine;
+ * the old implementation had a real bug (displayed base as boxes on box
+ * lines) — passing the snapshot through saleQuantity fixes new rows.
+ */
+export function formatSoldQuantity(
+  saleUnit: 'box' | 'strip',
+  packagingType: string,
+  unitsPerBox: number,
+  quantityBase: number,
+  saleQuantity?: number | null,
+): string {
+  return formatSoldLine({ sale_unit: saleUnit, packaging_type: packagingType, units_per_box: unitsPerBox, quantity_base: quantityBase, sale_quantity: saleQuantity })
 }
 
 /** "1 box = 10 strips" hint for the return input. */

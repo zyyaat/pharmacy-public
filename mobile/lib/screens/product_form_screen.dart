@@ -82,6 +82,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _isActive = true;
   bool _saving = false;
   String? _error;
+  // نظام الباركود (Final Decision 6): شارة النوع + زر التوليد للتعديل
+  // وخيار التوليد التلقائي عند الإنشاء بلا باركود.
+  String _barcodeType = '';
+  bool _generatingBarcode = false;
+  bool _autoGenerateBarcode = true;
 
   bool get _isEdit => widget.existing != null;
 
@@ -112,6 +117,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _dosage = _resolveDosage(p?.dosageForm);
     _boxStrip = p?.boxStrip ?? true;
     _isActive = p?.isActive ?? true;
+    _barcodeType = p?.barcodeType ?? '';
     // Task 68-b (I): اقتراح سعر الشريط عند مغادرة سعر البيع/عدد الشرائط
     // (نفس onBlur في الويب — product-form-fields.tsx:168/196)
     _sellingFocus = FocusNode()..addListener(_onPriceFocusChanged);
@@ -214,6 +220,37 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() => _expiry.text = Fmt.isoDay(picked));
   }
 
+  /// توليد باركود داخلي لمنتج قائم بلا باركود — خادمي حصراً عبر sequence
+  /// ذرية (القرار النهائي 4)، والرمز يُعرض في الحقل فورًا بشارة «داخلي».
+  Future<void> _generateBarcode() async {
+    if (_generatingBarcode || !_isEdit) return;
+    setState(() {
+      _generatingBarcode = true;
+      _error = null;
+    });
+    try {
+      final code = await ApiClient.instance.generateProductBarcode(widget.existing!.id);
+      if (!mounted) return;
+      setState(() {
+        _barcode.text = code;
+        _barcodeType = 'RCN_EAN13';
+        _generatingBarcode = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = AppI18n.instance.error(e.code, AppI18n.instance.t('inventory', 'barcode_generate_error'));
+        _generatingBarcode = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = AppI18n.instance.t('inventory', 'barcode_generate_error');
+        _generatingBarcode = false;
+      });
+    }
+  }
+
   Future<void> _save() async {
     final i18n = AppI18n.instance;
     if (!_formKey.currentState!.validate() || _saving) return;
@@ -284,6 +321,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           'dosage_form': _dosage,
           'strength': strength,
           'barcode': _barcode.text.trim(),
+          // الخيار الظاهر عند فراغ الباركود: توليد خادمي داخل معاملة الإنشاء
+          if (_barcode.text.trim().isEmpty) 'generate_barcode': _autoGenerateBarcode,
           'packaging_type': _boxStrip ? 'BOX_STRIP' : 'WHOLE_ONLY',
           'units_per_box': _boxStrip ? unitsPerBox : 1,
           'cost_price_piastres': cost,
@@ -316,6 +355,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   @override
   Widget build(BuildContext context) {
     final i18n = AppI18n.instance;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(_isEdit ? i18n.t('inventory', 'edit_title') : i18n.t('inventory', 'new_title'))),
       body: Form(
@@ -385,14 +425,83 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // Task 68-b (I): الباركود مطلوب مثل required في الويب
+                  // الباركود اختياري (مواءمة مع الاستيراد) — شارة النوع الدلالي
+                  // تُظهر «داخلي/مصنع/مخصص» بدل إظهار رمز النوع الخام (القرار 2/5)
                   AppField(
                     label: i18n.t('inventory', 'label_barcode'),
-                    child: AppInput(
-                      controller: _barcode,
-                      hint: i18n.t('inventory', 'placeholder_barcode'),
-                      keyboard: TextInputType.text,
-                      validator: (String? v) => (v == null || v.trim().isEmpty) ? ' ' : null,
+                    trailing: _barcodeType.isEmpty
+                        ? null
+                        : Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _barcodeType == 'RCN_EAN13'
+                                  ? theme.colorScheme.primary.withOpacity(0.10)
+                                  : theme.colorScheme.onSurface.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              i18n.t(
+                                'inventory',
+                                _barcodeType == 'RCN_EAN13'
+                                    ? 'barcode_badge_internal'
+                                    : (_barcodeType == 'GTIN_EAN13' || _barcodeType == 'GTIN_UPCA'
+                                        ? 'barcode_badge_gtin'
+                                        : 'barcode_badge_custom'),
+                              ),
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                                  color: _barcodeType == 'RCN_EAN13'
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurface.withOpacity(0.6)),
+                            ),
+                          ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        AppInput(
+                          controller: _barcode,
+                          hint: i18n.t('inventory', 'placeholder_barcode'),
+                          keyboard: TextInputType.text,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        if (RegExp(r'^2\d{12}$').hasMatch(_barcode.text.trim()))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(i18n.t('inventory', 'barcode_rcn_warning'),
+                                style: TextStyle(fontSize: 11, color: Colors.amber.shade800)),
+                          ),
+                        if (_barcode.text.trim().isEmpty && !_isEdit) ...<Widget>[
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () => setState(() => _autoGenerateBarcode = !_autoGenerateBarcode),
+                            child: Row(
+                              children: <Widget>[
+                                SizedBox(
+                                  width: 16, height: 16,
+                                  child: Checkbox(value: _autoGenerateBarcode, onChanged: (bool? v) => setState(() => _autoGenerateBarcode = v ?? true)),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(i18n.t('inventory', 'barcode_generate_checkbox'),
+                                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_barcode.text.trim().isEmpty && _isEdit) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: TextButton(
+                              onPressed: _generatingBarcode ? null : _generateBarcode,
+                              child: Text(
+                                _generatingBarcode ? i18n.t('inventory', 'barcode_generating') : i18n.t('inventory', 'barcode_generate_button'),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

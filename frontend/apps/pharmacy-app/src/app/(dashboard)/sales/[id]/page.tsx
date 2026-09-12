@@ -241,7 +241,7 @@ export default function SaleDetailPage() {
                     {item.generic_name && <p className="text-xs text-muted-foreground">{item.generic_name}</p>}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{item.batch_number || '—'}</TableCell>
-                  <TableCell>{formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base)}</TableCell>
+                  <TableCell>{formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base, item.sale_quantity)}</TableCell>
                   <TableCell>{formatPiastres(item.unit_price_piastres)}</TableCell>
                   <TableCell className="font-semibold">{formatPiastres(item.amount_piastres)}</TableCell>
                   <TableCell className={item.returned_quantity_base > 0 ? 'font-medium text-destructive' : 'text-muted-foreground'}>
@@ -321,7 +321,7 @@ export default function SaleDetailPage() {
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {t('sold', { quantity: formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base) })}
+                        {t('sold', { quantity: formatSoldQuantity(item.sale_unit, item.packaging_type, item.units_per_box, item.quantity_base, item.sale_quantity) })}
                         {hint ? ` · ${hint}` : ''}
                       </p>
                     </div>

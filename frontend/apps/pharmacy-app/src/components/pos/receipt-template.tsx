@@ -2,10 +2,10 @@
 
 import { formatPiastres } from '@/lib/money'
 import { extraStrengthLabel } from '@/lib/product'
+import { formatSoldLine } from '@/lib/sales'
 import type { ReceiptSettings, POSSaleDetail } from '@/lib/api'
 import { useT } from '@/i18n/provider'
 import { fmtDateTime } from '@/i18n/format'
-import type { Translator } from '@/i18n/translator'
 
 export interface ReceiptPharmacy {
   name: string
@@ -30,22 +30,14 @@ export interface ReceiptData {
     /** تركيز الدواء — يُعرض بجانب الاسم إن لم يكن الاسم يحمل جرعة أصلاً */
     strength: string
     sale_unit: 'box' | 'strip'
+    packaging_type?: 'WHOLE_ONLY' | 'BOX_STRIP'
     units_per_box: number
     quantity_base: number
+    /** snapshot نية البيع (Final Decision 12) — يمرر للمنسق الموحد SSOT */
+    sale_quantity?: number | null
     unit_price_piastres: number
     amount_piastres: number
   }>
-}
-
-/** كمية مقروءة للعميل: بيع بالعلبة يُقسّم على وحدات العلبة، والشريط كما هو */
-function displayQuantity(item: ReceiptData['items'][number], t: Translator) {
-  if (item.sale_unit === 'strip') return t('qtyStrip', { count: trim(item.quantity_base) })
-  const boxes = item.units_per_box > 0 ? item.quantity_base / item.units_per_box : item.quantity_base
-  return t('qtyBox', { count: trim(boxes) })
-}
-
-function trim(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function receiptDate(iso: string) {
@@ -122,6 +114,15 @@ export default function ReceiptTemplate({
       <div className="space-y-1">
         {data.items.map((item, index) => {
           const strengthLabel = extraStrengthLabel(item.product_name, item.strength)
+          // الكمية عبر المنسق الموحد SSOT (Final Decision 12): نية البيع من
+          // الـsnapshot عند توفره وإلا fallback القص — بلا منسق محلي ثالث.
+          const quantityText = formatSoldLine({
+            sale_unit: item.sale_unit,
+            packaging_type: item.packaging_type ?? 'BOX_STRIP',
+            units_per_box: item.units_per_box,
+            quantity_base: item.quantity_base,
+            sale_quantity: item.sale_quantity,
+          })
           return compact ? (
             <div key={index}>
               <p className="font-semibold leading-snug">
@@ -129,7 +130,7 @@ export default function ReceiptTemplate({
                 {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
               </p>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-neutral-700">{displayQuantity(item, t)} × {formatPiastres(item.unit_price_piastres)}</span>
+                <span className="text-neutral-700">{quantityText} × {formatPiastres(item.unit_price_piastres)}</span>
                 <span className="font-bold">{formatPiastres(item.amount_piastres)}</span>
               </div>
             </div>
@@ -139,7 +140,7 @@ export default function ReceiptTemplate({
                 {item.product_name}
                 {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
               </span>
-              <span className="shrink-0 whitespace-nowrap text-neutral-700">{displayQuantity(item, t)}</span>
+              <span className="shrink-0 whitespace-nowrap text-neutral-700">{quantityText}</span>
               <span className="w-[22%] shrink-0 whitespace-nowrap text-start font-bold">{formatPiastres(item.amount_piastres)}</span>
             </div>
           )
@@ -202,8 +203,10 @@ export function saleDetailToReceipt(detail: POSSaleDetail): ReceiptData {
       product_name: item.product_name,
       strength: item.strength ?? '',
       sale_unit: item.sale_unit,
+      packaging_type: item.packaging_type,
       units_per_box: item.units_per_box,
       quantity_base: item.quantity_base,
+      sale_quantity: item.sale_quantity,
       unit_price_piastres: item.unit_price_piastres,
       amount_piastres: item.amount_piastres,
     })),

@@ -111,6 +111,12 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.POST("/products", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.CreatePharmacyProduct)
                 pharmacy.GET("/products/:id", perm("inventory.view"), h.GetPharmacyProduct)
                 pharmacy.PUT("/products/:id", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.UpdatePharmacyProduct)
+                // Internal barcode generation (barcode system v1): a single
+                // product gets a barcode from its form, the settings batch
+                // panel fills many at once. Both write under the same product
+                // management permission and generate server-side only.
+                pharmacy.POST("/products/:id/barcode/generate", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.GenerateProductBarcode)
+                pharmacy.POST("/barcodes/bulk-generate", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.manage_products"), h.BulkGenerateProductBarcodes)
                 // استيراد المنتجات من ملف جداول (ترحيل البرامج القديمة)
                 pharmacy.GET("/imports/products/template", perm("inventory.import"), h.ProductImportTemplate)
                 pharmacy.POST("/imports/products/preview", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.PreviewProductImport)
@@ -158,6 +164,12 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // mutation guard + CSRF as every other mutating endpoint.
                 pharmacy.GET("/settings", h.GetPharmacySettings)
                 pharmacy.PUT("/settings", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.general"), h.UpdatePharmacySettings)
+                // Label templates (barcode system v1): reading is open to every
+                // pharmacy principal (the print action needs it); template
+                // management is gated by the dedicated settings.labels
+                // permission (migration 23) like every mutating endpoint.
+                pharmacy.GET("/settings/labels", h.GetLabelSettings)
+                pharmacy.PUT("/settings/labels", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("settings.labels"), h.UpdateLabelSettings)
 
                 // Task 57 — إعداد الصيدلية الذي يفتح مباشرة بعد التحقق من البريد:
                 // القراءة لأي جلسة صيدلية صالحة، والكتابة بنفس حرس الطفرات + CSRF
@@ -195,7 +207,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // registration — verifying the email OTP now opens the session immediately
 // and the pharmacy onboarding wizard ships with api_level 57; if /health
 // reports a lower value, the running backend predates the deploy).
-const APILevel = 57
+const APILevel = 58
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

@@ -130,5 +130,16 @@
   "strip_word_two": "दो पट्टियां",
   "strip_word_many": "{count} पट्टियां",
   "strip_word_other": "{count} पट्टी",
-  "availability_box_and_strip": "{boxes} और {strips}"
+  "availability_box_and_strip": "{boxes} और {strips}",
+  "barcode_badge_internal": "आंतरिक बारकोड",
+  "barcode_badge_gtin": "निर्माता (GTIN)",
+  "barcode_badge_custom": "कस्टम कोड",
+  "barcode_generate_button": "आंतरिक बारकोड बनाएँ",
+  "barcode_generating": "बनाया जा रहा है…",
+  "barcode_generate_checkbox": "सहेजते समय स्वतः आंतरिक बारकोड बनाएँ",
+  "barcode_optional_hint": "वैकल्पिक — बिना बारकोड उत्पाद के लिए खाली छोड़ें",
+  "barcode_rcn_warning": "2 से शुरू होने वाले कोड आंतरिक उपयोग के लिए आरक्षित हैं (GS1 RCN) — यह कोड आंतरिक माना जाएगा",
+  "barcode_generated_notice": "आंतरिक बारकोड बनाकर सहेज लिया गया",
+  "barcode_generate_error": "आंतरिक बारकोड नहीं बन सका",
+  "barcode_print_label": "लेबल प्रिंट करें"
 }

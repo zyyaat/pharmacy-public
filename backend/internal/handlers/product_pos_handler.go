@@ -14,6 +14,7 @@ import (
         "github.com/jackc/pgx/v5/pgconn"
 
         "github.com/pharmacy-os/backend/internal/auth"
+        "github.com/pharmacy-os/backend/internal/barcode"
         "github.com/pharmacy-os/backend/internal/money"
 )
 
@@ -34,6 +35,10 @@ type createPharmacyProductRequest struct {
         DosageForm                  string `json:"dosage_form"`
         Strength                    string `json:"strength"`
         Barcode                     string `json:"barcode"`
+        // GenerateBarcode asks the server to mint an internal RCN EAN-13 for
+        // this product inside the creation transaction (Final Decision 6).
+        // Only honored when the client did not supply a barcode.
+        GenerateBarcode             bool   `json:"generate_barcode"`
         PackagingType               string `json:"packaging_type"`
         UnitsPerBox                 int64  `json:"units_per_box"`
         CostPricePiastres           int64  `json:"cost_price_piastres"`
@@ -98,8 +103,12 @@ func (h *Handler) ListPharmacyProducts(c *gin.Context) {
         }
 
         search := strings.TrimSpace(c.Query("search"))
+        // missing_barcode=true backs the settings batch-print panel: it lists
+        // the products of this pharmacy that cannot be scanned yet.
+        missingBarcode := c.Query("missing_barcode") == "true"
         rows, err := h.db.Query(c.Request.Context(), `
                 SELECT pp.id::text, COALESCE(gp.name::text, ''), COALESCE(gp.generic_name::text, ''), COALESCE(gp.barcode::text, ''),
+                       COALESCE(gp.barcode_type::text, ''),
                        COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box::int8, 1),
                        pp.selling_price::int8, COALESCE(pp.partial_selling_price::int8, 0),
                        ROUND(COALESCE(SUM(ci.quantity), 0))::int8
@@ -109,11 +118,12 @@ func (h *Handler) ListPharmacyProducts(c *gin.Context) {
                 WHERE pp.pharmacy_id = $1
                   AND pp.is_active = true
                   AND ($2 = '' OR gp.name ILIKE '%' || $2 || '%' OR gp.barcode ILIKE '%' || $2 || '%')
-                GROUP BY pp.id, gp.name, gp.generic_name, gp.barcode, pp.packaging_type,
+                  AND ($3 = false OR gp.barcode IS NULL)
+                GROUP BY pp.id, gp.name, gp.generic_name, gp.barcode, gp.barcode_type, pp.packaging_type,
                          pp.units_per_box, pp.selling_price, pp.partial_selling_price
                 ORDER BY gp.name
                 LIMIT 500
-        `, pharmacyID, search)
+        `, pharmacyID, search, missingBarcode)
         if err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "products_query_failed", "message": "تعذر تحميل المنتجات"})
                 return
@@ -123,18 +133,19 @@ func (h *Handler) ListPharmacyProducts(c *gin.Context) {
         products := make([]gin.H, 0)
         for rows.Next() {
                 var (
-                        id, name, genericName, barcode, packagingType string
-                        unitsPerBox                                   int64
-                        sellingPrice, partialPrice, stock             money.Piastres
+                        id, name, genericName, barcode, barcodeType, packagingType string
+                        unitsPerBox                                                int64
+                        sellingPrice, partialPrice, stock                          money.Piastres
                 )
                 // stock reuses the Piastres scan type only because both are
                 // int64 columns here; it is a count, not an amount.
-                if err := rows.Scan(&id, &name, &genericName, &barcode, &packagingType, &unitsPerBox, &sellingPrice, &partialPrice, &stock); err != nil {
+                if err := rows.Scan(&id, &name, &genericName, &barcode, &barcodeType, &packagingType, &unitsPerBox, &sellingPrice, &partialPrice, &stock); err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "products_query_failed", "message": "تعذر قراءة المنتجات"})
                         return
                 }
                 products = append(products, gin.H{
                         "id": id, "name": name, "generic_name": genericName, "barcode": barcode,
+                        "barcode_type": barcodeType,
                         "packaging_type": packagingType, "units_per_box": unitsPerBox,
                         "selling_price_piastres": sellingPrice, "partial_selling_price_piastres": partialPrice,
                         "stock": stock,
@@ -177,10 +188,13 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
         boxPrice := money.Piastres(request.SellingPricePiastres)
         validMoney := boxCost.Valid() && boxPrice.Valid() && request.MinStockLevel >= 0 &&
                 request.InitialBoxes >= 0 && request.InitialStrips >= 0
-        if request.Name == "" || request.Barcode == "" ||
+        // The barcode is now optional (the import path always allowed an
+        // empty one — this removes the contradiction). An absent barcode
+        // either triggers server-side generation or stays empty.
+        if request.Name == "" ||
                 (request.PackagingType != packagingWholeOnly && request.PackagingType != packagingBoxStrip) ||
                 !validMoney {
-                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_product", "message": "يرجى إدخال اسم المنتج والباركود والأسعار والقيم غير السالبة"})
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_product", "message": "يرجى إدخال اسم المنتج والأسعار والقيم غير السالبة"})
                 return
         }
         if request.PackagingType == packagingWholeOnly {
@@ -238,22 +252,79 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 
         defaultUnit := baseUnit
         var globalProductID string
-        err = tx.QueryRow(c.Request.Context(), `
-                INSERT INTO global_products (
-                        name, generic_name, dosage_form, strength, barcode, default_unit,
-                        product_category, requires_prescription, is_active, created_by
-                ) VALUES ($1, NULLIF($2, ''), $3::dosage_form, NULLIF($4, ''), $5, $6::unit_type,
-                          'medication'::product_category, 'no'::prescription_required, true, NULLIF($7, '')::uuid)
-                RETURNING id::text
-        `, request.Name, request.GenericName, request.DosageForm, request.Strength, request.Barcode, defaultUnit, employeeID).Scan(&globalProductID)
-        if err != nil {
+
+        // Barcode resolution order (Final Decisions 1/4/6):
+        //   manual code    -> type derived mechanically, stored as-is
+        //   generated code -> drawn from the atomic platform sequence inside
+        //                     this transaction, type = RCN_EAN13
+        //   none           -> NULL/NULL (product without barcode)
+        insertBarcode := request.Barcode
+        barcodeType := ""
+        if insertBarcode != "" {
+                barcodeType = barcode.DeriveType(insertBarcode)
+        } else if request.GenerateBarcode {
+                insertBarcode, err = drawInternalBarcode(c.Request.Context(), tx)
+                if err != nil {
+                        log.Printf("[PRODUCTS] internal barcode draw failed: %v", err)
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "barcode_generate_failed", "message": "تعذر توليد الباركود الداخلي"})
+                        return
+                }
+                barcodeType = barcode.TypeRCNEAN13
+        }
+        var barcodeTypeArg any
+        if barcodeType != "" {
+                barcodeTypeArg = barcodeType
+        }
+
+        for attempt := 0; ; attempt++ {
+                err = tx.QueryRow(c.Request.Context(), `
+                        INSERT INTO global_products (
+                                name, generic_name, dosage_form, strength, barcode, barcode_type, default_unit,
+                                product_category, requires_prescription, is_active, created_by
+                        ) VALUES ($1, NULLIF($2, ''), $3::dosage_form, NULLIF($4, ''), NULLIF($5, ''), $8, $6::unit_type,
+                                  'medication'::product_category, 'no'::prescription_required, true, NULLIF($7, '')::uuid)
+                        RETURNING id::text
+                `, request.Name, request.GenericName, request.DosageForm, request.Strength, insertBarcode, defaultUnit, employeeID, barcodeTypeArg).Scan(&globalProductID)
+                if err == nil {
+                        break
+                }
                 var pgErr *pgconn.PgError
                 if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+                        // Unique index hit. Manual codes surface the conflict to
+                        // the user; generated codes retry with a fresh sequence
+                        // value (the index is the final guarantee, review §7.1).
+                        if insertBarcode == "" || insertBarcode != request.Barcode {
+                                if attempt < barcodeGenerateRetries-1 {
+                                        insertBarcode, err = drawInternalBarcode(c.Request.Context(), tx)
+                                        if err != nil {
+                                                log.Printf("[PRODUCTS] internal barcode redraw failed: %v", err)
+                                                c.JSON(http.StatusInternalServerError, gin.H{"error": "barcode_generate_failed", "message": "تعذر توليد الباركود الداخلي"})
+                                                return
+                                        }
+                                        barcodeType = barcode.TypeRCNEAN13
+                                        barcodeTypeArg = barcodeType
+                                        continue
+                                }
+                                c.JSON(http.StatusConflict, gin.H{"error": "barcode_already_exists", "message": "تعذر توليد باركود فريد بعد عدة محاولات"})
+                                return
+                        }
                         c.JSON(http.StatusConflict, gin.H{"error": "barcode_already_exists", "message": "هذا الباركود مستخدم من قبل"})
                         return
                 }
+                log.Printf("[PRODUCTS] insert failed: %v", err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "product_create_failed", "message": "تعذر حفظ بيانات المنتج"})
                 return
+        }
+
+        if insertBarcode != "" && insertBarcode != request.Barcode {
+                // The create form asked for server-side generation — same
+                // audit event as the dedicated endpoint (Final Decision 14).
+                if auditErr := writeAuditLog(c.Request.Context(), tx, principal,
+                        "barcode.generated", "create", "global_product", globalProductID,
+                        map[string]any{"barcode": insertBarcode, "barcode_type": barcodeType, "product_name": request.Name},
+                        "توليد باركود داخلي عند إنشاء المنتج: " + request.Name); auditErr != nil {
+                        auditFailure("barcode.generated", auditErr)
+                }
         }
 
         var pharmacyProductID string
@@ -307,6 +378,7 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
         c.JSON(http.StatusCreated, gin.H{
                 "data": gin.H{
                         "id": pharmacyProductID, "global_product_id": globalProductID,
+                        "barcode": insertBarcode, "barcode_type": barcodeType,
                         "packaging_type": request.PackagingType, "units_per_box": request.UnitsPerBox,
                         "initial_base_quantity": baseQuantity,
                 },
@@ -732,11 +804,16 @@ func sellPOSItem(
                 if _, err := tx.Exec(ctx, `
                         INSERT INTO sale_items (
                                 sale_id, pharmacy_product_id, batch_id, sale_unit,
-                                quantity, base_quantity, unit_price, unit_cost,
+                                quantity, base_quantity, sale_quantity, units_per_box_snapshot,
+                                unit_price, unit_cost,
                                 amount_piastres, cost_amount_piastres
-                        ) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9)
+                        ) VALUES ($1, $2, $3, $4, $5, $5, $10, $11, $6, $7, $8, $9)
                 `, saleID, item.PharmacyProductID, b.id, item.SaleUnit,
-                        take, unitPrice, b.costPerUnit, amounts[i], costAmount); err != nil {
+                        take, unitPrice, b.costPerUnit, amounts[i], costAmount,
+                        // Quantity snapshot (Final Decision 12): the cashier's
+                        // intent and the packaging at sale time are frozen so
+                        // later packaging edits never reinterpret this line.
+                        item.Quantity, snapshot.UnitsPerBox); err != nil {
                         return err
                 }
                 if _, err := tx.Exec(ctx, `

@@ -130,5 +130,16 @@
   "strip_word_two": "两板",
   "strip_word_many": "{count} 板",
   "strip_word_other": "{count} 板",
-  "availability_box_and_strip": "{boxes} 和 {strips}"
+  "availability_box_and_strip": "{boxes} 和 {strips}",
+  "barcode_badge_internal": "内部条码",
+  "barcode_badge_gtin": "厂商条码 (GTIN)",
+  "barcode_badge_custom": "自定义编码",
+  "barcode_generate_button": "生成内部条码",
+  "barcode_generating": "生成中…",
+  "barcode_generate_checkbox": "保存时自动生成内部条码",
+  "barcode_optional_hint": "可选 — 无条码商品请留空",
+  "barcode_rcn_warning": "以 2 开头的编码保留为内部使用（GS1 RCN）— 此编码将被归类为内部条码",
+  "barcode_generated_notice": "内部条码已生成并保存",
+  "barcode_generate_error": "无法生成内部条码",
+  "barcode_print_label": "打印标签"
 }

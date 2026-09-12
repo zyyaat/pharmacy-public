@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowRight, Database, FileSpreadsheet, Languages, ReceiptText } from 'lucide-react'
+import { ArrowRight, Barcode, Database, FileSpreadsheet, Languages, ReceiptText } from 'lucide-react'
 import BrandSplash from '@/components/brand-splash'
 import { useT } from '@/i18n/provider'
 import { useAuth } from '@/hooks/useAuth'
@@ -23,6 +23,7 @@ import { SETTINGS_SECTION_PERMISSIONS } from '@/lib/permissions'
 const SECTIONS = [
   { key: 'import', href: '/settings/import', icon: FileSpreadsheet },
   { key: 'receipts', href: '/settings/receipts', icon: ReceiptText },
+  { key: 'labels', href: '/settings/labels', icon: Barcode },
   { key: 'database', href: '/settings/database', icon: Database },
   { key: 'language', href: '/settings/language', icon: Languages },
 ] as const

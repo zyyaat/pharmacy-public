@@ -1,6 +1,8 @@
 /// Task 61 — نسخة موبايل من lib/money.ts + i18n/format.ts في الويب.
 /// قاعدة Task 47 ثابتة: الأرقام لاتينية (0-9) في كل اللغات دون استثناء،
 /// والعملة: عربي = «1,234.56 ج.م» / باقي اللغات = «EGP 1,234.56».
+import 'strings.dart';
+
 class Fmt {
   Fmt._();
   static const int piastresPerUnit = 100;
@@ -122,5 +124,79 @@ class Fmt {
     if (h == 0) return '$m د';
     if (m == 0) return '$h س';
     return '$h س $m د';
+  }
+}
+
+// ==================================================================
+// عرض الكمية المقروءة — SSOT (barcode-design-v2-review.md §5.3/§6)
+// ==================================================================
+
+/// نسخة موبايل من lib/quantity.ts حرفيًا — نفس المتجهات الذهبية المشتركة
+/// (scripts/golden_quantity_vectors.json) تُنفَّذ هنا وفي الويب لمنع أي
+/// تباعد بين المنصتين. القواعد المقفلة من القرار النهائي 12:
+///  1) الفاتورة تعرض نية البيع بلا تحويل إجباري لأكبر وحدة.
+///  2) الـsnapshot وقت الكتابة هو مصدر التفسير التاريخي وحده.
+///  3) الصفوف القديمة (saleQuantity = null) عبر fallback موثق.
+///  4) عرضي حصرًا — المال والمرتجعات يقرأون base/piastres ولا يلمسون هذا.
+enum QuantityUnit { box, strip, unit }
+
+class QuantityIntent {
+  final QuantityUnit unit;
+  final double count;
+  const QuantityIntent(this.unit, this.count);
+}
+
+class SoldQuantity {
+  SoldQuantity._();
+
+  /// تخفيض سطر مبيع مخزَّن إلى نيته العرضية — المكان الوحيد لحساب العلبة/القاعدة للعرض.
+  static QuantityIntent intent({
+    required String saleUnit, // 'box' | 'strip'
+    required String packagingType, // 'WHOLE_ONLY' | 'BOX_STRIP'
+    required int unitsPerBox,
+    required num quantityBase,
+    double? saleQuantity,
+  }) {
+    if (saleUnit != 'box') {
+      // سطر شرائط: النية هي الـbase نفسه (المال والمرتجعات عليه).
+      return QuantityIntent(
+        packagingType == 'BOX_STRIP' ? QuantityUnit.strip : QuantityUnit.unit,
+        quantityBase.toDouble(),
+      );
+    }
+    // سطر علبة: النية هي عدد العلب الذي أدخله الكاشير.
+    if (saleQuantity != null && saleQuantity > 0) {
+      return QuantityIntent(QuantityUnit.box, saleQuantity);
+    }
+    // صف قديم بلا snapshot — fallback موثق: base ÷ units الحالية.
+    final double boxes =
+        unitsPerBox > 0 ? quantityBase / unitsPerBox : quantityBase.toDouble();
+    return QuantityIntent(QuantityUnit.box, boxes);
+  }
+
+  /// _trimQuantity — صحيح بلا كسور وإلا كسران بلا أصفار زائدة
+  static String trimCount(double value) {
+    if (value == value.truncateToDouble()) return value.truncate().toString();
+    String s = value.toStringAsFixed(2);
+    s = s.replaceAll(RegExp(r'\.?0+$'), '');
+    return s;
+  }
+
+  /// الترجمة عبر كتالوج sales (نفس المفاتيح التي يستخدمها الويب: oneBox/manyStrips/…)
+  static String text(QuantityIntent intent, AppI18n i18n) {
+    switch (intent.unit) {
+      case QuantityUnit.box:
+        if (intent.count == 1) return i18n.t('sales', 'oneBox');
+        if (intent.count == 2) return i18n.t('sales', 'twoBoxes');
+        return i18n.t('sales', 'manyBoxes', {'count': trimCount(intent.count)});
+      case QuantityUnit.strip:
+        if (intent.count == 1) return i18n.t('sales', 'oneStrip');
+        if (intent.count == 2) return i18n.t('sales', 'twoStrips');
+        return i18n.t('sales', 'manyStrips', {'count': trimCount(intent.count)});
+      case QuantityUnit.unit:
+        if (intent.count == 1) return i18n.t('sales', 'oneUnit');
+        if (intent.count == 2) return i18n.t('sales', 'twoUnits');
+        return i18n.t('sales', 'manyUnits', {'count': trimCount(intent.count)});
+    }
   }
 }
