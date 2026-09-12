@@ -58,7 +58,7 @@ full = full.convert('RGBA')
 
 # ── 2) الأعمدة فقط (طبقة foreground — بلا الخلفية الخضراء) ────────────────
 fg_svg_128 = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">'
-              f'<g transform="rotate(-5 64 64)">{BARS}</g></svg>')
+              f'{BARS}</svg>')
 fg_src = Image.open(__import__('io').BytesIO(
     cairosvg.svg2png(bytestring=fg_svg_128.encode('utf-8'),
                      output_width=HI, output_height=HI))).convert('RGBA')
@@ -100,7 +100,7 @@ for folder, size in FOREGROUND_SIZES.items():
 # ── 5) أيقونة متجر Play ‏512×512 — مربع كامل بلا زوايا شفافة ──────────────
 store_svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">'
              f'<rect width="128" height="128" fill="{GREEN}"/>'
-             f'<g transform="rotate(-5 64 64)">{BARS}</g></svg>')
+             f'{BARS}</svg>')
 store = Image.open(__import__('io').BytesIO(
     cairosvg.svg2png(bytestring=store_svg.encode('utf-8'),
                      output_width=512, output_height=512))).convert('RGBA')

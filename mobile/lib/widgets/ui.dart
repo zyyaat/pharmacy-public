@@ -14,55 +14,54 @@ import '../core/theme.dart';
 
 // ---------------------------------------------------------------- العلامة
 
-/// علامة Pharmacy OS — نفس SVG: مربع أخضر مائل -5° بثلاث أشرطة داكنة
+/// علامة Pharmacy OS — مربع أخضر مستقيم بثلاث شرطات داكنة متمركزة (اللوجو B المعتمد)
 class BrandMark extends StatelessWidget {
   final double size;
   const BrandMark({super.key, this.size = 36});
 
+  // Task 74 — اللوجو المعتمد B: شرطات 12px بفراغ 9px وارتفاعات 42/58/42
+  // متمركزة تمامًا (x=37/58/79) وبلا ميلان — مطابق لـ pharmacy-os-icon.svg
   @override
   Widget build(BuildContext context) {
     final s = size;
-    return Transform.rotate(
-      angle: -5 * 3.141592653589793 / 180,
-      child: SizedBox(
-        width: s,
-        height: s,
-        child: Stack(
-          children: <Widget>[
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.brandGreen,
-                borderRadius: BorderRadius.circular(s * 30 / 128),
-              ),
+    return SizedBox(
+      width: s,
+      height: s,
+      child: Stack(
+        children: <Widget>[
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.brandGreen,
+              borderRadius: BorderRadius.circular(s * 30 / 128),
             ),
-            Positioned(
-              left: s * 42 / 128,
-              top: s * 43 / 128,
-              child: _bar(s, 45),
-            ),
-            Positioned(
-              left: s * 61 / 128,
-              top: s * 32 / 128,
-              child: _bar(s, 67),
-            ),
-            Positioned(
-              left: s * 80 / 128,
-              top: s * 43 / 128,
-              child: _bar(s, 45),
-            ),
-          ],
-        ),
+          ),
+          Positioned(
+            left: s * 37 / 128,
+            top: s * 43 / 128,
+            child: _bar(s, 42),
+          ),
+          Positioned(
+            left: s * 58 / 128,
+            top: s * 35 / 128,
+            child: _bar(s, 58),
+          ),
+          Positioned(
+            left: s * 79 / 128,
+            top: s * 43 / 128,
+            child: _bar(s, 42),
+          ),
+        ],
       ),
     );
   }
 
   Widget _bar(double s, double h) {
     return Container(
-      width: s * 14 / 128,
+      width: s * 12 / 128,
       height: s * h / 128,
       decoration: BoxDecoration(
         color: AppColors.brandBars,
-        borderRadius: BorderRadius.circular(s * 7 / 128),
+        borderRadius: BorderRadius.circular(s * 6 / 128),
       ),
     );
   }
