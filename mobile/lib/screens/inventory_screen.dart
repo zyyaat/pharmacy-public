@@ -148,11 +148,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final canPOS = state.can('pos.access');
     final filtered = _filtered;
 
-    return _loading
-        ? const LoadingBox()
-        : _error != null
-            ? ErrorRetry(_error!, onRetry: _load)
-            : RefreshIndicator(
+    // Task 75 — مثل الويب (inventory/page.tsx:187-198): هيكل الصفحة كاملًا ظاهر
+    // (رأس + بطاقة بالعنوان والبحث) والتحميل/الخطأ نص داخل محتوى البطاقة —
+    // لا سبينر يستبدل الصفحة كلها.
+    return RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(
                   padding: const EdgeInsets.all(16),
@@ -207,7 +206,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           const SizedBox(height: 16),
                           Padding(
                             padding: const EdgeInsets.all(24),
-                            child: filtered.isEmpty
+                            // التحميل/الخطأ داخل البطاقة كما بالويب — لا يخفيان هيكل الصفحة
+                            child: _loading
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 40),
+                                    child: Text(i18n.t('inventory', 'loading'),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                                  )
+                                : _error != null
+                                    ? ErrorRetry(_error!, onRetry: _load)
+                                    : filtered.isEmpty
                                 ? Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 40),
                                     child: Text(i18n.t('inventory', 'no_matches'),

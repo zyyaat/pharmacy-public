@@ -77,8 +77,8 @@ class _BranchesScreenState extends State<BranchesScreen> {
     // مثل الويب: زر الإضافة وأزرار التعديل ظاهرة دائمًا بلا بوابات
     // (branches/page.tsx:48-52 و104-110 — الخادم هو من يرد 403 للموظف بلا صلاحية).
     // كان الإخفاء هنا يجعل صفحة المالك تبدو فارغة بلا زر إضافة.
-    if (_loading) return const LoadingBox();
-    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    // Task 75 — مثل الويب (branches/page.tsx:62-64): الهيكل ظاهر دائمًا
+    // والتحميل/الخطأ نص داخل البطاقة، لا سبينر يستبدل الصفحة.
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -101,7 +101,18 @@ class _BranchesScreenState extends State<BranchesScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: _list.isEmpty
+                  // التحميل/الخطأ داخل البطاقة كما بالويب
+                  child: _loading
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('common', 'loading'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      : _error != null
+                          ? ErrorRetry(_error!, onRetry: _load)
+                          : _list.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Text(i18n.t('employees', 'branchesEmpty'),

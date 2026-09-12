@@ -113,8 +113,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       'hr_manager': i18n.t('employees', 'roleHrManager'),
       'accountant': i18n.t('employees', 'roleAccountant'),
     };
-    if (_loading) return const LoadingBox();
-    if (_error != null) return ErrorRetry(_error!, onRetry: _load);
+    // Task 75 — مثل الويب (employees/page.tsx:201-203): الهيكل ظاهر دائمًا
+    // والتحميل/الخطأ نص داخل البطاقة.
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -145,7 +145,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: _list.isEmpty
+                  // التحميل/الخطأ داخل البطاقة كما بالويب
+                  child: _loading
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('common', 'loading'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      : _error != null
+                          ? ErrorRetry(_error!, onRetry: _load)
+                          : _list.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Text(i18n.t('employees', 'empty'),

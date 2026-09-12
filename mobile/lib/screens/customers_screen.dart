@@ -120,8 +120,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final theme = Theme.of(context);
     final state = context.watch<AppState>();
     final canCreate = state.can('customers.create');
-    if (_loading && _list.isEmpty) return const LoadingBox();
-    if (_error != null && _list.isEmpty) return ErrorRetry(_error!, onRetry: _load);
+    // Task 75 — مثل الويب (customers/page.tsx): الهيكل كاملًا ظاهر أثناء
+    // التحميل (البحث ونموذج الإضافة)، والقائمة نفسها مكانها النص الباهت.
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -183,7 +183,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (_list.isEmpty)
+                      if (_loading && _list.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(i18n.t('common', 'loading'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                        )
+                      else if (_error != null && _list.isEmpty)
+                        ErrorRetry(_error!, onRetry: _load)
+                      else if (_list.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Text(i18n.t('customers', 'emptyList'),
