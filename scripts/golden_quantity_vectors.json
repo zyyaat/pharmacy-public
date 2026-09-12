@@ -1,0 +1,48 @@
+{
+  "comment": "Golden vectors for the quantity display SSOT (barcode-design-v2-review.md §5.3/§6, Final Decision 12). Consumed by BOTH the web test (scripts/run_golden_quantity_vectors.js) and the Flutter test (test/quantity_golden_test.dart). Each case: input sale line → expected display intent {unit, count}. count may be fractional for the documented legacy fallback only.",
+  "vectors": [
+    {
+      "name": "intent_two_boxes",
+      "input": { "sale_unit": "box", "packaging_type": "BOX_STRIP", "units_per_box": 5, "quantity_base": 10, "sale_quantity": 2 },
+      "expected": { "unit": "box", "count": 2 }
+    },
+    {
+      "name": "intent_seven_strips_unchanged",
+      "input": { "sale_unit": "strip", "packaging_type": "BOX_STRIP", "units_per_box": 5, "quantity_base": 7, "sale_quantity": 7 },
+      "expected": { "unit": "strip", "count": 7 }
+    },
+    {
+      "name": "historical_stability_units_changed_after_sale",
+      "comment": "البيع 2 علبة (units كانت 5) ثم عدّل المدير units_per_box إلى 10 — الفاتورة القديمة تظل «2 علبة» ولا تصير «1 علبة» أبداً (§5.2)",
+      "input": { "sale_unit": "box", "packaging_type": "BOX_STRIP", "units_per_box": 10, "quantity_base": 10, "sale_quantity": 2 },
+      "expected": { "unit": "box", "count": 2 }
+    },
+    {
+      "name": "legacy_fallback_box_with_current_units",
+      "comment": "صف قديم بلا snapshot — fallback موثق: base / units الحالية",
+      "input": { "sale_unit": "box", "packaging_type": "BOX_STRIP", "units_per_box": 10, "quantity_base": 10, "sale_quantity": null },
+      "expected": { "unit": "box", "count": 1 }
+    },
+    {
+      "name": "legacy_fallback_strip_reads_base",
+      "input": { "sale_unit": "strip", "packaging_type": "BOX_STRIP", "units_per_box": 5, "quantity_base": 7, "sale_quantity": null },
+      "expected": { "unit": "strip", "count": 7 }
+    },
+    {
+      "name": "whole_only_single_unit_product",
+      "input": { "sale_unit": "box", "packaging_type": "WHOLE_ONLY", "units_per_box": 1, "quantity_base": 3, "sale_quantity": 3 },
+      "expected": { "unit": "box", "count": 3 }
+    },
+    {
+      "name": "whole_only_legacy_fallback",
+      "input": { "sale_unit": "box", "packaging_type": "WHOLE_ONLY", "units_per_box": 1, "quantity_base": 3, "sale_quantity": null },
+      "expected": { "unit": "box", "count": 3 }
+    },
+    {
+      "name": "snapshot_mismatch_base_wins_for_strips",
+      "comment": "تعارض نظري: المال والمرتجعات على base — العرض للشرائط يقرأ base دائماً",
+      "input": { "sale_unit": "strip", "packaging_type": "BOX_STRIP", "units_per_box": 5, "quantity_base": 7, "sale_quantity": 9 },
+      "expected": { "unit": "strip", "count": 7 }
+    }
+  ]
+}

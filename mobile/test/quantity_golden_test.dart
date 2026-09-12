@@ -23,11 +23,29 @@ QuantityUnit _unit(String value) {
   throw ArgumentError('unknown unit: $value');
 }
 
+/// Resolves the shared vectors file at <repo-root>/scripts/ no matter which
+/// directory `flutter test` was launched from. Walks upward from the current
+/// directory so it works both locally and on CI checkouts (Task 86 CI fix:
+/// the old hardcoded ../../ path resolved OUTSIDE the repo on GitHub Actions).
+File _findSharedVectorsFile() {
+  Directory dir = Directory.current;
+  for (var i = 0; i < 8; i++) {
+    final candidate = File('${dir.path}/scripts/golden_quantity_vectors.json');
+    if (candidate.existsSync()) return candidate;
+    final parent = dir.parent;
+    if (parent.path == dir.path) break;
+    dir = parent;
+  }
+  // Never found — return the conventional location for a clear failure reason.
+  return File('scripts/golden_quantity_vectors.json');
+}
+
 void main() {
   test('mobile quantity core matches the shared golden vectors', () {
-    final file = File('../../scripts/golden_quantity_vectors.json');
+    final file = _findSharedVectorsFile();
     expect(file.existsSync(), isTrue,
-        reason: 'the shared vectors file must live next to the repo scripts');
+        reason: 'the shared vectors file must live next to the repo scripts '
+            '(searched upward from ${Directory.current.path})');
     final dynamic doc = jsonDecode(file.readAsStringSync());
     final List<dynamic> vectors = (doc as Map<String, dynamic>)['vectors'] as List<dynamic>;
 
