@@ -189,7 +189,9 @@ chat. Use workspace secret management.
 
 The current Go authentication implementation does not use Vercel as an
 identity provider. Any external provider key, if introduced later, belongs in
-the backend boundary only.
+the backend boundary only. The Paymob payment provider contract (its future
+environment variables, the webhook URL, and where each credential lives in
+the Paymob dashboard) is documented in `docs/deployment.md`, section 6.
 
 ---
 
@@ -649,7 +651,7 @@ schema, but application authorization must still be correct and tested.
 Permission caches, when used, must have bounded size and TTL and must respect
 permission version changes. Never cache authorization indefinitely.
 
-### 9.1 SaaS Plans & Subscriptions (migration 26, api_level 60)
+### 9.1 SaaS Plans & Subscriptions (migration 26, api_level 60; Paymob Phase G api_level 61)
 
 The platform is plan-driven SaaS. The plan is the COMPANY ceiling, applied on
 top of per-user RBAC:
@@ -688,10 +690,25 @@ Core facts (all enforced in `internal/subscription`):
   and call `GET /pharmacy/subscription` + `GET /pharmacy/plans` — data is
   never destroyed, and the owner must always be able to reach billing.
 - **Payments**: `payments` + `payment_transactions` exist from day one;
-  manual payments registered by the super admin perform the exact
-  subscription transitions a future Paymob webhook will drive — the payment
-  provider never changes billing semantics, and the webhook is the sole
-  activation authority (the frontend never proves payment).
+  manual payments registered by the super admin and verified Paymob webhooks
+  share ONE transition (`applySucceededPaymentTx`: extend / convert trial /
+  replace) — the payment provider never changes billing semantics, and the
+  webhook is the sole activation authority for online payments (the frontend
+  never proves payment).
+- **Paymob embedded checkout (Phase G)**: the card form renders INSIDE the
+  app (Unified Checkout iframe on web; in-app WebView on mobile) — no
+  navigation to a Paymob page and back. `POST /pharmacy/subscription/checkout`
+  (deliberately OUTSIDE the plan gates: an expired company must be able to
+  pay to recover) creates the pending payment, builds the intention
+  server-side with snapshot pricing, and returns the iframe URL. The modal
+  polls `GET /pharmacy/subscription/payments/:id` (display only).
+  `POST /payments/webhook/paymob` verifies HMAC-SHA512 over the documented
+  field order plus an optional URL token, cross-checks the amount against
+  the snapshot, stores the raw payload with `hmac_verified=true`, and is
+  idempotent (replays never double-extend; amount tampering fails the
+  payment). Credentials come exclusively from `PAYMOB_*` backend env vars
+  (`docs/deployment.md` §6); with them unset the checkout answers
+  `paymob_not_configured` and billing stays on manual payments.
 - **Trial**: registration provisions a trial subscription on
   `platform_settings.trial.default_plan_slug` (default: professional — full
   experience) for `default_trial_days` (default 30); both super-admin

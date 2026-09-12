@@ -1141,11 +1141,48 @@ export type PublicPlan = {
   limits: Record<string, number>
 }
 
+// Phase G — الدفع المضمّن: النية تُنشأ خادميًا والعميل يستلم client_secret
+// + embed_url ليصيّر فورم Paymob داخل مودال الموقع نفسه (بدون خروج).
+export type CheckoutResponse = {
+  payment_id: string
+  amount_piastres: number
+  currency: string
+  billing_interval: string
+  plan: { id: string; name: string }
+  client_secret: string
+  public_key: string
+  embed_url: string
+  status: string
+}
+
+export type PaymentStatusResponse = {
+  id: string
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'voided' | 'cancelled'
+  amount_piastres: number
+  currency: string
+  plan: { slug: string; name: string }
+  created_at: string
+  updated_at: string
+}
+
 export const subscriptionApi = {
   async get() {
     return apiFetch<{ data: MySubscription }>('/pharmacy/subscription')
   },
   async listPlans() {
     return apiFetch<{ data: PublicPlan[] }>('/pharmacy/plans')
+  },
+  // Phase G — يفتح نية دفع Paymob (سعر الخطة snapshot خادميًا) ويعيد رابط
+  // الـ iframe المضمّن. التفعيل يحدث حصرًا من ويبهوك Paymob الموثق.
+  async checkout(planId: string, billingInterval: 'monthly' | 'yearly') {
+    return apiFetch<{ data: CheckoutResponse }>('/pharmacy/subscription/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId, billing_interval: billingInterval }),
+    })
+  },
+  // Phase G — polling حالة الدفع أثناء فتح مودال الدفع (الويبهوك هو الذي
+  // يحرّك الحالة؛ هذا الاستعلام للعرض فقط).
+  async paymentStatus(paymentId: string) {
+    return apiFetch<{ data: PaymentStatusResponse }>(`/pharmacy/subscription/payments/${paymentId}`)
   },
 }

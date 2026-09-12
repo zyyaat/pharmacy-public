@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api_client.dart';
 import '../core/format.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
+import 'paymob_checkout_screen.dart';
 
-/// Task 90 — شاشة الاشتراك: الخطة الحالية + عدادات الاستهلاك + الخطط
-/// المتاحة. الدفع الذاتي يُضاف مع Paymob؛ الآن الإرشادات تظهر هنا والإسناد
-/// اليدوي من لوحة المشرف. النقاط المصدرية ضمن allow-list فتعمل مع انتهاء
-/// التجربة أيضًا.
+/// Task 90 + Phase G — شاشة الاشتراك: الخطة الحالية + عدادات الاستهلاك +
+/// الخطط المتاحة. زر «اشترك الآن» يفتح الدفع المضمّن: فورم Paymob داخل
+/// التطبيق نفسه (WebView — بدون خروج لمتصفح خارجي)، والتأكيد الفعلي من
+/// ويبهوك Paymob الموثق. النقاط المصدرية ضمن allow-list فتعمل مع انتهاء
+/// التجربة أيضًا (مسار الاسترجاع).
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
 
@@ -255,9 +258,86 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
               ],
             ),
+            if (!isCurrent) ...<Widget>[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _startCheckout(context, i18n, plan),
+                  icon: const Icon(Icons.credit_card, size: 18),
+                  label: Text(i18n.t('subscription', 'subscribe_cta')),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// Phase G — بدء الدفع المضمّن: اختيار الدورة ثم نية خادمية ثم فورم
+  /// Paymob داخل WebView. النتيجة: true نجاح / false فشل / null خروج.
+  Future<void> _startCheckout(
+      BuildContext context, AppI18n i18n, PublicPlanInfo plan) async {
+    final state = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final interval = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(i18n.t('subscription', 'cycle_title')),
+        children: <Widget>[
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(dialogContext).pop('monthly'),
+            child: Text(
+              '${i18n.t('subscription', 'month')} — '
+              '${Fmt.number(plan.monthlyPiastres / 100)} ${plan.currency} '
+              '${i18n.t('subscription', 'per_month')}',
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(dialogContext).pop('yearly'),
+            child: Text(
+              '${i18n.t('subscription', 'year')} — '
+              '${Fmt.number(plan.yearlyPiastres / 100)} ${plan.currency} '
+              '${i18n.t('subscription', 'per_year')}',
+            ),
+          ),
+        ],
+      ),
+    );
+    if (interval == null || !context.mounted) return;
+
+    try {
+      final checkout =
+          await state.api.subscriptionCheckout(plan.id, interval);
+      if (!context.mounted) return;
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => PaymobCheckoutScreen(checkout: checkout),
+        ),
+      );
+      if (result == true) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(i18n.t('subscription', 'checkout_success')),
+        ));
+      } else if (result == false) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(i18n.t('subscription', 'checkout_failed')),
+        ));
+      }
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          e.code == 'paymob_not_configured'
+              ? i18n.t('subscription', 'paymob_not_configured')
+              : i18n.t('subscription', 'checkout_error'),
+        ),
+      ));
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(i18n.t('subscription', 'checkout_error')),
+      ));
+    }
   }
 }

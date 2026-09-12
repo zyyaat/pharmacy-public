@@ -198,3 +198,67 @@ The backend `messageId` acceptance log line
 (`[mailer] brevo accepted send: message_id=... to=...`) correlates an
 application-level send with Brevo's log — use it when reporting to Brevo
 support.
+
+## 6. Paymob payment environment variables (Phase G — embedded checkout)
+
+The Plans & Subscriptions system (migration 26) ships with BOTH billing
+paths: super-admin manual payments AND the Paymob embedded online checkout.
+The card form renders INSIDE the pharmacy app's subscription modal
+(Unified Checkout iframe) — the customer never navigates to a Paymob page
+and back, and card data never touches our servers (PCI on Paymob's iframe).
+
+The credentials are read exclusively from environment variables on the
+DockHosting **backend** service. None of these values belong in Vercel, in
+`NEXT_PUBLIC_*` variables, or in source control. The frontend never holds a
+Paymob secret — the public key and the iframe URL are returned by the
+backend's checkout endpoint, built server-side.
+
+With the variables unset, the checkout endpoint answers
+`paymob_not_configured` and billing falls back to manual payments — setting
+them is the ONLY step needed to switch online payments on (then rebuild the
+service).
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `PAYMOB_API_KEY` | Yes | Secret API key used server-side to authenticate intention requests (`Authorization: Token …`). Never exposed to any client. |
+| `PAYMOB_PUBLIC_KEY` | Yes | Public key (`pk_test_...` / `pk_live_...`) embedded in the Unified Checkout iframe URL, built server-side. |
+| `PAYMOB_CARD_INTEGRATION_ID` | Yes | Numeric integration ID of the **Online Card** channel. |
+| `PAYMOB_WALLET_INTEGRATION_ID` | Optional | Numeric integration ID of the **Mobile Wallets** channel (Vodafone Cash etc.). |
+| `PAYMOB_HMAC_SECRET` | Yes | HMAC-SHA512 secret used to verify Paymob webhooks. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. |
+| `PAYMOB_WEBHOOK_TOKEN` | Recommended | Long random string appended to the webhook URL (`?token=…`) as a second provider-independent check. |
+| `PAYMOB_BASE_URL` | Optional | API base override; defaults to `https://accept.paymob.com`. For staging/testing only. |
+
+Where to get each value (Paymob dashboard → Developers section):
+
+| Value | Dashboard location |
+| --- | --- |
+| API Key | Developers → Account Information → API Key |
+| Public Key | Developers → Account Information → Public Key (`pk_...`) |
+| Integration IDs | Developers → Payment Integrations → numeric ID beside each channel (Online Card, Mobile Wallets) |
+| HMAC secret | Developers → Webhooks → the HMAC secret shown when registering a webhook response URL |
+
+Webhook URL to register in the Paymob dashboard (HTTPS only, exact path —
+the route is LIVE now):
+
+```text
+https://<backend-host>/api/v1/payments/webhook/paymob?token=<PAYMOB_WEBHOOK_TOKEN>
+```
+
+Embedded payment flow (why these variables are enough):
+
+1. `POST /pharmacy/subscription/checkout` (owner session + CSRF) creates a
+   `pending` payment row, then the intention server-side (`PAYMOB_API_KEY`,
+   snapshot pricing from the plan row — later plan edits never change an
+   open invoice) and returns `client_secret` + the iframe URL.
+2. The subscription page (web) or an in-app WebView (mobile) renders the
+   Unified Checkout iframe from that URL. Card entry happens inside
+   Paymob's frame; the customer stays in the app.
+3. While the modal is open the app polls
+   `GET /pharmacy/subscription/payments/:id` — display only.
+4. Paymob calls the webhook; the backend verifies HMAC-SHA512 over the
+   documented field order (`PAYMOB_HMAC_SECRET`) plus the URL token,
+   cross-checks the amount against the stored snapshot, records the raw
+   payload in `payment_transactions` with `hmac_verified=true`, and only
+   then activates or extends the subscription via the SAME transition the
+   manual-payment path uses. Replays are idempotent; a tampered amount
+   fails the payment instead of activating it.

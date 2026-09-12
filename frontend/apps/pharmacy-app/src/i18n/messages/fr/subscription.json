@@ -1,1 +1,16 @@
-{}
+{
+  "checkout_title": "Paiement sécurisé",
+  "checkout_success_title": "Abonnement terminé",
+  "checkout_secure_hint": "Le paiement se fait sur cette page via la passerelle Paymob — nous ne voyons jamais vos données de carte.",
+  "checkout_loading": "Préparation du paiement…",
+  "checkout_waiting": "En attente de confirmation du paiement — ne fermez pas cette fenêtre",
+  "checkout_success": "Paiement réussi — votre abonnement est actif",
+  "checkout_success_hint": "L'interface peut mettre quelques instants à s'actualiser — rechargez la page si besoin.",
+  "checkout_failed": "Le paiement n'a pas été finalisé — vous pouvez réessayer",
+  "checkout_error": "Impossible de démarrer le paiement — réessayez",
+  "paymob_not_configured": "Le paiement en ligne n'est pas encore activé — contactez le support",
+  "cycle_title": "Choisissez le cycle de facturation",
+  "close": "Fermer",
+  "retry": "Réessayer",
+  "done": "Terminé"
+}

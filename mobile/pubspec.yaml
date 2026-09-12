@@ -26,6 +26,9 @@ dependencies:
   # Task 68 — طباعة الإيصال الحراري عبر نظام الطباعة في أندرويد (نفس نهج window.print في الويب)
   pdf: ^3.11.1
   printing: ^5.13.1
+  # Phase G — الدفع المضمّن: فورم Paymob داخل WebView في التطبيق نفسه
+  # (بدون خروج لمتصفح خارجي). minSdk 23 من prepare_android.sh يكفي.
+  webview_flutter: ^4.9.0
 
 dev_dependencies:
   flutter_test:

@@ -121,12 +121,26 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 perm := h.requirePharmacyPermission
 
                 pharmacy.GET("/context", h.GetPharmacyContext)
+                // Public Paymob webhook (Phase G): no session auth — the proof
+                // is the HMAC-SHA512 signature + optional URL token. Registered
+                // in the Paymob dashboard as
+                // https://<backend-host>/api/v1/payments/webhook/paymob?token=…
+                v1.POST("/payments/webhook/paymob", h.PaymobWebhook)
                 // SaaS subscription surface (Task 90): these two are part of
                 // the lockout allow-list — an expired/suspended company must
                 // always be able to read its own status and the public plans
                 // so it can recover. No status gate here, by design.
                 pharmacy.GET("/subscription", h.GetPharmacySubscription)
                 pharmacy.GET("/plans", h.ListPublicPlans)
+                // Phase G — online checkout (EMBEDDED Unified Checkout):
+                // deliberately NOT behind the plan permission/status gates —
+                // an expired or suspended company must be able to pay to
+                // recover, which is the entire point of the recovery flow.
+                // Mutation principal + CSRF + server-side company scope still
+                // apply. The card form renders INSIDE the app modal; the
+                // webhook is the only activation path.
+                pharmacy.POST("/subscription/checkout", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyCheckout)
+                pharmacy.GET("/subscription/payments/:id", h.GetPharmacyPaymentStatus)
                 // Delta sync (offline-first smart synchronization): one cheap
                 // round-trip returns only what changed since the caller's
                 // cursor + tombstoned deletions, in row shapes identical to
@@ -250,7 +264,12 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // subscriptions/payments), plan gate inside both permission middlewares,
 // limit enforcement at creation endpoints, platform-admin plan/subscription
 // management, GET /pharmacy/subscription + /pharmacy/plans.
-const APILevel = 60
+// 61 — Paymob embedded checkout (Phase G): POST /pharmacy/subscription/checkout
+// (intention server-side, client_secret + embed URL for the in-app iframe),
+// GET /pharmacy/subscription/payments/:id polling, HMAC-SHA512-verified
+// POST /payments/webhook/paymob as the only online activation path, shared
+// applySucceededPaymentTx transition for manual + webhook payments.
+const APILevel = 61
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

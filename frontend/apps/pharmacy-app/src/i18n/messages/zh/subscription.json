@@ -1,1 +1,16 @@
-{}
+{
+  "checkout_title": "安全支付",
+  "checkout_success_title": "订阅完成",
+  "checkout_secure_hint": "付款在此页面通过 Paymob 网关完成——我们不会看到或存储您的银行卡信息。",
+  "checkout_loading": "正在准备付款…",
+  "checkout_waiting": "等待付款确认——请勿关闭此窗口",
+  "checkout_success": "付款成功——您的订阅已激活",
+  "checkout_success_hint": "界面可能需要几秒钟刷新——如有需要请刷新页面。",
+  "checkout_failed": "付款未完成——您可以重试",
+  "checkout_error": "无法开始付款——请重试",
+  "paymob_not_configured": "在线支付尚未启用——请联系客服确认订阅",
+  "cycle_title": "选择计费周期",
+  "close": "关闭",
+  "retry": "重试",
+  "done": "完成"
+}

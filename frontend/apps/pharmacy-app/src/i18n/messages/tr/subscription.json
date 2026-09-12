@@ -1,1 +1,16 @@
-{}
+{
+  "checkout_title": "Güvenli ödeme",
+  "checkout_success_title": "Abonelik tamamlandı",
+  "checkout_secure_hint": "Ödeme bu sayfada Paymob ağ geçidi ile yapılır — kart verilerinizi asla görmez veya saklamayız.",
+  "checkout_loading": "Ödeme hazırlanıyor…",
+  "checkout_waiting": "Ödeme onayı bekleniyor — bu pencereyi kapatmayın",
+  "checkout_success": "Ödeme başarılı — aboneliğiniz etkin",
+  "checkout_success_hint": "Arayüzün yenilenmesi birkaç saniye sürebilir — gerekirse sayfayı yenileyin.",
+  "checkout_failed": "Ödeme tamamlanmadı — tekrar deneyebilirsiniz",
+  "checkout_error": "Ödeme başlatılamadı — lütfen tekrar deneyin",
+  "paymob_not_configured": "Çevrimiçi ödeme henüz etkin değil — aboneliğinizi onaylamak için desteğe ulaşın",
+  "cycle_title": "Fatura dönemini seçin",
+  "close": "Kapat",
+  "retry": "Tekrar dene",
+  "done": "Tamam"
+}

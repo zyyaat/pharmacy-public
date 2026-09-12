@@ -216,6 +216,27 @@ class ApiClient {
     return unwrapList(body).map((e) => PublicPlanInfo.fromJson(mOf(e))).toList();
   }
 
+  // ------------------------------------------------------------ الدفع المضمّن (Phase G)
+  // نية خادمية + embed_url لفتح فورم Paymob داخل التطبيق (WebView) —
+  // لا خروج لمتصفح خارجي. التفعيل يحدث حصرًا من ويبهوك Paymob الموثق؛
+  // الـ polling هنا للعرض فقط. ضمن مسار الاسترجاع: تعمل مع اشتراك منتهٍ.
+
+  Future<CheckoutInfo> subscriptionCheckout(
+      String planId, String billingInterval) async {
+    final body = await _send('POST', '/pharmacy/subscription/checkout',
+        body: <String, dynamic>{
+          'plan_id': planId,
+          'billing_interval': billingInterval,
+        });
+    return CheckoutInfo.fromJson(mOf(body['data']));
+  }
+
+  Future<PaymentStatusInfo> paymentStatus(String paymentId) async {
+    final body =
+        await _send('GET', '/pharmacy/subscription/payments/$paymentId');
+    return PaymentStatusInfo.fromJson(mOf(body['data']));
+  }
+
   // ------------------------------------------------------------ المخزون
 
   Future<List<InventoryItem>> inventory() async {

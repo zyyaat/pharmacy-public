@@ -34,5 +34,19 @@
   "load_failed": "Failed to load subscription",
   "features_included": "Features",
   "month": "month",
-  "year": "year"
+  "year": "year",
+  "checkout_title": "Secure payment",
+  "checkout_success_title": "Subscription complete",
+  "checkout_secure_hint": "Payment happens on this page via the Paymob gateway — we never see or store your card data.",
+  "checkout_loading": "Preparing payment…",
+  "checkout_waiting": "Waiting for payment confirmation — do not close this window",
+  "checkout_success": "Payment succeeded — your subscription is active",
+  "checkout_success_hint": "The interface may take a few moments to refresh — reload the page if needed.",
+  "checkout_failed": "Payment was not completed — you can try again",
+  "checkout_error": "Could not start the payment — please try again",
+  "paymob_not_configured": "Online payment is not enabled yet — contact support to confirm your subscription",
+  "cycle_title": "Choose the billing cycle for the plan",
+  "close": "Close",
+  "retry": "Try again",
+  "done": "Done"
 }

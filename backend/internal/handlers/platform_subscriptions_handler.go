@@ -417,16 +417,9 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
         }
 
         principal, _ := auth.PrincipalFromContext(c)
-        periodStart := time.Now()
-        var periodEnd time.Time
-        if body.BillingInterval == models.BillingIntervalYearly {
-                periodEnd = periodStart.AddDate(1, 0, 0)
-        } else {
-                periodEnd = periodStart.AddDate(0, 1, 0)
-        }
 
-        // The payment ledger row — succeeded immediately (manual confirmation by
-        // the super admin IS the proof until Paymob webhooks take over).
+        // The payment ledger row — succeeded immediately (manual confirmation
+        // by the super admin IS the proof on the manual path).
         var paymentID string
         if err := tx.QueryRow(ctx, `
                 INSERT INTO payments (company_id, plan_id, billing_interval,
@@ -441,73 +434,15 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
                 })
                 return
         }
-        // Shared transition logic: extend when the live subscription already is
-        // this plan and active; convert a running trial; otherwise replace.
-        var subscriptionID string
-        var existingStatus, existingPlanID string
-        err = tx.QueryRow(ctx, `
-                SELECT s.id::text, s.status, s.plan_id::text
-                FROM subscriptions s
-                WHERE s.company_id = $1 AND s.status IN ('trial','active','pending')
-                ORDER BY s.created_at DESC LIMIT 1
-        `, body.CompanyID).Scan(&subscriptionID, &existingStatus, &existingPlanID)
-        if err == nil && existingStatus == models.SubStatusActive && existingPlanID == body.PlanID {
-                if _, err := tx.Exec(ctx, `
-                        UPDATE subscriptions
-                        SET current_period_start = $2,
-                            current_period_end = GREATEST(COALESCE(current_period_end, NOW()), NOW()) +
-                                CASE $3 WHEN 'yearly' THEN INTERVAL '1 year' ELSE INTERVAL '1 month' END,
-                            cancel_at_period_end = FALSE, updated_at = NOW()
-                        WHERE id = $1
-                `, subscriptionID, periodStart, body.BillingInterval); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
-                        return
-                }
-        } else if err == nil && existingStatus == models.SubStatusTrial && existingPlanID == body.PlanID {
-                if _, err := tx.Exec(ctx, `
-                        UPDATE subscriptions
-                        SET status = 'active', billing_interval = $2,
-                            current_period_start = $3, current_period_end = $4,
-                            trial_ends_at = NULL, updated_at = NOW()
-                        WHERE id = $1
-                `, subscriptionID, body.BillingInterval, periodStart, periodEnd); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_convert_failed"})
-                        return
-                }
-        } else {
-                if err == nil {
-                        // a live row exists for a different plan (or pending) — replace it
-                        if _, err := tx.Exec(ctx, `
-                                UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
-                                WHERE id = $1
-                        `, subscriptionID); err != nil {
-                                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_replace_failed"})
-                                return
-                        }
-                }
-                if err := tx.QueryRow(ctx, `
-                        INSERT INTO subscriptions
-                            (company_id, plan_id, status, billing_interval,
-                             current_period_start, current_period_end, source)
-                        VALUES ($1, $2, 'active', $3, $4, $5, 'payment')
-                        RETURNING id::text
-                `, body.CompanyID, body.PlanID, body.BillingInterval, periodStart, periodEnd).Scan(&subscriptionID); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_insert_failed"})
-                        return
-                }
-        }
 
-        if _, err := tx.Exec(ctx, `
-                UPDATE payments SET subscription_id = $2, updated_at = NOW() WHERE id = $1
-        `, paymentID, subscriptionID); err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_link_failed"})
-                return
-        }
-        if _, err := tx.Exec(ctx, `
-                UPDATE companies SET plan = $2::text, status = 'active', updated_at = NOW()
-                WHERE id = $1
-        `, body.CompanyID, planSlug); err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "company_sync_failed"})
+        // Shared transition logic — identical to the Paymob webhook path
+        // (extend / convert trial / replace), then the payment row links to
+        // the subscription and the legacy display columns stay in sync.
+        subscriptionID, err := applySucceededPaymentTx(ctx, tx, body.CompanyID, body.PlanID, body.BillingInterval, paymentID)
+        if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{
+                        "error": "payment_apply_failed", "detail": err.Error(),
+                })
                 return
         }
 

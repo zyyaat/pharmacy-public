@@ -1006,3 +1006,41 @@ class PublicPlanInfo {
         limits: SubscriptionState._intMap(j['limits']),
       );
 }
+
+/// Phase G — نتيجة بدء الدفع المضمّن: نية خادمية + embed_url يُفتح داخل
+/// WebView في التطبيق نفسه (بدون خروج لمتصفح خارجي).
+class CheckoutInfo {
+  final String paymentId, clientSecret, embedUrl, currency, billingInterval;
+  final int amountPiastres;
+
+  CheckoutInfo({
+    required this.paymentId,
+    required this.clientSecret,
+    required this.embedUrl,
+    required this.currency,
+    required this.billingInterval,
+    required this.amountPiastres,
+  });
+
+  factory CheckoutInfo.fromJson(Map<String, dynamic> j) => CheckoutInfo(
+        paymentId: sOf(j['payment_id']),
+        clientSecret: sOf(j['client_secret']),
+        embedUrl: sOf(j['embed_url']),
+        currency: sOf(j['currency'], 'EGP'),
+        billingInterval: sOf(j['billing_interval']),
+        amountPiastres: j['amount_piastres'] is int ? j['amount_piastres'] as int : 0,
+      );
+}
+
+/// Phase G — حالة الدفع من polling العرض (الويبهوك هو من يحرّك الحالة).
+class PaymentStatusInfo {
+  final String id, status;
+
+  PaymentStatusInfo({required this.id, required this.status});
+
+  factory PaymentStatusInfo.fromJson(Map<String, dynamic> j) =>
+      PaymentStatusInfo(
+        id: sOf(j['id']),
+        status: sOf(j['status'], 'pending'),
+      );
+}

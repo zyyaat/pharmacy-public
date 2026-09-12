@@ -1,9 +1,10 @@
 'use client'
 
-// Task 90 — صفحة الاشتراك: حالة الخطة الحالية + عدادات الاستهلاك + شبكة
-// الخطط المتاحة (من إنشاء Super Admin). الدفع ذاتيًا يُضاف مع تكامل Paymob؛
-// الآن زر الاشتراك يعرض إرشادات التحويل والدعم، والإسناد اليدوي يتم من لوحة
-// المشرف. الصفحة ضمن allow-list الخادم: تعمل حتى مع اشتراك منتهٍ.
+// Task 90 + Phase G — صفحة الاشتراك: حالة الخطة الحالية + عدادات الاستهلاك
+// + شبكة الخطط المتاحة (من إنشاء Super Admin). زر «اشترك الآن» يفتح مودال
+// الدفع المضمّن: فورم Paymob داخل الموقع نفسه (بدون تحويل لصفحة خارجية)،
+// والتأكيد الفعلي من ويبهوك Paymob الموثق. الصفحة ضمن allow-list الخادم:
+// تعمل حتى مع اشتراك منتهٍ — مسار الاسترجاع.
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -12,8 +13,10 @@ import { Card, CardContent, Button, Badge } from '@/components/ui'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useAccess } from '@/components/permissions/gate'
 import { NoAccessCard } from '@/components/permissions/gate'
+import { EmbeddedCheckoutModal } from '@/components/subscription/EmbeddedCheckoutModal'
 import { useT } from '@/i18n/provider'
 import { fmtDate, fmtNumber } from '@/i18n/format'
+import type { PublicPlan } from '@/lib/api'
 
 const LIMIT_LABELS: Record<string, string> = {
   branches: 'limit_branches',
@@ -33,8 +36,9 @@ export default function SubscriptionPage() {
   const router = useRouter()
   const { ready: permsReady, allowedAny, fullAccess } = useAccess()
   const {
-    ready, subscription, plans, status, daysLeft, limits, usage,
+    ready, subscription, plans, status, daysLeft, limits, usage, reload,
   } = useSubscription()
+  const [checkoutPlan, setCheckoutPlan] = useState<PublicPlan | null>(null)
 
   // نفس نمط أقسام الإعدادات: قسم محمي بصلاحية settings.billing
   useEffect(() => {
@@ -180,9 +184,7 @@ export default function SubscriptionPage() {
                     <Button
                       className="w-full"
                       variant={p.sort_order >= (plan?.slug === 'enterprise' ? 4 : 0) ? 'default' : 'outline'}
-                      onClick={() => {
-                        window.alert(t('subscribe_hint'))
-                      }}
+                      onClick={() => setCheckoutPlan(p)}
                     >
                       {t('subscribe_cta')}
                     </Button>
@@ -195,6 +197,14 @@ export default function SubscriptionPage() {
       )}
 
       <p className="text-xs text-muted-foreground text-center pb-4">{t('contact_owner')}</p>
+
+      {/* الدفع المضمّن — فورم Paymob داخل الموقع نفسه */}
+      <EmbeddedCheckoutModal
+        isOpen={checkoutPlan !== null}
+        plan={checkoutPlan}
+        onClose={() => setCheckoutPlan(null)}
+        onActivated={() => void reload()}
+      />
     </div>
   )
 }
