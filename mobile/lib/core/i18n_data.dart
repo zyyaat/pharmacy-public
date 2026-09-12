@@ -341,7 +341,7 @@ const Map<String, Map<String, String>> kI18nAr = <String, Map<String, String>>{
     'viewEdit': 'عرض / تعديل',
   },
   'errors': <String, String>{
-    'network_unreachable': 'تعذر الاتصال بخادم النظام. افتح صفحة /diag لتشخيص الاتصال، وتحقق من NEXT_PUBLIC_API_URL وBACKEND_INTERNAL_URL وإعدادات CORS في الـ backend.',
+    'network_unreachable': 'تعذّر الاتصال بالخادم. تأكّد من اتصالك بالإنترنت ثم أعد المحاولة.',
     'template_download_failed': 'تعذر تحميل نموذج الترحيل',
   },
   'inventory': <String, String>{
@@ -1408,7 +1408,7 @@ const Map<String, Map<String, String>> kI18nEn = <String, Map<String, String>>{
     'viewEdit': 'View / edit',
   },
   'errors': <String, String>{
-    'network_unreachable': 'Could not reach the system server. Open the /diag page to diagnose the connection, and check NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL and the backend CORS settings.',
+    'network_unreachable': 'Cannot reach the server. Check your internet connection and try again.',
     'template_download_failed': 'Could not download the import template',
   },
   'inventory': <String, String>{

@@ -1894,7 +1894,9 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// خطأ صفحة: Card بحد مضمر + رسالة + زر إعادة (p-8 text-center مثل الويب)
+/// خطأ صفحة — بنفس لغة بطاقة السپلاش الهادئة: دائرة ناعمة بأيقونة wifi-off
+/// خافتة، والرسالة بلون نصّ مقروء (لا بطاقة حمراء صارخة)، وإعادة محاولة
+/// نصية بلون الهوية الخضراء مع أيقونة التحديث — كما في _OfflineCard.
 class ErrorRetry extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -1904,13 +1906,48 @@ class ErrorRetry extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppCard(
-      color: theme.colorScheme.error.withOpacity(0.06),
-      child: Column(
-        children: [
-          Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: theme.colorScheme.error)),
-          const SizedBox(height: 10),
-          GhostButton(AppI18n.instance.t('common', 'retry'), onPressed: onRetry, icon: Icons.refresh),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.onSurface.withOpacity(0.05),
+              ),
+              child: Icon(Icons.wifi_off_rounded,
+                  size: 26, color: theme.colorScheme.onSurface.withOpacity(0.35)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: theme.colorScheme.onSurface.withOpacity(0.85)),
+            ),
+            const SizedBox(height: 14),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onRetry,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                  const Icon(Icons.refresh_rounded, size: 16, color: AppColors.brandGreen),
+                  const SizedBox(width: 6),
+                  Text(AppI18n.instance.t('common', 'retry'),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.brandGreen)),
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
