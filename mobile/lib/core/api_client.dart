@@ -505,6 +505,12 @@ class ApiClient {
 
   // ------------------------------------------------------------ النواة
 
+  /// Task 84 — جلب خام لخدمة الإحماء الاستباقي (PrefetchService):
+  /// نفس مسار _send العادي تمامًا — فيعمل الكاش قراءة-عبر وإشارة الشبكة
+  /// والتجديد عند 401 كما هي، بلا أي منطق مزدوج.
+  Future<Map<String, dynamic>> prefetchGet(String path, {Map<String, dynamic>? query}) =>
+      _send('GET', path, query: query);
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {

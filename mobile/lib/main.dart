@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
 import 'core/offline.dart';
+import 'core/prefetch.dart';
 import 'core/theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -44,6 +45,8 @@ Future<void> main() async {
   await ApiClient.instance.cookies.restore();
   // Task 82 — مراقب واجهات الشبكة: كشف الانقطاع فوريًا فوق إشارة نتائج API
   await startConnectivityWatch();
+  // Task 84 — إحماء الكاش الاستباقي (المرحلة 4) يعمل في التطبيق الحقيقي فقط
+  PrefetchService.enabled = true;
   final state = AppState();
   try {
     await state.loadInitialLocale();

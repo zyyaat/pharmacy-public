@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/offline.dart';
+import '../core/prefetch.dart';
 import '../core/session_store.dart';
 import '../core/strings.dart';
 import '../models/models.dart';
@@ -79,6 +82,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Task 84 — إحماء الكاش بعد جاهزية الجلسة (المرحلة 4): fire-and-forget
+  /// لا يمس الإقلاع ولا الواجهة — يملأ الكاش بسجلات شهر تقريبًا ليعمل
+  /// التنقل وتصدير PDF بلا إنترنت من أول لحظة. البوابة (enabled) تُفعّل
+  /// من main() فقط، والخدمة لا ترمي أبدًا.
+  void _warmPrefetch() {
+    unawaited(PrefetchService.instance.maybeWarm());
+  }
+
   // ------------------------------------------------------------- الجلسة
 
   /// تشغيل الإقلاع: من يقول «ما زال صالحًا» هو الخادم عبر /me.
@@ -115,6 +126,7 @@ class AppState extends ChangeNotifier {
       _phase = AuthPhase.onboarding;
     } else {
       _phase = AuthPhase.ready;
+      _warmPrefetch();
     }
     notifyListeners();
   }
@@ -144,6 +156,7 @@ class AppState extends ChangeNotifier {
     await store.setCredentials(email.trim(), password);
     await _loadSessionData();
     _phase = AuthPhase.ready;
+    _warmPrefetch();
     notifyListeners();
   }
 
@@ -211,6 +224,7 @@ class AppState extends ChangeNotifier {
       await _persistPendingCredentials(email);
       await _loadSessionData();
       _phase = result.onboardingRequired || context == null ? AuthPhase.onboarding : AuthPhase.ready;
+      if (_phase == AuthPhase.ready) _warmPrefetch();
       notifyListeners();
     }
     return (sessionCreated: result.sessionCreated, onboardingRequired: result.onboardingRequired);
@@ -226,6 +240,7 @@ class AppState extends ChangeNotifier {
     await _persistPendingCredentials(user?.email ?? '');
     await _loadSessionData();
     _phase = AuthPhase.ready;
+    _warmPrefetch();
     notifyListeners();
     return true;
   }
@@ -233,6 +248,7 @@ class AppState extends ChangeNotifier {
   Future<void> completeOnboarding() async {
     await _loadSessionData();
     _phase = AuthPhase.ready;
+    _warmPrefetch();
     notifyListeners();
   }
 
