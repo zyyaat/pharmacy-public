@@ -156,7 +156,8 @@ const Map<String, Map<String, String>> kI18nAr = <String, Map<String, String>>{
     'search': 'بحث',
     'select_placeholder': 'اختر…',
     'splash_loading': 'جارٍ التحميل',
-    'splash_offline': 'تعذر الاتصال بالخادم — تحقق من اتصال الإنترنت',
+    'splash_offline': 'تعذّر الاتصال بالخادم',
+    'splash_offline_hint': 'جارٍ إعادة المحاولة تلقائيًا…',
     'view_all': 'عرض الكل',
   },
   'customers': <String, String>{
@@ -1222,7 +1223,8 @@ const Map<String, Map<String, String>> kI18nEn = <String, Map<String, String>>{
     'search': 'Search',
     'select_placeholder': 'Select…',
     'splash_loading': 'Loading',
-    'splash_offline': 'Cannot reach the server — check your internet connection',
+    'splash_offline': 'Cannot reach the server',
+    'splash_offline_hint': 'Retrying automatically…',
     'view_all': 'View all',
   },
   'customers': <String, String>{

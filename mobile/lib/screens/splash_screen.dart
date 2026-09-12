@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/strings.dart';
+import '../core/theme.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
@@ -91,6 +92,7 @@ class _SplashScreenState extends State<SplashScreen> {
         footer: _failed
             ? _OfflineCard(
                 message: i18n.t('common', 'splash_offline'),
+                hint: i18n.t('common', 'splash_offline_hint'),
                 retryLabel: i18n.t('common', 'retry'),
                 onRetry: _manualRetry,
               )
@@ -100,47 +102,52 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-/// بطاقة انقطاع الاتصال داخل السپلاش — داكنة شبه شفافة بحد مضمر وزر إعادة
-/// محاولة بألوان الهوية (لاصقة بأسلوب بطاقة الخطأ في onboarding بالويب).
+/// رسالة انقطاع الاتصال داخل السپلاش — بسيطة وحديثة بلا إطار ولا خلفية:
+/// أيقونة wifi-off خافتة + سطر الحالة + تلميح الإعادة التلقائية الناعم
+/// + إعادة محاولة نصية بلون الهوية — بدل البطاقة المحدودة القديمة.
 class _OfflineCard extends StatelessWidget {
   final String message;
+  final String hint;
   final String retryLabel;
   final VoidCallback onRetry;
-  const _OfflineCard({required this.message, required this.retryLabel, required this.onRetry});
+  const _OfflineCard({
+    required this.message,
+    required this.hint,
+    required this.retryLabel,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 340),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF14D4C).withOpacity(0.45)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
+    const Color fg = Color(0xFFECFDF5);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+          Icon(Icons.wifi_off_rounded, size: 15, color: fg.withOpacity(0.55)),
+          const SizedBox(width: 8),
           Text(message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, height: 1.6, color: Color(0xFFECFDF5))),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: onRetry,
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF00D084).withOpacity(0.6)),
-              ),
-              child: Text(retryLabel,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF00D084))),
-            ),
+              style: TextStyle(
+                  fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.5, color: fg.withOpacity(0.90))),
+        ]),
+        const SizedBox(height: 5),
+        Text(hint, style: TextStyle(fontSize: 12, height: 1.5, color: fg.withOpacity(0.45))),
+        const SizedBox(height: 14),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onRetry,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+              const Icon(Icons.refresh_rounded, size: 16, color: AppColors.brandGreen),
+              const SizedBox(width: 6),
+              Text(retryLabel,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.brandGreen)),
+            ]),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
