@@ -25,7 +25,11 @@ print("reports_test recreated (fresh)")
 PY
 
 echo "== Reset: backend up (auto-migrate) =="
-(cd backend && /tmp/go/bin/go build -o /tmp/pharmacy-backend ./cmd/server) || exit 1
+# Go من PATH أولًا ثم المسارات القديمة (بيئات معاد ضبطها)
+GO_BIN="$(command -v go || true)"
+[ -z "$GO_BIN" ] && [ -x /tmp/go/bin/go ] && GO_BIN=/tmp/go/bin/go
+[ -n "$GO_BIN" ] || { echo "go not found"; exit 1; }
+(cd backend && "$GO_BIN" build -o /tmp/pharmacy-backend ./cmd/server) || exit 1
 setsid nohup /tmp/pharmacy-backend > /tmp/backend.log 2>&1 &
 for _ in $(seq 1 60); do curl -s -o /dev/null --max-time 2 http://localhost:8080/api/v1/health && break; sleep 0.5; done
 curl -s -o /dev/null -w "backend health: %{http_code}\n" --max-time 3 http://localhost:8080/api/v1/health

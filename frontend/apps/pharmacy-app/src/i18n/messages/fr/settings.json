@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "Un code interne unique sera généré pour chaque produit sélectionné ({count}). Continuer ?",
   "labels_bulk_done": "{generated} codes générés sur {requested}",
   "labels_bulk_failed": "Échec de la génération massive",
-  "labels_no_barcode_selected": "Les produits sélectionnés n’ont pas encore de code — générez les codes d’abord"
+  "labels_no_barcode_selected": "Les produits sélectionnés n’ont pas encore de code — générez les codes d’abord",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

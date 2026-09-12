@@ -9,6 +9,7 @@ import (
 
         "github.com/gin-gonic/gin"
         "github.com/pharmacy-os/backend/internal/auth"
+        "github.com/pharmacy-os/backend/internal/models"
         "golang.org/x/crypto/bcrypt"
 )
 
@@ -31,6 +32,9 @@ const permissionAdminKey = "pharmacy.admin"
 
 // requirePharmacyPermission checks the current principal against the flexible
 // permission system. Resolution order:
+//  0. plan gate (Task 90): the company's subscription must be active/trial
+//     AND its plan must include the key — this bounds owners and legacy
+//     full-access employees alike, because the plan is the company ceiling.
 //  1. company_admin / company_manager principals: always allowed (owners).
 //  2. employees holding pharmacy.admin: always allowed.
 //  3. employees with explicit permission rows: allowed iff the key is granted.
@@ -43,6 +47,12 @@ func (h *Handler) requirePharmacyPermission(permissionKey string) gin.HandlerFun
                         c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
                                 "error": "authentication_required", "message": "Authentication required",
                         })
+                        return
+                }
+
+                // Plan gate first: a paid-for permission set bounds everyone in the
+                // company regardless of their RBAC grants. Super admins bypass.
+                if !h.enforcePlanGate(c, principal, permissionKey) {
                         return
                 }
 
@@ -592,6 +602,10 @@ func (h *Handler) CreatePharmacyEmployee(c *gin.Context) {
                 return
         }
         principal, _ := auth.PrincipalFromContext(c)
+        // Plan limit (Task 90): employees is a commercial ceiling.
+        if !h.enforcePlanLimit(c, principal, models.LimitKeyEmployees) {
+                return
+        }
 
         var body struct {
                 FirstName   string   `json:"first_name"`

@@ -8,6 +8,7 @@ import (
         "github.com/pharmacy-os/backend/internal/config"
         appmiddleware "github.com/pharmacy-os/backend/internal/middleware"
         "github.com/pharmacy-os/backend/internal/repository"
+        "github.com/pharmacy-os/backend/internal/subscription"
         "os"
 )
 
@@ -17,6 +18,7 @@ type Handler struct {
         db      *pgxpool.Pool
         auth    *auth.Handler
         company *CompanyHandler
+        subs    *subscription.Service
 }
 
 // New creates a new Handler instance
@@ -24,6 +26,10 @@ func New(cfg *config.Config, db ...*pgxpool.Pool) *Handler {
         h := &Handler{config: cfg}
         if len(db) > 0 && db[0] != nil {
                 h.db = db[0]
+                // SaaS plan enforcement (Task 90): one process-wide service
+                // backs both the pharmacy and company permission gates.
+                h.subs = subscription.NewService(db[0])
+                subscription.SetDefault(h.subs)
                 h.auth = auth.NewHandler(db[0], auth.Config{
                         AccessTTL:     cfg.AuthAccessTTL,
                         RefreshTTL:    cfg.AuthRefreshTTL,
@@ -85,6 +91,20 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.GET("/users", h.ListPlatformUsers)
                 platformAdmin.GET("/accounts", h.ListPlatformAccounts)
                 platformAdmin.GET("/permissions", h.ListPlatformPermissions)
+                // SaaS plans management (Task 90): fully dynamic plans +
+                // subscription operations + manual payments. All writes are
+                // CSRF-guarded like the rest of the platform mutations.
+                platformAdmin.GET("/plans", h.ListPlatformPlans)
+                platformAdmin.POST("/plans", auth.CSRF(auth.PlatformRealm), h.CreatePlatformPlan)
+                platformAdmin.GET("/plans/:id", h.GetPlatformPlan)
+                platformAdmin.PUT("/plans/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformPlan)
+                platformAdmin.PATCH("/plans/:id/status", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformPlanStatus)
+                platformAdmin.DELETE("/plans/:id", auth.CSRF(auth.PlatformRealm), h.DeletePlatformPlan)
+                platformAdmin.GET("/features", h.ListPlatformFeatures)
+                platformAdmin.GET("/subscriptions", h.ListPlatformSubscriptions)
+                platformAdmin.POST("/subscriptions", auth.CSRF(auth.PlatformRealm), h.CreatePlatformSubscription)
+                platformAdmin.PATCH("/subscriptions/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformSubscription)
+                platformAdmin.POST("/payments/manual", auth.CSRF(auth.PlatformRealm), h.CreateManualPayment)
 
                 // Pharmacy data is scoped from the authenticated employee/company
                 // principal. These endpoints intentionally do not accept a pharmacy
@@ -101,6 +121,12 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 perm := h.requirePharmacyPermission
 
                 pharmacy.GET("/context", h.GetPharmacyContext)
+                // SaaS subscription surface (Task 90): these two are part of
+                // the lockout allow-list — an expired/suspended company must
+                // always be able to read its own status and the public plans
+                // so it can recover. No status gate here, by design.
+                pharmacy.GET("/subscription", h.GetPharmacySubscription)
+                pharmacy.GET("/plans", h.ListPublicPlans)
                 // Delta sync (offline-first smart synchronization): one cheap
                 // round-trip returns only what changed since the caller's
                 // cursor + tombstoned deletions, in row shapes identical to
@@ -184,7 +210,10 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // كباقي نقاط النهاية المكتوبة. لا صلاحية مفصّلة هنا لأن المالك
                 // الجديد يجب أن يمرّ من هذه الصفحة قبل أي إعداد آخر.
                 pharmacy.GET("/onboarding", h.GetPharmacyOnboarding)
-                pharmacy.PUT("/onboarding", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UpdatePharmacyOnboarding)
+                // The onboarding write has no single permission key, but it
+                // must still respect the subscription lockout (expired/
+                // suspended companies are gated by status only).
+                pharmacy.PUT("/onboarding", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.guardPlanStatus(h.UpdatePharmacyOnboarding))
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.
@@ -217,7 +246,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // reports a lower value, the running backend predates the deploy).
 // 59 — delta sync: migration 25 (sales/customers updated_at + triggers,
 // sync_tombstones) + GET /pharmacy/sync for the mobile offline cache.
-const APILevel = 59
+// 60 — SaaS plans & subscriptions: migration 26 (plans/features/limits/
+// subscriptions/payments), plan gate inside both permission middlewares,
+// limit enforcement at creation endpoints, platform-admin plan/subscription
+// management, GET /pharmacy/subscription + /pharmacy/plans.
+const APILevel = 60
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

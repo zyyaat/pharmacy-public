@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "प्रत्येक चयनित उत्पाद के लिए एक अद्वितीय आंतरिक बारकोड बनेगा ({count})। जारी रखें?",
   "labels_bulk_done": "{requested} में से {generated} बारकोड बने",
   "labels_bulk_failed": "बैच जनरेशन विफल",
-  "labels_no_barcode_selected": "चयनित उत्पादों का बारकोड अभी नहीं है — पहले कोड बनाएँ"
+  "labels_no_barcode_selected": "चयनित उत्पादों का बारकोड अभी नहीं है — पहले कोड बनाएँ",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

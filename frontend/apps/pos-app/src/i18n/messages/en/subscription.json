@@ -1,0 +1,6 @@
+{
+  "blocked_banner": "Your trial ended — pick a plan to restore access. All your data is safe.",
+  "suspended_banner": "Subscription suspended — check the subscription page in the pharmacy dashboard or contact support.",
+  "trial_banner": "Your trial ends in {days} days — subscribe to keep working",
+  "trial_banner_last": "Last trial day — subscribe now to avoid interruption"
+}

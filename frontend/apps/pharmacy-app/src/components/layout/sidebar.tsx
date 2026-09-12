@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 import { useAccess } from '@/components/permissions/gate'
 import { SIDEBAR_PERMISSION_ROUTES } from '@/lib/permissions'
+import { useSubscription } from '@/hooks/useSubscription'
 import { fmtNumber } from '@/i18n/format'
 import { useT } from '@/i18n/provider'
 
@@ -34,6 +35,20 @@ function requiredPermissions(href: string): string[] | null {
   return match ? match.anyOf : null
 }
 
+/** Task 90 — الميزة المطلوبة في خطة الشركة لظهور العنصر (حجب UX فقط؛
+ *  الخادم هو من يمنع فعليًا). قبل وصول بيانات الاشتراك نُظهر الكل (fail-open). */
+const ITEM_FEATURES: Record<string, string> = {
+  '/inventory': 'inventory',
+  '/inventory/movements': 'inventory',
+  '/pos': 'pos',
+  '/sales': 'sales',
+  '/customers': 'customers',
+  '/employees': 'employees',
+  '/attendance': 'attendance',
+  '/branches': 'branches',
+  '/reports': 'reports',
+}
+
 export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -43,14 +58,20 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
   // Task 43: لا وميض للممنوع — حتى تحميل الصلاحيات نعرض هيكلًا عظميًا،
   // فالموظف المقيّد لا يرى الأقسام الممنوعة ولو لجزء من الثانية.
   const { ready, allowedAny } = useAccess()
+  const { ready: subsReady, featureOn } = useSubscription()
   const [collapsed, setCollapsed] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
   const visibleItems = items.filter((item) => {
     const required = requiredPermissions(item.href)
-    if (!required) return true
-    if (!ready) return false
-    return allowedAny(required)
+    if (required) {
+      if (!ready) return false
+      if (!allowedAny(required)) return false
+    }
+    // حجب الميزات حسب خطة الشركة (بعد جاهزية بيانات الاشتراك)
+    const feature = ITEM_FEATURES[item.href]
+    if (subsReady && feature && !featureOn(feature)) return false
+    return true
   })
 
   // رابط الإعدادات يختفي كليًا عمن لا يملك أي قسم إعدادات

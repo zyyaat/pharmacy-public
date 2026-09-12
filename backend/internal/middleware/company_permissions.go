@@ -18,6 +18,7 @@ import (
 
         "github.com/gin-gonic/gin"
         "github.com/jackc/pgx/v5"
+        "github.com/pharmacy-os/backend/internal/subscription"
 )
 
 // ============================================
@@ -200,6 +201,9 @@ func RequireCompanyPermissionWithConfig(permissionKey string, config *CompanyPer
                 if found && !expired {
                         // Cache hit - use cached value
                         if hasPermission {
+                                if !allowWithPlanGate(c, permissionKey) {
+                                        return
+                                }
                                 c.Next()
                                 return
                         }
@@ -236,6 +240,9 @@ func RequireCompanyPermissionWithConfig(permissionKey string, config *CompanyPer
                 
                 // Make decision based on database result
                 if hasPerm {
+                        if !allowWithPlanGate(c, permissionKey) {
+                                return
+                        }
                         c.Next()
                         return
                 }
@@ -311,6 +318,29 @@ func RequireAllCompanyPermissions(permissionKeys ...string) gin.HandlerFunc {
                 // All permissions granted
                 c.Next()
         }
+}
+
+// allowWithPlanGate applies the SaaS subscription plan gate (Task 90) on
+// top of the user-level RBAC result: the plan is the company ceiling, so
+// even a fully-granted company user is bounded by what the company bought.
+// Super admins bypass. When no subscription service is wired (unit tests)
+// the gate steps aside to keep the middleware usable standalone.
+func allowWithPlanGate(c *gin.Context, permissionKey string) bool {
+        if isSuper, ok := c.Get("company_is_super_admin"); ok {
+                if flag, _ := isSuper.(bool); flag {
+                        return true
+                }
+        }
+        svc := subscription.Default()
+        if svc == nil {
+                return true
+        }
+        companyID, _ := c.Get("company_id")
+        id, _ := companyID.(string)
+        if id == "" {
+                return true
+        }
+        return svc.EnforcePermission(c, id, permissionKey)
 }
 
 // ============================================

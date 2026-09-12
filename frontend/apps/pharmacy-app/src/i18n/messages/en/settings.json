@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "A unique internal barcode will be generated for each selected product ({count}). Continue?",
   "labels_bulk_done": "Generated {generated} of {requested} requested barcodes",
   "labels_bulk_failed": "Bulk generation failed",
-  "labels_no_barcode_selected": "Selected products have no barcode yet — generate codes first"
+  "labels_no_barcode_selected": "Selected products have no barcode yet — generate codes first",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

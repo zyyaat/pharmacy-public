@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "Seçilen her ürün için benzersiz bir iç barkod üretilecek ({count}). Devam edilsin mi?",
   "labels_bulk_done": "{requested} istekten {generated} barkod üretildi",
   "labels_bulk_failed": "Toplu üretim başarısız",
-  "labels_no_barcode_selected": "Seçili ürünlerin henüz barkodu yok — önce kodları üretin"
+  "labels_no_barcode_selected": "Seçili ürünlerin henüz barkodu yok — önce kodları üretin",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

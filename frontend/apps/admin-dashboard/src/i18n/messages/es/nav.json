@@ -14,5 +14,7 @@
   "light_mode": "Modo claro",
   "dark_mode": "Modo oscuro",
   "loading_aria": "Cargando",
-  "logo_alt": "Logotipo de la aplicación"
+  "logo_alt": "Logotipo de la aplicación",
+  "plans": "Planes",
+  "subscriptions": "Suscripciones"
 }

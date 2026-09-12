@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "سيولّد النظام باركودًا داخليًا فريدًا لكل منتج محدد ({count}). متابعة؟",
   "labels_bulk_done": "تم توليد {generated} باركودًا من أصل {requested} مطلوب",
   "labels_bulk_failed": "تعذر التوليد الجماعي",
-  "labels_no_barcode_selected": "المنتجات المحددة بلا باركود بعد — ولّد الأكواد أولًا"
+  "labels_no_barcode_selected": "المنتجات المحددة بلا باركود بعد — ولّد الأكواد أولًا",
+  "sections": {
+    "subscription": "الاشتراك والخطط"
+  }
 }

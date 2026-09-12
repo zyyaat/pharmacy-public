@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import './globals.css'
 import { AuthProvider } from '@/hooks/useAuth'
+import { SubscriptionProvider } from '@/hooks/useSubscription'
 import { I18nProvider } from '@/i18n/provider'
 import { getServerI18n } from '@/i18n/server'
 
@@ -37,7 +38,12 @@ export default async function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} font-[family-name:var(--font-geist-sans)] antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <I18nProvider locale={locale} messages={messages}>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              {/* Task 90 — مزوّد الاشتراك على الجذر: يخدم شجرة اللوحة وشجرة
+                  الإعدادات معًا (صفحة الاشتراك خارج شجرة اللوحة). الجلب لا
+                  يبدأ إلا بعد وجود جلسة. */}
+              <SubscriptionProvider>{children}</SubscriptionProvider>
+            </AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

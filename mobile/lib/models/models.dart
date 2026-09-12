@@ -908,3 +908,101 @@ class ImportReport {
         }).toList(),
       );
 }
+
+// ============================================================================
+// SaaS Subscription (Task 90) — حالة اشتراك الشركة والخطط المتاحة
+// ============================================================================
+
+class SubscriptionState {
+  final String status;
+  final int daysLeft;
+  final String? trialEndsAt, periodEnd;
+  final String planSlug, planName, planNameAr, currency;
+  final int monthlyPiastres, yearlyPiastres;
+  final List<String> features;
+  final Map<String, int> limits;
+  final Map<String, int> usage;
+
+  SubscriptionState({
+    required this.status,
+    required this.daysLeft,
+    required this.trialEndsAt,
+    required this.periodEnd,
+    required this.planSlug,
+    required this.planName,
+    required this.planNameAr,
+    required this.currency,
+    required this.monthlyPiastres,
+    required this.yearlyPiastres,
+    required this.features,
+    required this.limits,
+    required this.usage,
+  });
+
+  /// التجربة النشطة أو الاشتراك المدفوع = وصول ممنوح؛ الباقي مقفول خادميًا.
+  bool get isGranted => status == 'trial' || status == 'active';
+  bool get isTrialEnding => status == 'trial' && daysLeft <= 3;
+
+  static Map<String, int> _intMap(dynamic j) {
+    final out = <String, int>{};
+    if (j is Map) {
+      j.forEach((key, value) {
+        final v = value;
+        out[key.toString()] = v is int ? v : int.tryParse('$v') ?? 0;
+      });
+    }
+    return out;
+  }
+
+  factory SubscriptionState.fromJson(Map<String, dynamic> j) {
+    final sub = j['subscription'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final plan = j['plan'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final usage = j['usage'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    return SubscriptionState(
+      status: sOf(sub['status']),
+      daysLeft: sub['days_left'] is int ? sub['days_left'] as int : 0,
+      trialEndsAt: sub['trial_ends_at']?.toString(),
+      periodEnd: sub['current_period_end']?.toString(),
+      planSlug: sOf(plan['slug']),
+      planName: sOf(plan['name']),
+      planNameAr: sOf(plan['name_ar']),
+      currency: sOf(plan['currency'], 'EGP'),
+      monthlyPiastres: plan['monthly_price_piastres'] is int ? plan['monthly_price_piastres'] as int : 0,
+      yearlyPiastres: plan['yearly_price_piastres'] is int ? plan['yearly_price_piastres'] as int : 0,
+      features: lOf(plan['features']).map((e) => e.toString()).toList(),
+      limits: SubscriptionState._intMap(plan['limits']),
+      usage: SubscriptionState._intMap(usage),
+    );
+  }
+}
+
+class PublicPlanInfo {
+  final String id, slug, name, nameAr, currency;
+  final int monthlyPiastres, yearlyPiastres;
+  final List<String> features;
+  final Map<String, int> limits;
+
+  PublicPlanInfo({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.nameAr,
+    required this.currency,
+    required this.monthlyPiastres,
+    required this.yearlyPiastres,
+    required this.features,
+    required this.limits,
+  });
+
+  factory PublicPlanInfo.fromJson(Map<String, dynamic> j) => PublicPlanInfo(
+        id: sOf(j['id']),
+        slug: sOf(j['slug']),
+        name: sOf(j['name']),
+        nameAr: sOf(j['name_ar']),
+        currency: sOf(j['currency'], 'EGP'),
+        monthlyPiastres: j['monthly_price_piastres'] is int ? j['monthly_price_piastres'] as int : 0,
+        yearlyPiastres: j['yearly_price_piastres'] is int ? j['yearly_price_piastres'] as int : 0,
+        features: lOf(j['features']).map((e) => e.toString()).toList(),
+        limits: SubscriptionState._intMap(j['limits']),
+      );
+}

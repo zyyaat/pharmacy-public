@@ -10,6 +10,8 @@ import {
   Users,
   Shield,
   CreditCard,
+  Package,
+  RefreshCcw,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -40,6 +42,16 @@ const sidebarItems: SidebarItem[] = [
     title: "companies",
     href: "/companies",
     icon: <Building2 className="h-5 w-5" />,
+  },
+  {
+    title: "plans",
+    href: "/plans",
+    icon: <Package className="h-5 w-5" />,
+  },
+  {
+    title: "subscriptions",
+    href: "/subscriptions",
+    icon: <RefreshCcw className="h-5 w-5" />,
   },
   {
     title: "users",

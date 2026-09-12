@@ -12,6 +12,8 @@ import arCompanies from './ar/companies.json'
 import arAccounts from './ar/accounts.json'
 import arPermissions from './ar/permissions.json'
 import arSettings from './ar/settings.json'
+import arPlans from './ar/plans.json'
+import arSubscriptions from './ar/subscriptions.json'
 import enCommon from './en/common.json'
 import enNav from './en/nav.json'
 import enAuth from './en/auth.json'
@@ -22,6 +24,8 @@ import enCompanies from './en/companies.json'
 import enAccounts from './en/accounts.json'
 import enPermissions from './en/permissions.json'
 import enSettings from './en/settings.json'
+import enPlans from './en/plans.json'
+import enSubscriptions from './en/subscriptions.json'
 import frCommon from './fr/common.json'
 import frNav from './fr/nav.json'
 import frAuth from './fr/auth.json'
@@ -32,6 +36,8 @@ import frCompanies from './fr/companies.json'
 import frAccounts from './fr/accounts.json'
 import frPermissions from './fr/permissions.json'
 import frSettings from './fr/settings.json'
+import frPlans from './fr/plans.json'
+import frSubscriptions from './fr/subscriptions.json'
 import esCommon from './es/common.json'
 import esNav from './es/nav.json'
 import esAuth from './es/auth.json'
@@ -42,6 +48,8 @@ import esCompanies from './es/companies.json'
 import esAccounts from './es/accounts.json'
 import esPermissions from './es/permissions.json'
 import esSettings from './es/settings.json'
+import esPlans from './es/plans.json'
+import esSubscriptions from './es/subscriptions.json'
 import trCommon from './tr/common.json'
 import trNav from './tr/nav.json'
 import trAuth from './tr/auth.json'
@@ -52,6 +60,8 @@ import trCompanies from './tr/companies.json'
 import trAccounts from './tr/accounts.json'
 import trPermissions from './tr/permissions.json'
 import trSettings from './tr/settings.json'
+import trPlans from './tr/plans.json'
+import trSubscriptions from './tr/subscriptions.json'
 import zhCommon from './zh/common.json'
 import zhNav from './zh/nav.json'
 import zhAuth from './zh/auth.json'
@@ -62,6 +72,8 @@ import zhCompanies from './zh/companies.json'
 import zhAccounts from './zh/accounts.json'
 import zhPermissions from './zh/permissions.json'
 import zhSettings from './zh/settings.json'
+import zhPlans from './zh/plans.json'
+import zhSubscriptions from './zh/subscriptions.json'
 import hiCommon from './hi/common.json'
 import hiNav from './hi/nav.json'
 import hiAuth from './hi/auth.json'
@@ -72,6 +84,8 @@ import hiCompanies from './hi/companies.json'
 import hiAccounts from './hi/accounts.json'
 import hiPermissions from './hi/permissions.json'
 import hiSettings from './hi/settings.json'
+import hiPlans from './hi/plans.json'
+import hiSubscriptions from './hi/subscriptions.json'
 import urCommon from './ur/common.json'
 import urNav from './ur/nav.json'
 import urAuth from './ur/auth.json'
@@ -82,6 +96,8 @@ import urCompanies from './ur/companies.json'
 import urAccounts from './ur/accounts.json'
 import urPermissions from './ur/permissions.json'
 import urSettings from './ur/settings.json'
+import urPlans from './ur/plans.json'
+import urSubscriptions from './ur/subscriptions.json'
 
 export type Messages = Record<string, unknown>
 
@@ -97,6 +113,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: arAccounts,
     permissions: arPermissions,
     settings: arSettings,
+    plans: arPlans,
+    subscriptions: arSubscriptions,
   },
   en: {
     common: enCommon,
@@ -109,6 +127,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: enAccounts,
     permissions: enPermissions,
     settings: enSettings,
+    plans: enPlans,
+    subscriptions: enSubscriptions,
   },
   fr: {
     common: frCommon,
@@ -121,6 +141,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: frAccounts,
     permissions: frPermissions,
     settings: frSettings,
+    plans: frPlans,
+    subscriptions: frSubscriptions,
   },
   es: {
     common: esCommon,
@@ -133,6 +155,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: esAccounts,
     permissions: esPermissions,
     settings: esSettings,
+    plans: esPlans,
+    subscriptions: esSubscriptions,
   },
   tr: {
     common: trCommon,
@@ -145,6 +169,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: trAccounts,
     permissions: trPermissions,
     settings: trSettings,
+    plans: trPlans,
+    subscriptions: trSubscriptions,
   },
   zh: {
     common: zhCommon,
@@ -157,6 +183,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: zhAccounts,
     permissions: zhPermissions,
     settings: zhSettings,
+    plans: zhPlans,
+    subscriptions: zhSubscriptions,
   },
   hi: {
     common: hiCommon,
@@ -169,6 +197,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: hiAccounts,
     permissions: hiPermissions,
     settings: hiSettings,
+    plans: hiPlans,
+    subscriptions: hiSubscriptions,
   },
   ur: {
     common: urCommon,
@@ -181,6 +211,8 @@ const catalogs: Record<Locale, Record<string, Record<string, unknown>>> = {
     accounts: urAccounts,
     permissions: urPermissions,
     settings: urSettings,
+    plans: urPlans,
+    subscriptions: urSubscriptions,
   },
 }
 

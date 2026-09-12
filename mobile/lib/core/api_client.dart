@@ -202,6 +202,20 @@ class ApiClient {
     return MyPermissions.fromJson(unwrapMap(body));
   }
 
+  // ------------------------------------------------------------ الاشتراك (Task 90)
+  // ضمن allow-list الخادم: تعملان حتى مع اشتراك منتهٍ ليستطيع المالك
+  // رؤية وضعه والخطط المتاحة.
+
+  Future<SubscriptionState> subscription() async {
+    final body = await _send('GET', '/pharmacy/subscription');
+    return SubscriptionState.fromJson(unwrapMap(body));
+  }
+
+  Future<List<PublicPlanInfo>> subscriptionPlans() async {
+    final body = await _send('GET', '/pharmacy/plans');
+    return unwrapList(body).map((e) => PublicPlanInfo.fromJson(mOf(e))).toList();
+  }
+
   // ------------------------------------------------------------ المخزون
 
   Future<List<InventoryItem>> inventory() async {

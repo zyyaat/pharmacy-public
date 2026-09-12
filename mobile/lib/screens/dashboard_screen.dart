@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../widgets/ui.dart';
 import 'home_screen.dart';
 import 'product_form_screen.dart';
+import 'subscription_screen.dart';
 
 /// Task 62 — لوحة التحكم بنسخة الويب حرفيًا: رأس صفحة بعنوان 2xl وزر
 /// «إضافة دواء» المتدرج، 4 بطاقات إحصائية (عمود واحد على الهاتف مثل
@@ -93,6 +94,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(16), // p-4
         children: <Widget>[
           // رأس الصفحة + زر الإضافة المتدرج
+          // Task 90 — لافتة الاشتراك: تجربة تنتهي قريبًا (كهرمانية) أو
+          // اشتراك منتهٍ/معلّق (حمراء) مع نقر يفتح شاشة الاشتراك
+          Builder(builder: (BuildContext context) {
+            final sub = context.watch<AppState>().subscription;
+            if (sub == null) return const SizedBox.shrink();
+            final i18nL = AppI18n.instance;
+            final themeL = Theme.of(context);
+            final bool expired = !sub.isGranted;
+            final bool warn = sub.isTrialEnding;
+            if (!expired && !warn) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const SubscriptionScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: expired
+                        ? themeL.colorScheme.error.withOpacity(0.10)
+                        : Colors.amber.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: expired
+                          ? themeL.colorScheme.error.withOpacity(0.35)
+                          : Colors.amber.withOpacity(0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(expired ? Icons.error_outline : Icons.schedule,
+                          color: expired ? themeL.colorScheme.error : Colors.amber.shade800, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          expired
+                              ? i18nL.t('subscription', 'blocked_banner')
+                              : (sub.daysLeft <= 0
+                                  ? i18nL.t('subscription', 'trial_banner_last')
+                                  : i18nL.t('subscription', 'trial_banner', <String, Object?>{'days': sub.daysLeft})),
+                          style: themeL.textTheme.bodySmall?.copyWith(
+                            color: expired ? themeL.colorScheme.error : Colors.amber.shade900,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
           PageHeader(
             i18n.t('dashboard', 'title'),
             subtitle: i18n.t('dashboard', 'subtitle'),

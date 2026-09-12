@@ -15,6 +15,7 @@ import (
 
         "github.com/pharmacy-os/backend/internal/auth"
         "github.com/pharmacy-os/backend/internal/barcode"
+        "github.com/pharmacy-os/backend/internal/models"
         "github.com/pharmacy-os/backend/internal/money"
 )
 
@@ -162,6 +163,10 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
         principal, ok := auth.PrincipalFromContext(c)
         if !ok || principal.PharmacyID == "" || principal.ID == "" {
                 c.JSON(http.StatusForbidden, gin.H{"error": "pharmacy_mutation_account_required", "message": "حساب مدير أو موظف صيدلية مطلوب"})
+                return
+        }
+        // Plan limit (Task 90): products is a commercial ceiling.
+        if !h.enforcePlanLimit(c, principal, models.LimitKeyProducts) {
                 return
         }
 

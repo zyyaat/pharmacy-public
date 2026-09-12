@@ -70,6 +70,9 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
   }
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
+    if (typeof window !== 'undefined' && ['subscription_expired', 'subscription_suspended', 'subscription_pending'].includes(String(body.error || ''))) {
+      window.dispatchEvent(new CustomEvent('pharmacy:subscription-blocked', { detail: body.error }))
+    }
     throw new ApiError(
       body.message || 'API request failed',
       body.code || body.error || 'API_ERROR',
@@ -1036,4 +1039,30 @@ export const productImportApi = {
     }
     return response.blob()
   },
+}
+
+
+// ============================================================================
+// SaaS Subscription (Task 90) — لافتة الحالة فقط؛ الخادم هو الحاجب الحقيقي.
+// ============================================================================
+
+export type MySubscription = {
+  subscription: { id: string; status: string; billing_interval: string; current_period_start: string | null; current_period_end: string | null; trial_ends_at: string | null; cancel_at_period_end: boolean; days_left: number }
+  plan: { id: string; slug: string; name: string; name_ar: string; currency: string; monthly_price_piastres: number; yearly_price_piastres: number; features: string[]; limits: Record<string, number> }
+  usage: Record<string, number>
+}
+
+export const subscriptionApi = {
+  async get() {
+    return apiFetch<{ data: MySubscription }>('/pharmacy/subscription')
+  },
+  async listPlans() {
+    return apiFetch<{ data: PublicPlan[] }>('/pharmacy/plans')
+  },
+}
+
+export type PublicPlan = {
+  id: string; slug: string; name: string; name_ar: string; description: string
+  monthly_price_piastres: number; yearly_price_piastres: number; currency: string
+  sort_order: number; features: string[]; limits: Record<string, number>
 }

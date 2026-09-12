@@ -14,5 +14,7 @@
   "light_mode": "浅色模式",
   "dark_mode": "深色模式",
   "loading_aria": "加载中",
-  "logo_alt": "应用徽标"
+  "logo_alt": "应用徽标",
+  "plans": "套餐",
+  "subscriptions": "订阅"
 }

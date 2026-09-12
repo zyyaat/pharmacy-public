@@ -23,6 +23,7 @@ class AppState extends ChangeNotifier {
   User? user;
   PharmacyContext? context;
   MyPermissions? permissions;
+  SubscriptionState? subscription; // Task 90
   String? pendingVerifyEmail;
 
   // بيانات التسجيل الحالي في الذاكرة فقط — تُخزَّن مشفّرة بعد فتح الجلسة
@@ -110,6 +111,7 @@ class AppState extends ChangeNotifier {
         user = null;
         context = null;
         permissions = null;
+        subscription = null;
         // Task 82 — رفض الخادم فعليًا (كلمة المرور تغيّرت/جلسة ملغاة):
         // كاش أعمال الجلسة لا يجوز أن يبقى على الجهاز
         await OfflineCache.instance.clear();
@@ -143,6 +145,12 @@ class AppState extends ChangeNotifier {
       permissions = await api.myPermissions();
     } catch (_) {
       permissions = null;
+    }
+    // Task 90 — حالة الاشتراك: تُحمّل مع بيانات الجلسة (نقطة allow-list)
+    try {
+      subscription = await api.subscription();
+    } catch (_) {
+      subscription = null;
     }
   }
 
@@ -279,4 +287,21 @@ class AppState extends ChangeNotifier {
 
   bool can(String key) => permissions?.can(key) ?? true;
   bool canAny(List<String> keys) => permissions?.canAny(keys) ?? true;
+
+  // Task 90 — هل الميزة مفعلة في خطة الشركة؟ (fail-open قبل تحميل البيانات؛
+  // الخادم هو الحاجب الحقيقي والحجب هنا تجربة استخدام فقط)
+  bool featureOn(String key) {
+    final sub = subscription;
+    if (sub == null) return true;
+    return sub.features.contains(key);
+  }
+
+  Future<void> refreshSubscription() async {
+    try {
+      subscription = await api.subscription();
+    } catch (_) {
+      subscription = null;
+    }
+    notifyListeners();
+  }
 }

@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "ہر منتخب پروڈکٹ کے لیے ایک منفرد اندرونی بارکوڈ بنے گا ({count})۔ جاری رکھیں؟",
   "labels_bulk_done": "{requested} میں سے {generated} بارکوڈ بن گئے",
   "labels_bulk_failed": "بڑی جنریشن ناکام",
-  "labels_no_barcode_selected": "منتخب مصنوعات کا بارکوڈ ابھی نہیں — پہلے کوڈ بنائیں"
+  "labels_no_barcode_selected": "منتخب مصنوعات کا بارکوڈ ابھی نہیں — پہلے کوڈ بنائیں",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

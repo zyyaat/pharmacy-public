@@ -425,6 +425,171 @@ export const platformSettingsApi = {
 }
 
 // ============================================
+// SaaS Plans & Subscriptions (Task 90)
+// ============================================
+
+export type PlanRow = {
+  id: string
+  slug: string
+  name: string
+  name_ar: string
+  description: string
+  monthly_price_piastres: number
+  yearly_price_piastres: number
+  currency: string
+  is_active: boolean
+  is_public: boolean
+  sort_order: number
+  subscribers: number
+}
+
+export type PlanDetail = PlanRow & {
+  features: string[]
+  permissions: string[]
+  limits: Record<string, number>
+}
+
+export type FeatureRow = {
+  key: string
+  name: string
+  name_ar: string
+  description: string
+  sort_order: number
+  is_active: boolean
+  suggested_permissions: string[]
+}
+
+export type SubscriptionRow = {
+  id: string
+  company: { id: string; name: string; email: string }
+  plan: { id: string; slug: string; name: string; name_ar: string }
+  status: 'trial' | 'active' | 'expired' | 'cancelled' | 'suspended' | 'pending'
+  billing_interval: string
+  current_period_start: string | null
+  current_period_end: string | null
+  trial_ends_at: string | null
+  cancel_at_period_end: boolean
+  source: string
+  created_at: string
+}
+
+export type PlanPayload = {
+  slug?: string
+  name: string
+  name_ar?: string
+  description?: string
+  monthly_price_piastres: number
+  yearly_price_piastres: number
+  currency?: string
+  is_active?: boolean
+  is_public?: boolean
+  sort_order?: number
+  features: string[]
+  permissions: string[]
+  limits: Record<string, number>
+}
+
+export const plansApi = {
+  async list() {
+    const response = await apiFetch<{ data: PlanRow[] }>('/platform-admin/plans')
+    return response.data
+  },
+
+  async get(id: string) {
+    const response = await apiFetch<{ data: PlanDetail }>(`/platform-admin/plans/${id}`)
+    return response.data
+  },
+
+  async create(payload: PlanPayload) {
+    const response = await apiFetch<{ data: { id: string } }>('/platform-admin/plans', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return response.data
+  },
+
+  async update(id: string, payload: PlanPayload) {
+    const response = await apiFetch<{ data: { id: string } }>(`/platform-admin/plans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    return response.data
+  },
+
+  async setStatus(id: string, isActive: boolean) {
+    await apiFetch(`/platform-admin/plans/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: isActive }),
+    })
+  },
+
+  async remove(id: string) {
+    await apiFetch(`/platform-admin/plans/${id}`, { method: 'DELETE' })
+  },
+}
+
+export const featuresApi = {
+  async list() {
+    const response = await apiFetch<{ data: FeatureRow[] }>('/platform-admin/features')
+    return response.data
+  },
+}
+
+export const subscriptionsApi = {
+  async list(params: { status?: string; search?: string; page?: number; pageSize?: number } = {}) {
+    const query = new URLSearchParams()
+    if (params.status) query.set('status', params.status)
+    if (params.search) query.set('search', params.search)
+    query.set('page', String(params.page ?? 1))
+    query.set('page_size', String(params.pageSize ?? 50))
+    const response = await apiFetch<{ data: SubscriptionRow[]; pagination: { total: number } }>(
+      `/platform-admin/subscriptions?${query.toString()}`
+    )
+    return response
+  },
+
+  async assign(payload: {
+    company_id: string
+    plan_id: string
+    billing_interval?: 'none' | 'monthly' | 'yearly'
+    current_period_end?: string
+    trial_days?: number
+  }) {
+    const response = await apiFetch<{ data: { id: string } }>('/platform-admin/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return response.data
+  },
+
+  async action(id: string, payload: {
+    action: 'extend' | 'set_period_end' | 'cancel' | 'suspend' | 'reactivate' | 'set_cancel_at_period_end'
+    current_period_end?: string
+    cancel_at_period_end?: boolean
+  }) {
+    const response = await apiFetch<{ data: { id: string } }>(`/platform-admin/subscriptions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+    return response.data
+  },
+
+  async manualPayment(payload: {
+    company_id: string
+    plan_id: string
+    billing_interval: 'monthly' | 'yearly'
+    amount_piastres?: number
+    note?: string
+  }) {
+    const response = await apiFetch<{ data: { payment_id: string; subscription_id: string } }>(
+      '/platform-admin/payments/manual',
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+    return response.data
+  },
+}
+
+// ============================================
 // Health Check
 // ============================================
 

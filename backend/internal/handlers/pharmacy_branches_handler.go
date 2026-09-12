@@ -9,6 +9,7 @@ import (
 
         "github.com/gin-gonic/gin"
         "github.com/jackc/pgx/v5/pgconn"
+        "github.com/pharmacy-os/backend/internal/models"
 )
 
 // Task 50 — إدارة الفروع الحقيقية: الفروع بيانات مستقلة قابلة للإضافة والتعديل،
@@ -89,6 +90,11 @@ func isUniqueViolation(err error) bool {
 func (h *Handler) CreatePharmacyBranch(c *gin.Context) {
         principal, ok := pharmacyPrincipal(c)
         if !ok {
+                return
+        }
+        // Plan limit (Task 90): branches is a commercial ceiling — the plan
+        // gate already verified the feature; this caps how many.
+        if !h.enforcePlanLimit(c, principal, models.LimitKeyBranches) {
                 return
         }
         var payload branchPayload

@@ -92,6 +92,127 @@ MOBILE_EXTRA = {
 }
 
 
+
+# Task 90-restore — مفاتيح للموبايل فقط (لا وجود لها على الويب): بيع POS
+# الأوفلاين وشارة الاتصال + مفاتيح تصدير التقارير. كانت في نسخة قديمة من
+# هذا المولّد وسقطت من الملف المولّد عند إعادة توليد لاحقة — أعيدت هنا
+# ليطابق المولّد الملف الملتزم به (اللغات الجزئية تأخذ نص العربية وقت
+# التشغيل).
+MOBILE_OFFLINE_ONLY = {
+  "ar": {
+    "errors": {
+      "offline_sale_needed": "البيع يحتاج اتصالًا بالإنترنت — سلتك محفوظة كما هي، وأعد المحاولة عند عودة الاتصال."
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "تصدير PDF",
+      "export_preparing": "جارٍ تحضير ملف PDF…",
+      "export_failed": "تعذّر إنشاء ملف PDF — أعد المحاولة",
+      "export_empty": "لا توجد بيانات لتصديرها بعد"
+    }
+  },
+  "en": {
+    "errors": {
+      "offline_sale_needed": "Selling needs an internet connection — your cart is saved as is. Try again once you are back online."
+    },
+    "common": {
+      "offline_chip": "Offline"
+    },
+    "reports": {
+      "export_pdf": "Export PDF",
+      "export_preparing": "Preparing the PDF file…",
+      "export_failed": "Could not create the PDF file — try again",
+      "export_empty": "Nothing to export yet"
+    }
+  },
+  "fr": {
+    "errors": {
+      "offline_sale_needed": "La vente nécessite une connexion Internet — votre panier est conservé. Réessayez une fois la connexion rétablie."
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "Exporter en PDF",
+      "export_preparing": "Préparation du fichier PDF…",
+      "export_failed": "Impossible de créer le fichier PDF — réessayez",
+      "export_empty": "Rien à exporter pour le moment"
+    }
+  },
+  "es": {
+    "errors": {
+      "offline_sale_needed": "La venta necesita conexión a Internet: tu carrito se conserva tal cual. Inténtalo de nuevo cuando vuelvas a estar en línea."
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "Exportar PDF",
+      "export_preparing": "Preparando el archivo PDF…",
+      "export_failed": "No se pudo crear el archivo PDF: inténtalo de nuevo",
+      "export_empty": "Todavía no hay nada que exportar"
+    }
+  },
+  "tr": {
+    "errors": {
+      "offline_sale_needed": "Satış internet bağlantısı gerektiriyor — sepetiniz olduğu gibi korundu. Bağlantı geri geldiğinde tekrar deneyin."
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "PDF dışa aktar",
+      "export_preparing": "PDF dosyası hazırlanıyor…",
+      "export_failed": "PDF dosyası oluşturulamadı — tekrar deneyin",
+      "export_empty": "Henüz dışa aktarılacak bir şey yok"
+    }
+  },
+  "zh": {
+    "errors": {
+      "offline_sale_needed": "销售需要互联网连接——购物车已原样保留，恢复连接后请重试。"
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "导出 PDF",
+      "export_preparing": "正在准备 PDF 文件…",
+      "export_failed": "无法创建 PDF 文件——请重试",
+      "export_empty": "暂无可导出的数据"
+    }
+  },
+  "hi": {
+    "errors": {
+      "offline_sale_needed": "बिक्री के लिए इंटरनेट कनेक्शन ज़रूरी है — आपकी कार्ट वैसी की वैसी सुरक्षित है। कनेक्शन लौटने पर दोबारा प्रयास करें।"
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "PDF निर्यात करें",
+      "export_preparing": "PDF फ़ाइल तैयार हो रही है…",
+      "export_failed": "PDF फ़ाइल नहीं बन सकी — दोबारा प्रयास करें",
+      "export_empty": "निर्यात करने के लिए अभी कुछ नहीं"
+    }
+  },
+  "ur": {
+    "errors": {
+      "offline_sale_needed": "فروخت کے لیے انٹرنیٹ کنکشن ضروری ہے — آپ کی کارٹ ویسے کی ویسے محفوظ ہے۔ کنکشن واپس آنے پر دوبارہ کوشش کریں۔"
+    },
+    "common": {
+      "offline_chip": "غير متصل"
+    },
+    "reports": {
+      "export_pdf": "PDF برآمد کریں",
+      "export_preparing": "PDF فائل تیار ہو رہی ہے…",
+      "export_failed": "PDF فائل نہیں بن سکی — دوبارہ کوشش کریں",
+      "export_empty": "برآمد کرنے کے لیے ابھی کچھ نہیں"
+    }
+  }
+}
+
 def merge(lang: str):
     """ nests: ns -> key -> text (مطابق لبنية Messages في الويب) """
     nested = {}
@@ -104,6 +225,10 @@ def merge(lang: str):
         nested.setdefault(ns, {})
         for k, v in kv.items():
             nested[ns].setdefault(k, v)  # مفاتيح الويب لها الأولوية دائمًا
+    for ns, kv in MOBILE_OFFLINE_ONLY.get(lang, {}).items():
+        nested.setdefault(ns, {})
+        for k, v in kv.items():
+            nested[ns].setdefault(k, v)
     return nested
 
 

@@ -649,6 +649,56 @@ schema, but application authorization must still be correct and tested.
 Permission caches, when used, must have bounded size and TTL and must respect
 permission version changes. Never cache authorization indefinitely.
 
+### 9.1 SaaS Plans & Subscriptions (migration 26, api_level 60)
+
+The platform is plan-driven SaaS. The plan is the COMPANY ceiling, applied on
+top of per-user RBAC:
+
+```text
+Allow = plan_permissions ∋ key  AND  user_permissions ∋ key
+```
+
+Core facts (all enforced in `internal/subscription`):
+
+- **Plans are data, never code.** The super admin creates plans (name, EGP
+  pricing in piastres, features, permissions, limits) from admin-dashboard
+  (`/plans`, `/subscriptions`). Nothing in the backend may branch on a plan
+  slug. `companies.plan` was converted to VARCHAR(50) in migration 26 and is
+  a denormalized display sync only — `subscriptions` is the source of truth.
+- **Layering**: `features` (presentation catalog + `feature_permissions`
+  editor suggestions) → `plan_permissions` (enforcement truth) →
+  `plan_limits` (dynamic key/value, -1 = unlimited; known keys: branches,
+  users, employees, products).
+- **One live subscription per company** (partial unique index over
+  trial/active/pending). Lifecycle: trial → active → expired; cancelled,
+  suspended (super-admin action), pending (awaiting webhook).
+- **Lazy status evaluation**: trial_ends_at / current_period_end are
+  compared to NOW() on read; the stored row is flipped to expired durably on
+  first access. The effective-plan cache (TTL 2 min, invalidated on any
+  subscription/plan write) re-checks the deadline timestamps in memory on
+  every hit, so deadline enforcement is exact with zero extra queries — no
+  scheduler is ever required for correctness.
+- **Enforcement points**: the plan gate sits inside
+  `requirePharmacyPermission` and `RequireCompanyPermission` (super admins
+  bypass); limits are checked at creation endpoints (branches, employees,
+  products incl. import headroom). Error codes: `plan_permission_denied`,
+  `plan_limit_reached`, `subscription_expired`, `subscription_suspended`,
+  `subscription_pending`.
+- **Lockout allow-list**: an expired/suspended company can still authenticate
+  and call `GET /pharmacy/subscription` + `GET /pharmacy/plans` — data is
+  never destroyed, and the owner must always be able to reach billing.
+- **Payments**: `payments` + `payment_transactions` exist from day one;
+  manual payments registered by the super admin perform the exact
+  subscription transitions a future Paymob webhook will drive — the payment
+  provider never changes billing semantics, and the webhook is the sole
+  activation authority (the frontend never proves payment).
+- **Trial**: registration provisions a trial subscription on
+  `platform_settings.trial.default_plan_slug` (default: professional — full
+  experience) for `default_trial_days` (default 30); both super-admin
+  editable without code. Existing companies were backfilled: running trials
+  continue on professional, everything else grandfathered active on
+  enterprise with no expiry.
+
 ---
 
 ## 10. Scaling principles

@@ -14,5 +14,7 @@
   "light_mode": "Mode clair",
   "dark_mode": "Mode sombre",
   "loading_aria": "Chargement",
-  "logo_alt": "Logo de l'application"
+  "logo_alt": "Logo de l'application",
+  "plans": "Formules",
+  "subscriptions": "Abonnements"
 }

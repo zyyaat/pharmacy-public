@@ -221,5 +221,8 @@
   "labels_bulk_confirm": "将为每个所选商品生成唯一的内部条码（{count}）。继续吗？",
   "labels_bulk_done": "已生成 {generated} / {requested} 个条码",
   "labels_bulk_failed": "批量生成失败",
-  "labels_no_barcode_selected": "所选商品还没有条码 — 请先生成条码"
+  "labels_no_barcode_selected": "所选商品还没有条码 — 请先生成条码",
+  "sections": {
+    "subscription": "Subscription & Plans"
+  }
 }

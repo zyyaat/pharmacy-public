@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../widgets/ui.dart';
 import 'settings_import_screen.dart';
 import 'settings_receipts_screen.dart';
+import 'subscription_screen.dart';
 
 /// الإعدادات — أقسام الويب نفسها (الفواتير والطباعة، قاعدة البيانات،
 /// اللغة، ترحيل المنتجات). عنوان الخادم ليس من شأن العميل — لا يوجد
@@ -33,6 +34,13 @@ class SettingsScreen extends StatelessWidget {
     // anyOf == null → قسم دائم الظهور (اللغة)؛ [] → المالك الكامل فقط
     // (قاعدة البيانات — SETTINGS_SECTION_PERMISSIONS بالويب فارغة له).
     final sections = <({IconData icon, String title, String desc, WidgetBuilder builder, List<String>? anyOf})>[
+      (
+        icon: Icons.workspace_premium_outlined,
+        title: i18n.t('subscription', 'title'),
+        desc: i18n.t('subscription', 'subtitle'),
+        builder: (_) => const SubscriptionScreen(),
+        anyOf: const <String>['settings.billing'],
+      ),
       (
         icon: Icons.receipt_outlined,
         title: i18n.t('settings', 'receiptsNavLabel'),
