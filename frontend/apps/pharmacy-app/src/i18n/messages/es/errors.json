@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "No se pudo conectar con el servidor del sistema. Abre la página /diag para diagnosticar la conexión y revisa NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL y la configuración CORS del backend.",
+  "network_unreachable": "No se pudo conectar con el servidor. Verifica tu conexión a Internet e inténtalo de nuevo.",
   "template_download_failed": "No se pudo descargar la plantilla de importación"
 }

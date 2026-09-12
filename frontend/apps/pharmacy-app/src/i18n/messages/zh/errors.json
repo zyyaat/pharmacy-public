@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "无法连接系统服务器。请打开 /diag 页面诊断连接，并检查 NEXT_PUBLIC_API_URL、BACKEND_INTERNAL_URL 与后端 CORS 设置。",
+  "network_unreachable": "无法连接服务器。请检查网络连接后重试。",
   "template_download_failed": "无法下载导入模板"
 }

@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "सिस्टम सर्वर तक नहीं पहुँचा जा सका। कनेक्शन की जाँच के लिए /diag पेज खोलें, और NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL तथा backend की CORS सेटिंग्स जाँचें।",
+  "network_unreachable": "सर्वर से कनेक्ट नहीं हो सका। अपना इंटरनेट कनेक्शन जाँचें और फिर से प्रयास करें।",
   "template_download_failed": "इंपोर्ट टेम्पलेट डाउनलोड नहीं हो सका"
 }

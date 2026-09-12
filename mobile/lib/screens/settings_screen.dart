@@ -205,9 +205,10 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
               style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.55))),
           const SizedBox(height: 14),
           // nativeName + englishName مثل LOCALE_META في i18n/config.ts
+          // Task 81 — القائمة الثمانية كاملة كالويب (نفس الترتيب والأسماء)
           for (final (String code, String native, String english) in <(String, String, String)>[
-            ('ar', 'العربية', 'Arabic'),
-            ('en', 'English', 'English'),
+            for (final entry in AppI18n.localeMeta.entries)
+              (entry.key, entry.value.$1, entry.value.$2),
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 10),

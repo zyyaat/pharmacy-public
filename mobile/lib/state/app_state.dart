@@ -29,7 +29,8 @@ class AppState extends ChangeNotifier {
   String get locale => _locale;
   ThemeMode get themeMode => _themeMode;
   AuthPhase get phase => _phase;
-  bool get isRtl => _locale.startsWith('ar');
+  // Task 81 — مثل dirFor بالويب: العربية والأردية RTL (كان الأردية تنساب LTR هنا)
+  bool get isRtl => _locale == 'ar' || _locale == 'ur';
   String get tns => _locale; // تمرير للتنسيق
 
   // ------------------------------------------------------------- التهيئة
@@ -37,7 +38,11 @@ class AppState extends ChangeNotifier {
   Future<void> loadInitialLocale() async {
     try {
       final saved = await store.locale();
-      if (saved != null && saved.isNotEmpty) _locale = saved;
+      // Task 81 — تحصين: لغة محفوظة من إصدار قديم/غير معروفة تُطبعّن للعربية
+      // (نفس حارس isLocale بالويب) بدل أن تُترك قيمة غريبة في الحالة
+      if (saved != null && saved.isNotEmpty && AppI18n.isValidLocale(saved)) {
+        _locale = saved;
+      }
     } catch (_) {}
     try {
       final mode = await store.themeMode();

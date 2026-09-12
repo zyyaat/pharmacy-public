@@ -1,4 +1,4 @@
 {
-  "network_unreachable": "Could not reach the system server. Open the /diag page to diagnose the connection, and check NEXT_PUBLIC_API_URL, BACKEND_INTERNAL_URL and the backend CORS settings.",
+  "network_unreachable": "Cannot reach the server. Check your internet connection and try again.",
   "template_download_failed": "Could not download the import template"
 }
