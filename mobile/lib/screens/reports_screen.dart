@@ -6,6 +6,7 @@ import '../core/format.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
+import '../print/report_exporter.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
 
@@ -494,6 +495,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   bool _loading = true;
   String? _error;
 
+  // المرحلة 3 — تصدير PDF محلي 100%: صفحات A4 تُبنى ويدجت ثم تُلتقط
+  bool _exporting = false;
+  List<Widget>? _exportPages;
+  final List<GlobalKey> _exportKeys = <GlobalKey>[];
+
   @override
   void initState() {
     super.initState();
@@ -604,6 +610,347 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       default:
         return BadgeTone.success;
     }
+  }
+
+  // ------------------------------------------------ تصدير PDF (المرحلة 3)
+  //
+  // تصدير محلي 100% يعمل بلا إنترنت: البيانات في الذاكرة (من الكاش المشفّر
+  // عند الانقطاع)، والصفحات ويدجت Flutter تُلتقط RepaintBoundary → PDF A4
+  // → مشاركة النظام. العربية آمنة 100% لأن التشكيل لمحرك نصوص Flutter
+  // (نفس نهج طباعة الإيصال Task 68) — هذا تحقيق «طباعة PDF المؤجَّلة».
+
+  static const int _exportRowsPerPage = 16;
+
+  String _fmtDayStr(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return iso;
+    final months = AppI18n.instance.locale == 'ar' ? _monthsShortAr : _monthsShortEn;
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  Future<void> _exportPdf() async {
+    final i18n = AppI18n.instance;
+    final SalesReport? r = _report;
+    if (_exporting || r == null) return;
+    final AppState state = context.read<AppState>();
+    final List<Widget> pages = _buildExportPages(r, state);
+    setState(() {
+      _exporting = true;
+      _exportPages = pages;
+      _exportKeys
+        ..clear()
+        ..addAll(List<GlobalKey>.generate(pages.length, (_) => GlobalKey()));
+    });
+    try {
+      // انتظار نضوج أول إطار بعد إدراج الصفحات (تصميم + رسم) قبل الالتقاط
+      await WidgetsBinding.instance.endOfFrame;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      final ReportExportResult result = await shareReportPdf(
+        boundaryKeys: _exportKeys,
+        jobName: 'sales-report-${_from ?? ''}_${_to ?? ''}',
+      );
+      if (!mounted) return;
+      if (!result.ok) {
+        await appSnackbar(context, i18n.t('reports', 'export_failed'), error: true);
+      }
+    } catch (_) {
+      if (mounted) {
+        await appSnackbar(context, i18n.t('reports', 'export_failed'), error: true);
+      }
+    } finally {
+      _exportKeys.clear();
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _exportPages = null;
+        });
+      }
+    }
+  }
+
+  /// صفحات A4 للتقرير — نفس بيانات الشاشة مرتبة للورق:
+  /// صفحة 1: الرأس + المؤشرات + الرسم اليومي، صفحة الأكثر بيعًا،
+  /// ثم صفحات فواتير الفترة بمقدار _exportRowsPerPage للصفحة.
+  List<Widget> _buildExportPages(SalesReport r, AppState state) {
+    final i18n = AppI18n.instance;
+    final String pharmacyName = state.context?.pharmacyName.trim() ?? '';
+    final String footer = pharmacyName.isNotEmpty ? pharmacyName : 'Pharmacy OS';
+    final List<Widget> contents = <Widget>[];
+
+    // — صفحة 1: الرأس + المؤشرات + الرسم اليومي
+    contents.add(Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _exportHeader(r, pharmacyName),
+        const SizedBox(height: 14),
+        _exportKpis(r),
+        const SizedBox(height: 16),
+        Text(i18n.t('reports', 'daily_net_sales'),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.black87)),
+        const SizedBox(height: 10),
+        if (r.daily.isEmpty)
+          Text(i18n.t('reports', 'no_chart_data'),
+              style: const TextStyle(fontSize: 11, color: Colors.black45))
+        else
+          SizedBox(
+            height: 200,
+            child: MiniBarChart(
+              points: <({String label, int value})>[
+                for (final p in r.daily) (label: _dayLabel(p.day), value: p.net),
+              ],
+              summary: i18n.t('reports', 'chart_summary_days',
+                  {'count': Fmt.number(r.daily.length)}),
+            ),
+          ),
+      ],
+    ));
+
+    // — صفحة الأكثر بيعًا (تُحذف إن لم توجد بيانات)
+    if (r.topProducts.isNotEmpty) {
+      contents.add(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(i18n.t('reports', 'top_products'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.black87)),
+          const SizedBox(height: 10),
+          _exportTable(
+            header: <String>[
+              '#',
+              i18n.t('reports', 'col_item'),
+              i18n.t('reports', 'col_quantity'),
+              i18n.t('reports', 'col_revenue'),
+            ],
+            columnWidths: const <int, TableColumnWidth>{
+              0: FixedColumnWidth(34),
+              1: FlexColumnWidth(),
+              2: FixedColumnWidth(90),
+              3: FixedColumnWidth(110),
+            },
+            rows: <List<Widget>>[
+              for (int i = 0; i < r.topProducts.length; i++)
+                <Widget>[
+                  Text('${i + 1}', style: _exCell(dim: true)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(r.topProducts[i].name,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: _exCell(w: FontWeight.w700)),
+                      if (r.topProducts[i].genericName.isNotEmpty)
+                        Text(r.topProducts[i].genericName,
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: _exCell(size: 9.5, dim: true)),
+                    ],
+                  ),
+                  Text(Fmt.number(r.topProducts[i].qtyBase), style: _exCell()),
+                  Text(_money(r.topProducts[i].amount), style: _exCell(w: FontWeight.w800)),
+                ],
+            ],
+          ),
+        ],
+      ));
+    }
+
+    // — صفحات الفواتير: أجزاء بمقدار _exportRowsPerPage
+    for (int start = 0; start < _invoices.length; start += _exportRowsPerPage) {
+      final int end = (start + _exportRowsPerPage).clamp(0, _invoices.length);
+      final List<SaleSummary> chunk = _invoices.sublist(start, end);
+      contents.add(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(i18n.t('reports', 'period_invoices'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.black87)),
+          const SizedBox(height: 10),
+          _exportTable(
+            header: <String>[
+              i18n.t('reports', 'col_invoice'),
+              i18n.t('reports', 'col_date'),
+              i18n.t('reports', 'col_status'),
+              i18n.t('reports', 'col_items'),
+              i18n.t('reports', 'col_units'),
+              i18n.t('reports', 'col_total'),
+              i18n.t('reports', 'col_returned'),
+            ],
+            columnWidths: const <int, TableColumnWidth>{
+              0: FixedColumnWidth(84),
+              1: FlexColumnWidth(),
+              2: FixedColumnWidth(96),
+              3: FixedColumnWidth(50),
+              4: FixedColumnWidth(58),
+              5: FixedColumnWidth(92),
+              6: FixedColumnWidth(92),
+            },
+            rows: <List<Widget>>[
+              for (final s in chunk)
+                <Widget>[
+                  Text('INV-${s.invoiceNumber.toString().padLeft(6, '0')}',
+                      textDirection: TextDirection.ltr,
+                      style: _exCell(size: 10, w: FontWeight.w700)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(_fmtSaleDate(s.createdAt), style: _exCell(size: 10)),
+                      Text(_fmtClock(s.createdAt), style: _exCell(size: 9, dim: true)),
+                    ],
+                  ),
+                  Text(_saleStatusLabel(s.status),
+                      style: _exCell(size: 10, w: FontWeight.w700)),
+                  Text(Fmt.number(s.productsCount), style: _exCell(size: 10)),
+                  Text(Fmt.number(s.totalQuantityBase), style: _exCell(size: 10)),
+                  Text(_money(s.totalAmountPiastres), style: _exCell(size: 10, w: FontWeight.w800)),
+                  Text(s.returnedAmountPiastres > 0 ? _money(s.returnedAmountPiastres) : '—',
+                      style: _exCell(
+                          size: 10,
+                          color: s.returnedAmountPiastres > 0 ? const Color(0xFFB91C1C) : Colors.black38)),
+                ],
+            ],
+          ),
+        ],
+      ));
+    }
+
+    // غلاف كل صفحة: مقاس A4 ثابت + اتجاه اللغة + تذييل (المصدر + ترقيم)
+    final TextDirection dir = i18n.isRtl ? TextDirection.rtl : TextDirection.ltr;
+    return <Widget>[
+      for (int i = 0; i < contents.length; i++)
+        Directionality(
+          textDirection: dir,
+          child: Container(
+            width: kReportPageWidth,
+            height: kReportPageHeight,
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(40, 36, 40, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Expanded(child: contents[i]),
+                const SizedBox(height: 8),
+                Row(children: <Widget>[
+                  Expanded(
+                    child: Text(footer,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 9, color: Colors.black38)),
+                  ),
+                  Text('${i + 1} / ${contents.length}',
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(fontSize: 9, color: Colors.black38)),
+                ]),
+              ],
+            ),
+          ),
+        ),
+    ];
+  }
+
+  TextStyle _exCell({double size = 10.5, FontWeight? w, Color? color, bool dim = false}) {
+    return TextStyle(fontSize: size, fontWeight: w, color: color ?? (dim ? Colors.black45 : Colors.black87));
+  }
+
+  /// رأس الصفحة الأولى: اسم الصيدلية + عنوان التقرير + الفترة + زمن الإنشاء
+  Widget _exportHeader(SalesReport r, String pharmacyName) {
+    final i18n = AppI18n.instance;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (pharmacyName.isNotEmpty)
+          Text(pharmacyName,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.black87)),
+        Text(i18n.t('reports', 'sales_title'),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.brandGreen)),
+        const SizedBox(height: 4),
+        Text('${_fmtDayStr(_from ?? '')} – ${_fmtDayStr(_to ?? '')}',
+            style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        Text('${_fmtDayStr(Fmt.isoDay(DateTime.now()))} · ${_fmtClock(DateTime.now().toIso8601String())}',
+            style: const TextStyle(fontSize: 9.5, color: Colors.black38)),
+        const SizedBox(height: 8),
+        Container(
+          height: 3,
+          width: 56,
+          decoration: BoxDecoration(
+            color: AppColors.brandGreen,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _exportKpis(SalesReport r) {
+    final List<_KpiItem> items = _kpis(r);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: <Widget>[
+        for (final _KpiItem k in items)
+          SizedBox(
+            width: (kReportPageWidth - 80 - 10) / 2,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0x1F000000)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(k.label,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  Text(k.value,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.black87)),
+                  if (k.hint != null && k.hint!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(k.hint!,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, color: Colors.black38)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _exportTable({
+    required List<String> header,
+    required Map<int, TableColumnWidth> columnWidths,
+    required List<List<Widget>> rows,
+  }) {
+    final List<Widget> cells = header
+        .map((String h) => Text(h,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black54)))
+        .toList();
+    return Table(
+      columnWidths: columnWidths,
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      border: const TableBorder(
+        horizontalInside: BorderSide(color: Color(0x14000000)),
+        bottom: BorderSide(color: Color(0x24000000)),
+      ),
+      children: <TableRow>[
+        TableRow(
+          children: <Widget>[
+            for (final Widget c in cells)
+              Padding(padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4), child: c),
+          ],
+        ),
+        for (final List<Widget> row in rows)
+          TableRow(
+            children: <Widget>[
+              for (final Widget c in row)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4), child: c),
+            ],
+          ),
+      ],
+    );
   }
 
   @override
@@ -781,8 +1128,42 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(i18n.t('reports', 'sales_title'))),
-      body: body,
+      appBar: AppBar(
+        title: Text(i18n.t('reports', 'sales_title')),
+        // المرحلة 3 — تصدير PDF محلي 100% (يعمل من الكاش بلا إنترنت)
+        actions: <Widget>[
+          if (r != null)
+            IconButton(
+              tooltip: i18n.t('reports', 'export_pdf'),
+              onPressed: _exporting ? null : _exportPdf,
+              icon: _exporting
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.picture_as_pdf_outlined),
+            ),
+        ],
+      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          body,
+          // صفحات A4 أثناء التصدير: موضوعة خارج حدود الـStack فتُصمَّم وتُرسَم
+          // دون أن تُرى، ويلتقطها RepaintBoundary لصفحات الـPDF.
+          if (_exportPages != null && _exportKeys.length == _exportPages!.length)
+            Positioned(
+              left: -20000,
+              top: 0,
+              width: kReportPageWidth,
+              child: Column(
+                children: <Widget>[
+                  for (int i = 0; i < _exportPages!.length; i++)
+                    RepaintBoundary(key: _exportKeys[i], child: _exportPages![i]),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

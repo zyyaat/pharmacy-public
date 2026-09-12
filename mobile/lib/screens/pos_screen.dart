@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/format.dart';
+import '../core/offline.dart';
 import '../core/strings.dart';
 import '../state/app_state.dart';
 import '../core/theme.dart';
@@ -520,6 +521,14 @@ class _POSScreenState extends State<POSScreen> {
       setState(() => _error = i18n.t('pos', 'creditRequiresCustomer'));
       return;
     }
+    // المرحلة 2 — منطق الاتصال للعمليات التي تحتاج الخادم: البيع لا يتم إلا
+    // عبر الخادم، فإذا كانت الإشارة الحقيقية «منقطع» (نتائج API + واجهات
+    // الجهاز) نعلم المستخدم فورًا برسالة هادئة — السلة كما هي ومفتاح
+    // idempotency يبقى لسلسلة المحاولات نفسها فلا بيع مزدوج ولا قلق.
+    if (NetworkSignal.offline.value) {
+      setState(() => _error = i18n.t('errors', 'offline_sale_needed'));
+      return;
+    }
     setState(() {
       _checkingOut = true;
       _error = null;
@@ -572,7 +581,13 @@ class _POSScreenState extends State<POSScreen> {
       await _openReceipt(result.saleId);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.status == 409 ? e.message : i18n.error(e.code, i18n.t('errors', 'sale_failed')));
+      // المرحلة 2 — انقطاع أثناء البيع: الرسالة الهادئة نفسها (قد تفوت
+      // الإشارة لحظة انقطاع مفاجئ) بدل الخطأ العام.
+      setState(() => _error = e.isNetwork
+          ? i18n.t('errors', 'offline_sale_needed')
+          : e.status == 409
+              ? e.message
+              : i18n.error(e.code, i18n.t('errors', 'sale_failed')));
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = AppI18n.instance.t('errors', 'sale_failed'));
@@ -608,6 +623,17 @@ class _POSScreenState extends State<POSScreen> {
       appBar: AppBar(
         title: Text(i18n.t('pos', 'title')),
         actions: <Widget>[
+          // المرحلة 2 — شارة «غير متصل» الهادئة تنبض مع إشارة الشبكة الحقيقية
+          // فنقطة البيع (مسار مستقل خارج HomeShell) تعرف حالتها دائمًا بلا مفاجآت.
+          ValueListenableBuilder<bool>(
+            valueListenable: NetworkSignal.offline,
+            builder: (BuildContext context, bool offline, _) => offline
+                ? Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: _OfflineChip(label: i18n.t('common', 'offline_chip')),
+                  )
+                : const SizedBox.shrink(),
+          ),
           // شعار الهوية — كعمود الشريط الجانبي بالويب
           const Padding(
             padding: EdgeInsetsDirectional.only(end: 16),
@@ -1464,6 +1490,35 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// شارة «غير متصل» المختصرة في شريط نقطة البيع — المرحلة 2 (منطق الاتصال).
+/// نغمة تحذير كهرمانية هادئة (نفس لغة OfflineBanner في ui.dart) بحجم يناسب
+/// شريط التطبيق: أيقونة wifi-off صغيرة + نص عريض، بلا أحمر صارخ.
+class _OfflineChip extends StatelessWidget {
+  final String label;
+  const _OfflineChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = dark ? AppColors.warningFgDark : AppColors.warningFg;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: fg.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: fg.withOpacity(0.35)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+        Icon(Icons.wifi_off_rounded, size: 13, color: fg.withOpacity(0.90)),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w700, color: fg)),
+      ]),
     );
   }
 }

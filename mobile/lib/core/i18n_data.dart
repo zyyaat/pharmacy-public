@@ -166,6 +166,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'no_options': 'لا توجد خيارات',
       'offline_banner_hint': 'تُعرض البيانات المخزّنة على جهازك من آخر مزامنة',
       'offline_banner_title': 'لا يوجد اتصال بالإنترنت',
+      'offline_chip': 'غير متصل',
       'page_of': 'إجمالي {total}',
       'previous': 'السابق',
       'retry': 'إعادة المحاولة',
@@ -356,6 +357,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'تعذّر الاتصال بالخادم. تأكّد من اتصالك بالإنترنت ثم أعد المحاولة.',
+      'offline_sale_needed': 'البيع يحتاج اتصالًا بالإنترنت — سلتك محفوظة كما هي، وأعد المحاولة عند عودة الاتصال.',
       'template_download_failed': 'تعذر تحميل نموذج الترحيل',
     },
     'inventory': <String, String>{
@@ -745,6 +747,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'تعذر تحميل تقرير المخزون',
       'error_load_movements': 'تعذر تحميل تقرير حركات المخزون',
       'error_load_sales': 'تعذر تحميل تقرير المبيعات',
+      'export_pdf': 'تصدير PDF',
+      'export_preparing': 'جارٍ تحضير ملف PDF…',
+      'export_failed': 'تعذّر إنشاء ملف PDF — أعد المحاولة',
+      'export_empty': 'لا توجد بيانات لتصديرها بعد',
       'expired_value_label': 'قيمة المخزون المنتهي:',
       'expiring_value_label': 'قيمة المخزون ضمن 90 يوم قادمة:',
       'expiry_30': 'خلال 30 يوم',
@@ -1238,6 +1244,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'no_options': 'No options',
       'offline_banner_hint': 'Showing data stored on your device from the last sync',
       'offline_banner_title': 'No internet connection',
+      'offline_chip': 'Offline',
       'page_of': 'Total {total}',
       'previous': 'Previous',
       'retry': 'Retry',
@@ -1428,6 +1435,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'Cannot reach the server. Check your internet connection and try again.',
+      'offline_sale_needed': 'Selling needs an internet connection — your cart is saved as is. Try again once you are back online.',
       'template_download_failed': 'Could not download the import template',
     },
     'inventory': <String, String>{
@@ -1817,6 +1825,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'Could not load the inventory report',
       'error_load_movements': 'Could not load the stock movements report',
       'error_load_sales': 'Could not load the sales report',
+      'export_pdf': 'Export PDF',
+      'export_preparing': 'Preparing the PDF file…',
+      'export_failed': 'Could not create the PDF file — try again',
+      'export_empty': 'Nothing to export yet',
       'expired_value_label': 'Expired stock value:',
       'expiring_value_label': 'Stock value expiring within 90 days:',
       'expiry_30': 'Within 30 days',
@@ -2420,6 +2432,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'Impossible de joindre le serveur. Vérifiez votre connexion Internet puis réessayez.',
+      'offline_sale_needed': 'La vente nécessite une connexion Internet — votre panier est conservé. Réessayez une fois la connexion rétablie.',
       'template_download_failed': 'Impossible de télécharger le modèle d\'importation',
     },
     'inventory': <String, String>{
@@ -2809,6 +2822,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'Impossible de charger le rapport de stock',
       'error_load_movements': 'Impossible de charger le rapport des mouvements de stock',
       'error_load_sales': 'Impossible de charger le rapport des ventes',
+      'export_pdf': 'Exporter en PDF',
+      'export_preparing': 'Préparation du fichier PDF…',
+      'export_failed': 'Impossible de créer le fichier PDF — réessayez',
+      'export_empty': 'Rien à exporter pour le moment',
       'expired_value_label': 'Valeur du stock périmé :',
       'expiring_value_label': 'Valeur du stock périssant dans 90 jours :',
       'expiry_30': 'Dans 30 jours',
@@ -3412,6 +3429,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'No se pudo conectar con el servidor. Verifica tu conexión a Internet e inténtalo de nuevo.',
+      'offline_sale_needed': 'La venta necesita conexión a Internet: tu carrito se conserva tal cual. Inténtalo de nuevo cuando vuelvas a estar en línea.',
       'template_download_failed': 'No se pudo descargar la plantilla de importación',
     },
     'inventory': <String, String>{
@@ -3801,6 +3819,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'No se pudo cargar el informe de inventario',
       'error_load_movements': 'No se pudo cargar el informe de movimientos de inventario',
       'error_load_sales': 'No se pudo cargar el informe de ventas',
+      'export_pdf': 'Exportar PDF',
+      'export_preparing': 'Preparando el archivo PDF…',
+      'export_failed': 'No se pudo crear el archivo PDF: inténtalo de nuevo',
+      'export_empty': 'Todavía no hay nada que exportar',
       'expired_value_label': 'Valor del inventario vencido:',
       'expiring_value_label': 'Valor del inventario que vence en 90 días:',
       'expiry_30': 'En 30 días',
@@ -4404,6 +4426,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+      'offline_sale_needed': 'Satış internet bağlantısı gerektiriyor — sepetiniz olduğu gibi korundu. Bağlantı geri geldiğinde tekrar deneyin.',
       'template_download_failed': 'İçe aktarma şablonu indirilemedi',
     },
     'inventory': <String, String>{
@@ -4793,6 +4816,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'Stok raporu yüklenemedi',
       'error_load_movements': 'Stok hareketleri raporu yüklenemedi',
       'error_load_sales': 'Satış raporu yüklenemedi',
+      'export_pdf': 'PDF dışa aktar',
+      'export_preparing': 'PDF dosyası hazırlanıyor…',
+      'export_failed': 'PDF dosyası oluşturulamadı — tekrar deneyin',
+      'export_empty': 'Henüz dışa aktarılacak bir şey yok',
       'expired_value_label': 'Süresi geçmiş stok değeri:',
       'expiring_value_label': '90 gün içinde son kullanma tarihi geçecek stok değeri:',
       'expiry_30': '30 gün içinde',
@@ -5396,6 +5423,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': '无法连接服务器。请检查网络连接后重试。',
+      'offline_sale_needed': '销售需要互联网连接——购物车已原样保留，恢复连接后请重试。',
       'template_download_failed': '无法下载导入模板',
     },
     'inventory': <String, String>{
@@ -5785,6 +5813,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': '无法加载库存报表',
       'error_load_movements': '无法加载库存移动报表',
       'error_load_sales': '无法加载销售报表',
+      'export_pdf': '导出 PDF',
+      'export_preparing': '正在准备 PDF 文件…',
+      'export_failed': '无法创建 PDF 文件——请重试',
+      'export_empty': '暂无可导出的数据',
       'expired_value_label': '过期库存价值：',
       'expiring_value_label': '90 天内到期库存价值：',
       'expiry_30': '30 天内',
@@ -6388,6 +6420,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'सर्वर से कनेक्ट नहीं हो सका। अपना इंटरनेट कनेक्शन जाँचें और फिर से प्रयास करें।',
+      'offline_sale_needed': 'बिक्री के लिए इंटरनेट कनेक्शन ज़रूरी है — आपकी कार्ट वैसी की वैसी सुरक्षित है। कनेक्शन लौटने पर दोबारा प्रयास करें।',
       'template_download_failed': 'इंपोर्ट टेम्पलेट डाउनलोड नहीं हो सका',
     },
     'inventory': <String, String>{
@@ -6777,6 +6810,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'इन्वेंटरी रिपोर्ट लोड नहीं हो सकी',
       'error_load_movements': 'स्टॉक मूवमेंट रिपोर्ट लोड नहीं हो सकी',
       'error_load_sales': 'बिक्री रिपोर्ट लोड नहीं हो सकी',
+      'export_pdf': 'PDF निर्यात करें',
+      'export_preparing': 'PDF फ़ाइल तैयार हो रही है…',
+      'export_failed': 'PDF फ़ाइल नहीं बन सकी — दोबारा प्रयास करें',
+      'export_empty': 'निर्यात करने के लिए अभी कुछ नहीं',
       'expired_value_label': 'एक्सपायर स्टॉक मूल्य:',
       'expiring_value_label': '90 दिनों में एक्सपायर होने वाला स्टॉक मूल्य:',
       'expiry_30': '30 दिनों के भीतर',
@@ -7380,6 +7417,7 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
     },
     'errors': <String, String>{
       'network_unreachable': 'سرور سے رابطہ ممکن نہیں۔ اپنا انٹرنیٹ کنکشن چیک کریں اور دوبارہ کوشش کریں۔',
+      'offline_sale_needed': 'فروخت کے لیے انٹرنیٹ کنکشن ضروری ہے — آپ کی کارٹ ویسے کی ویسے محفوظ ہے۔ کنکشن واپس آنے پر دوبارہ کوشش کریں۔',
       'template_download_failed': 'امپورٹ ٹیمپلیٹ ڈاؤن لوڈ نہیں ہو سکا',
     },
     'inventory': <String, String>{
@@ -7769,6 +7807,10 @@ const Map<String, Map<String, Map<String, String>>> kI18nAll = <String, Map<Stri
       'error_load_inventory': 'اسٹاک رپورٹ لوڈ نہیں ہو سکی',
       'error_load_movements': 'اسٹاک موومنٹ رپورٹ لوڈ نہیں ہو سکی',
       'error_load_sales': 'فروخت رپورٹ لوڈ نہیں ہو سکی',
+      'export_pdf': 'PDF برآمد کریں',
+      'export_preparing': 'PDF فائل تیار ہو رہی ہے…',
+      'export_failed': 'PDF فائل نہیں بن سکی — دوبارہ کوشش کریں',
+      'export_empty': 'برآمد کرنے کے لیے ابھی کچھ نہیں',
       'expired_value_label': 'ختم شدہ اسٹاک کی قدر:',
       'expiring_value_label': '90 دنوں میں ختم ہونے والے اسٹاک کی قدر:',
       'expiry_30': '30 دنوں میں',
