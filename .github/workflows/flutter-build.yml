@@ -120,7 +120,10 @@ jobs:
   # Windows desktop — EXE بجانب الـAPK: بناء Flutter Windows ثم مثبّت
   # Inno Setup احترافي (معالج عربي بصور العلامة) + حزمة portable مضغوطة.
   build-windows:
-    runs-on: windows-latest
+    # مثبّت عمدًا: windows-latest صار يشير إلى windows-2025-vs2026 (Visual Studio 18)
+    # وFlutter 3.24.5 لا يختار مولّد CMake إلا لـVS17 وإلا سقط لـ"VS 16 2019" غير الموجود
+    # (درس Run 34781703717). صورة windows-2025 العادية تحمل VS2022 17.14 = المدعوم رسميًا.
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
 
