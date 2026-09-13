@@ -36,6 +36,7 @@
   "month": "شهر",
   "year": "سنة",
   "checkout_title": "الدفع الآمن",
+  "checkout_back": "رجوع",
   "checkout_success_title": "اكتمل الاشتراك",
   "checkout_secure_hint": "الدفع يتم داخل هذه الصفحة عبر بوابة Paymob — لا نرى بيانات بطاقتك ولا نحتفظ بها.",
   "checkout_loading": "جارٍ تجهيز الدفع…",

@@ -1,5 +1,6 @@
 {
   "checkout_title": "安全支付",
+  "checkout_back": "返回",
   "checkout_success_title": "订阅完成",
   "checkout_secure_hint": "付款在此页面通过 Paymob 网关完成——我们不会看到或存储您的银行卡信息。",
   "checkout_loading": "正在准备付款…",

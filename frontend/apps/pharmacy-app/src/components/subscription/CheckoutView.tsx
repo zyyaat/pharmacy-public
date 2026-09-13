@@ -1,16 +1,17 @@
 'use client'
 
-// Phase G — مودال الدفع المضمّن عبر **Pixel SDK** — الطريقة الرسمية من
-// Paymob لتضمين الدفع داخل الصفحة (وليس iframe يدوي): الحقول تُصيَّر في
-// Shadow DOM داخل عنصرنا، بأنماط وخطوط مضمّنة في الـ SDK نفسه، فتأخذ عرض
-// الحاوية الطبيعي وتستجيب للـ RTL/اللغة — نفس تجربة Stripe Elements.
-// العميل لا يخرج من الموقع إطلاقًا، وبيانات البطاقة لا تلمس خوادمنا (PCI
-// على Paymob). التفعيل الفعلي يحدث حصرًا من ويبهوك Paymob الموثق خادميًا؛
-// الـ polling هنا للعرض فقط. عند فشل تحميل الـ SDK (حجب CDN مثلًا) نرجع
-// للـ iframe الرسمي (embed_url) كخطة بديلة حتى لا تتعطل الدفعة أبدًا.
+// Checkout كصفحة مستقلة كاملة — المعيار العالمي (Stripe Checkout وReplit
+// وHostinger): الدفع في مسار مخصص بلا ازدحام النوافذ، الفورم بعرض الحاوية
+// كاملاً ومتجاوب، وملخص الطلب ثابت فوقه. المنطق منقول حرفيًا من مودال
+// Phase G المُجرَّب إنتاجيًا: دورة → إنشاء نية → فورم Paymob Pixel
+// (وبديل iframe) → نجاح/فشل/خطأ، مع polling كل 3 ثوانٍ — الحقيقة تبقى
+// حصرًا من ويبهوك Paymob الموثق HMAC خادميًا.
+// العميل لا يخرج من الموقع إطلاقًا، وبيانات البطاقة لا تلمس خوادمنا
+// (PCI على Paymob). عند فشل تحميل الـ SDK (حجب CDN مثلًا) نرجع للـ iframe
+// الرسمي (embed_url) كخطة بديلة حتى لا تتعطل الدفعة أبدًا.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, CreditCard, Lock, ShieldAlert, X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, CreditCard, Lock, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui'
 import {
   subscriptionApi, type CheckoutResponse, type PublicPlan,
@@ -78,12 +79,11 @@ function loadPixelSDK(): Promise<void> {
   return pixelLoader
 }
 
-export function EmbeddedCheckoutModal({
-  isOpen, plan, onClose, onActivated,
+export function CheckoutView({
+  plan, onBack, onActivated,
 }: {
-  isOpen: boolean
-  plan: PublicPlan | null
-  onClose: () => void
+  plan: PublicPlan
+  onBack: () => void
   onActivated: () => void
 }) {
   const t = useT('subscription')
@@ -113,16 +113,6 @@ export function EmbeddedCheckoutModal({
     setErrorCode(null)
     setSdkFailed(false)
   }, [stopPolling])
-
-  const close = useCallback(() => {
-    stopPolling()
-    onClose()
-  }, [onClose, stopPolling])
-
-  // إغلاق المودال يعيد الحالة — جاهزًا لمحاولة جديدة
-  useEffect(() => {
-    if (!isOpen) reset()
-  }, [isOpen, reset])
 
   useEffect(() => () => stopPolling(), [stopPolling])
 
@@ -156,7 +146,6 @@ export function EmbeddedCheckoutModal({
   }, [checkOnce, stopPolling])
 
   const startCheckout = useCallback(async (billingInterval: 'monthly' | 'yearly') => {
-    if (!plan) return
     setPhase('creating')
     setErrorCode(null)
     try {
@@ -292,166 +281,166 @@ export function EmbeddedCheckoutModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, checkout])
 
-  if (!isOpen || !plan) return null
-
   const currency = plan.currency || 'EGP'
   const egp = (piastres: number) => fmtNumber(piastres / 100) + ' ' + currency
+  const displayAmount = checkout?.amount_piastres ?? (plan.monthly_price_piastres > 0
+    ? plan.monthly_price_piastres
+    : plan.yearly_price_piastres)
 
   return (
-    // موبايل: ورقة بيضاء بملء الشاشة (المعيار العالمي للدفع المضمّن) —
-    // دسكتوب: بطاقة مركزية بهوامش مريحة. سطح أبيض دائمًا: فورم الدفع أبيض
-    // ومقروء فوقه مهما كان ثيم التطبيق.
-    <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="bg-white w-full sm:max-w-md h-full sm:h-auto sm:max-h-[92vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden">
-        {/* الرأس: الخطة + المبلغ + شارة الأمان — يظل مرئيًا أثناء التمرير */}
-        <div className="shrink-0 px-4 py-3 border-b border-gray-100 bg-white">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={close}
-              className="rounded-full p-2 text-gray-500 hover:bg-gray-100 transition-colors"
-              aria-label={t('close')}
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="text-center min-w-0">
-              <div className="text-sm font-bold text-gray-900 truncate">
-                {phase === 'succeeded' ? t('checkout_success_title') : (plan.name_ar || plan.name)}
-              </div>
-              <div className="text-xs text-gray-500" dir="ltr">
-                {egp(checkout?.amount_piastres ?? (plan.monthly_price_piastres > 0
-                  ? plan.monthly_price_piastres
-                  : plan.yearly_price_piastres))}
-              </div>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
-              <Lock className="h-4 w-4 text-emerald-700" />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* اختيار دورة الفوترة — الدور غير المسعّر لا يُعرض أصلًا:
-              زر يقدّم نية بدفع 0 جنيه سيفشل حتمًا على Paymob */}
-          {phase === 'cycle' && (
-            <>
-              <p className="text-sm text-gray-500">
-                {t('cycle_title')}: <span className="font-semibold text-gray-900">{plan.name_ar || plan.name}</span>
-              </p>
-              <div className="grid grid-cols-1 gap-3">
-                {plan.monthly_price_piastres > 0 && (
-                  <button
-                    onClick={() => void startCheckout('monthly')}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">{t('month')}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{t('per_month')}</div>
-                    </div>
-                    <div className="text-lg font-extrabold text-gray-900">{egp(plan.monthly_price_piastres)}</div>
-                  </button>
-                )}
-                {plan.yearly_price_piastres > 0 && (
-                  <button
-                    onClick={() => void startCheckout('yearly')}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">{t('year')}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{t('per_year')}</div>
-                    </div>
-                    <div className="text-lg font-extrabold text-gray-900">{egp(plan.yearly_price_piastres)}</div>
-                  </button>
-                )}
-              </div>
-              {plan.monthly_price_piastres <= 0 && plan.yearly_price_piastres <= 0 && (
-                <p className="text-sm font-medium text-red-600">{t('plan_unpriced')}</p>
-              )}
-              <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                <CreditCard className="h-3.5 w-3.5" />
-                {t('checkout_secure_hint')}
-              </p>
-            </>
-          )}
-
-          {/* إنشاء النية */}
-          {phase === 'creating' && (
-            <div className="py-14 text-center text-gray-500 animate-pulse">
-              {t('checkout_loading')}
-            </div>
-          )}
-
-          {/* الفورم الرسمي المضمّن — Pixel SDK داخل الصفحة نفسها */}
-          {phase === 'form' && checkout && (
-            <>
-              {sdkFailed ? (
-                // خطة بديلة عند تعذّر تحميل الـ SDK: iframe Unified Checkout
-                <div className="rounded-xl overflow-hidden border border-gray-200">
-                  <iframe
-                    src={checkout.embed_url}
-                    title={t('checkout_title')}
-                    className="w-full h-[480px] bg-white"
-                    allow="payment *; clipboard-write"
-                  />
-                </div>
-              ) : (
-                <div ref={pixelMountRef} className="min-h-[300px]" aria-busy="true" />
-              )}
-              <p className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-ping" />
-                {t('checkout_waiting')}
-              </p>
-            </>
-          )}
-
-          {/* النجاح */}
-          {phase === 'succeeded' && (
-            <div className="py-10 text-center space-y-4">
-              <CheckCircle2 className="h-14 w-14 text-emerald-600 mx-auto" />
-              <p className="text-lg font-semibold text-gray-900">{t('checkout_success')}</p>
-              <p className="text-sm text-gray-500">{t('checkout_success_hint')}</p>
-              <Button className="w-full" onClick={() => { onActivated(); close() }}>
-                {t('done')}
-              </Button>
-            </div>
-          )}
-
-          {/* فشل الدفع — إعادة المحاولة ممكنة */}
-          {phase === 'failed' && (
-            <div className="py-10 text-center space-y-4">
-              <ShieldAlert className="h-12 w-12 text-amber-600 mx-auto" />
-              <p className="font-semibold text-gray-900">{t('checkout_failed')}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={reset}>{t('retry')}</Button>
-                <Button variant="outline" onClick={close}>{t('close')}</Button>
-              </div>
-            </div>
-          )}
-
-          {/* خطأ بدء الدفع (شبكة/إعداد) */}
-          {phase === 'error' && (
-            <div className="py-10 text-center space-y-4">
-              <ShieldAlert className="h-12 w-12 text-red-600 mx-auto" />
-              <p className="font-semibold text-gray-900">
-                {errorCode === 'paymob_not_configured'
-                  ? t('paymob_not_configured')
-                  : errorCode === 'plan_price_not_configured'
-                    ? t('plan_unpriced')
-                    : t('checkout_error')}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {errorCode !== 'paymob_not_configured' && errorCode !== 'plan_price_not_configured' && (
-                  <Button variant="outline" onClick={reset}>{t('retry')}</Button>
-                )}
-                <Button variant="outline" onClick={close}>{t('close')}</Button>
-              </div>
-            </div>
-          )}
+    // صفحة دفع مركزة: عمود واحد متجاوب (معيار Stripe/Replit/Hostinger) —
+    // ملخص الطلب ثابت أعلى ثم طور الدفع الحالي تحته.
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-10">
+      {/* الرأس: رجوع + العنوان + شارة الأمان */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <button
+          onClick={onBack}
+          className="rounded-full p-2 text-muted-foreground hover:bg-muted transition-colors"
+          aria-label={t('checkout_back')}
+        >
+          <ArrowRight className="h-5 w-5 rtl:rotate-0 ltr:rotate-180" />
+        </button>
+        <h1 className="text-lg font-bold truncate">
+          {phase === 'succeeded' ? t('checkout_success_title') : t('checkout_title')}
+        </h1>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
+          <Lock className="h-4 w-4 text-emerald-700" />
         </div>
       </div>
+
+      {/* ملخص الطلب — الخطة والمبلغ يظلان مرئيين في كل الأطوار */}
+      <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-gray-900 dark:text-gray-50 truncate">
+              {plan.name_ar || plan.name}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t('plan_label')}</div>
+          </div>
+          <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50" dir="ltr">
+            {egp(displayAmount)}
+          </div>
+        </div>
+      </div>
+
+      {/* اختيار دورة الفوترة — الدور غير المسعّر لا يُعرض أصلًا:
+          زر يقدّم نية بدفع 0 جنيه سيفشل حتمًا على Paymob */}
+      {phase === 'cycle' && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t('cycle_title')}
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            {plan.monthly_price_piastres > 0 && (
+              <button
+                onClick={() => void startCheckout('monthly')}
+                className="flex items-center justify-between rounded-xl border border-border p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-50">{t('month')}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{t('per_month')}</div>
+                </div>
+                <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{egp(plan.monthly_price_piastres)}</div>
+              </button>
+            )}
+            {plan.yearly_price_piastres > 0 && (
+              <button
+                onClick={() => void startCheckout('yearly')}
+                className="flex items-center justify-between rounded-xl border border-border p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-50">{t('year')}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{t('per_year')}</div>
+                </div>
+                <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{egp(plan.yearly_price_piastres)}</div>
+              </button>
+            )}
+          </div>
+          {plan.monthly_price_piastres <= 0 && plan.yearly_price_piastres <= 0 && (
+            <p className="text-sm font-medium text-destructive">{t('plan_unpriced')}</p>
+          )}
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CreditCard className="h-3.5 w-3.5" />
+            {t('checkout_secure_hint')}
+          </p>
+        </div>
+      )}
+
+      {/* إنشاء النية */}
+      {phase === 'creating' && (
+        <div className="rounded-2xl border border-border bg-card py-14 text-center text-muted-foreground animate-pulse">
+          {t('checkout_loading')}
+        </div>
+      )}
+
+      {/* الفورم الرسمي المضمّن — Pixel SDK داخل الصفحة نفسها بعرض كامل */}
+      {phase === 'form' && checkout && (
+        <div className="space-y-3">
+          {sdkFailed ? (
+            // خطة بديلة عند تعذّر تحميل الـ SDK: iframe Unified Checkout
+            <div className="rounded-2xl overflow-hidden border border-border">
+              <iframe
+                src={checkout.embed_url}
+                title={t('checkout_title')}
+                className="w-full h-[560px] bg-white"
+                allow="payment *; clipboard-write"
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border bg-white p-4">
+              <div ref={pixelMountRef} className="min-h-[300px]" aria-busy="true" />
+            </div>
+          )}
+          <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-emerald-600 animate-ping" />
+            {t('checkout_waiting')}
+          </p>
+        </div>
+      )}
+
+      {/* النجاح */}
+      {phase === 'succeeded' && (
+        <div className="rounded-2xl border border-border bg-card py-10 px-6 text-center space-y-4">
+          <CheckCircle2 className="h-14 w-14 text-emerald-600 mx-auto" />
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('checkout_success')}</p>
+          <p className="text-sm text-muted-foreground">{t('checkout_success_hint')}</p>
+          <Button className="w-full" onClick={() => { onActivated(); onBack() }}>
+            {t('done')}
+          </Button>
+        </div>
+      )}
+
+      {/* فشل الدفع — إعادة المحاولة ممكنة */}
+      {phase === 'failed' && (
+        <div className="rounded-2xl border border-border bg-card py-10 px-6 text-center space-y-4">
+          <ShieldAlert className="h-12 w-12 text-amber-600 mx-auto" />
+          <p className="font-semibold text-gray-900 dark:text-gray-50">{t('checkout_failed')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={reset}>{t('retry')}</Button>
+            <Button variant="outline" onClick={onBack}>{t('close')}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* خطأ بدء الدفع (شبكة/إعداد) */}
+      {phase === 'error' && (
+        <div className="rounded-2xl border border-border bg-card py-10 px-6 text-center space-y-4">
+          <ShieldAlert className="h-12 w-12 text-destructive mx-auto" />
+          <p className="font-semibold text-gray-900 dark:text-gray-50">
+            {errorCode === 'paymob_not_configured'
+              ? t('paymob_not_configured')
+              : errorCode === 'plan_price_not_configured'
+                ? t('plan_unpriced')
+                : t('checkout_error')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {errorCode !== 'paymob_not_configured' && errorCode !== 'plan_price_not_configured' && (
+              <Button variant="outline" onClick={reset}>{t('retry')}</Button>
+            )}
+            <Button variant="outline" onClick={onBack}>{t('close')}</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

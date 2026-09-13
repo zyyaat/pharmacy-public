@@ -36,6 +36,7 @@
   "month": "month",
   "year": "year",
   "checkout_title": "Secure payment",
+  "checkout_back": "Back",
   "checkout_success_title": "Subscription complete",
   "checkout_secure_hint": "Payment happens on this page via the Paymob gateway — we never see or store your card data.",
   "checkout_loading": "Preparing payment…",

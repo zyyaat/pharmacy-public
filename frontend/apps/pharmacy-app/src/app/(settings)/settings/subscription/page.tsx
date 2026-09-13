@@ -1,10 +1,12 @@
 'use client'
 
-// Task 90 + Phase G — صفحة الاشتراك: حالة الخطة الحالية + عدادات الاستهلاك
-// + شبكة الخطط المتاحة (من إنشاء Super Admin). زر «اشترك الآن» يفتح مودال
-// الدفع المضمّن: فورم Paymob داخل الموقع نفسه (بدون تحويل لصفحة خارجية)،
-// والتأكيد الفعلي من ويبهوك Paymob الموثق. الصفحة ضمن allow-list الخادم:
-// تعمل حتى مع اشتراك منتهٍ — مسار الاسترجاع.
+// Task 90 + Phase G + Standalone Checkout — صفحة الاشتراك: حالة الخطة
+// الحالية + عدادات الاستهلاك + شبكة الخطط المتاحة (من إنشاء Super Admin).
+// زر «اشترك الآن» ينقل لصفحة الدفع المستقلة كاملة (المعيار العالمي:
+// Stripe Checkout وReplit وHostinger — لا نوافذ منبثقة): فورم Paymob
+// داخل الموقع نفسه (بدون تحويل لصفحة خارجية)، والتأكيد الفعلي من ويبهوك
+// Paymob الموثق. الصفحة ضمن allow-list الخادم: تعمل حتى مع اشتراك
+// منتهٍ — مسار الاسترجاع.
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,10 +15,9 @@ import { Card, CardContent, Button, Badge } from '@/components/ui'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useAccess } from '@/components/permissions/gate'
 import { NoAccessCard } from '@/components/permissions/gate'
-import { EmbeddedCheckoutModal } from '@/components/subscription/EmbeddedCheckoutModal'
 import { useT } from '@/i18n/provider'
 import { fmtDate, fmtNumber } from '@/i18n/format'
-import { subscriptionApi, type PublicPlan, type SubscriptionPayment } from '@/lib/api'
+import { subscriptionApi, type SubscriptionPayment } from '@/lib/api'
 
 const LIMIT_LABELS: Record<string, string> = {
   branches: 'limit_branches',
@@ -38,7 +39,6 @@ export default function SubscriptionPage() {
   const {
     ready, subscription, plans, status, daysLeft, limits, usage, reload,
   } = useSubscription()
-  const [checkoutPlan, setCheckoutPlan] = useState<PublicPlan | null>(null)
   const [payments, setPayments] = useState<SubscriptionPayment[]>([])
   const [capBusy, setCapBusy] = useState(false)
   const [capError, setCapError] = useState(false)
@@ -269,7 +269,7 @@ export default function SubscriptionPage() {
                     <Button
                       className="w-full"
                       variant={p.sort_order >= (plan?.slug === 'enterprise' ? 4 : 0) ? 'default' : 'outline'}
-                      onClick={() => setCheckoutPlan(p)}
+                      onClick={() => router.push(`/settings/subscription/checkout?plan=${p.id}`)}
                     >
                       {t('subscribe_cta')}
                     </Button>
@@ -320,14 +320,6 @@ export default function SubscriptionPage() {
       )}
 
       <p className="text-xs text-muted-foreground text-center pb-4">{t('contact_owner')}</p>
-
-      {/* الدفع المضمّن — فورم Paymob داخل الموقع نفسه */}
-      <EmbeddedCheckoutModal
-        isOpen={checkoutPlan !== null}
-        plan={checkoutPlan}
-        onClose={() => setCheckoutPlan(null)}
-        onActivated={() => void reload()}
-      />
     </div>
   )
 }

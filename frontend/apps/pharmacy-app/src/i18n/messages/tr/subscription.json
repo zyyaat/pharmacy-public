@@ -1,5 +1,6 @@
 {
   "checkout_title": "Güvenli ödeme",
+  "checkout_back": "Geri",
   "checkout_success_title": "Abonelik tamamlandı",
   "checkout_secure_hint": "Ödeme bu sayfada Paymob ağ geçidi ile yapılır — kart verilerinizi asla görmez veya saklamayız.",
   "checkout_loading": "Ödeme hazırlanıyor…",

@@ -1,5 +1,6 @@
 {
   "checkout_title": "Paiement sécurisé",
+  "checkout_back": "Retour",
   "checkout_success_title": "Abonnement terminé",
   "checkout_secure_hint": "Le paiement se fait sur cette page via la passerelle Paymob — nous ne voyons jamais vos données de carte.",
   "checkout_loading": "Préparation du paiement…",

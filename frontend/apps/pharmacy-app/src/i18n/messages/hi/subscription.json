@@ -1,5 +1,6 @@
 {
   "checkout_title": "सुरक्षित भुगतान",
+  "checkout_back": "वापस जाएँ",
   "checkout_success_title": "सदस्यता पूरी हुई",
   "checkout_secure_hint": "भुगतान इसी पेज पर Paymob गेटवे से होता है — हम आपके कार्ड डेटा को नहीं देखते या सहेजते।",
   "checkout_loading": "भुगतान तैयार हो रहा है…",
