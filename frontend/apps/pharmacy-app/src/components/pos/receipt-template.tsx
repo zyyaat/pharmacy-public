@@ -40,6 +40,48 @@ export interface ReceiptData {
   }>
 }
 
+/** سطر كمية بعد التفكيك على أكبر وحدة صحيحة — التسمية تحمل «الكمية × سعر الوحدة» */
+interface PackLine {
+  qtyLabel: string
+  amountPiastres: number
+}
+
+/**
+ * تفكيك الكمية على أكبر وحدة صحيحة في الإيصال: 11 شريطاً وعلبة فيها 4 =>
+ * «علبتان × 40» + «3 شرائط × 10» حيث سعر العلبة = سعر الشريط × وحدات العلبة،
+ * ومجموع مبالغ السطرين = مبلغ الصنف حرفياً فيظل الإجمالي مطابقاً.
+ * بيع بالعلبة؟ يُشتق سعر الشريط من سعر العلبة ÷ وحداتها (والعكس عند البيع بالشريط).
+ * التسميات عبر المنسق الموحد formatSoldLine (القرار النهائي 12) بقواعد الجمع العربية.
+ * منتج بلا تغليف فعلية (units_per_box ≤ 1) يبقى سطراً واحداً بنية البيع كما هي.
+ */
+function soldLine(sale_unit: 'box' | 'strip', packaging_type: string, units_per_box: number, quantity_base: number, sale_quantity?: number | null): string {
+  return formatSoldLine({ sale_unit, packaging_type, units_per_box, quantity_base, sale_quantity })
+}
+
+function packLines(item: ReceiptData['items'][number]): PackLine[] {
+  const packaging = item.packaging_type ?? 'BOX_STRIP'
+  const upb = Math.floor(item.units_per_box)
+  if (upb <= 1 || !(item.quantity_base > 0)) {
+    return [{ qtyLabel: soldLine(item.sale_unit, packaging, item.units_per_box, item.quantity_base, item.sale_quantity), amountPiastres: item.amount_piastres }]
+  }
+  const packs = Math.floor(item.quantity_base / upb)
+  const strips = item.quantity_base - packs * upb
+  const stripPrice = item.sale_unit === 'strip'
+    ? item.unit_price_piastres
+    : item.unit_price_piastres / upb
+  const boxPrice = stripPrice * upb
+  const lines: PackLine[] = []
+  let packedAmount = 0
+  if (packs > 0) {
+    packedAmount = Math.round(packs * boxPrice)
+    lines.push({ qtyLabel: `${soldLine('box', packaging, upb, packs * upb, packs)} × ${formatPiastres(boxPrice)}`, amountPiastres: packedAmount })
+  }
+  if (strips > 0) {
+    lines.push({ qtyLabel: `${soldLine('strip', packaging, upb, strips)} × ${formatPiastres(stripPrice)}`, amountPiastres: item.amount_piastres - packedAmount })
+  }
+  return lines.length > 0 ? lines : [{ qtyLabel: soldLine(item.sale_unit, packaging, item.units_per_box, item.quantity_base, item.sale_quantity), amountPiastres: item.amount_piastres }]
+}
+
 function receiptDate(iso: string) {
   return fmtDateTime(iso, { dateStyle: 'short', timeStyle: 'short' })
 }
@@ -110,38 +152,40 @@ export default function ReceiptTemplate({
 
       <Dashed />
 
-      {/* الأصناف */}
+      {/* الأصناف — كل صنف يتفكك على أكبر وحدة صحيحة (علب كاملة + الشريط المتبقي) */}
       <div className="space-y-1">
         {data.items.map((item, index) => {
           const strengthLabel = extraStrengthLabel(item.product_name, item.strength)
-          // الكمية عبر المنسق الموحد SSOT (Final Decision 12): نية البيع من
-          // الـsnapshot عند توفره وإلا fallback القص — بلا منسق محلي ثالث.
-          const quantityText = formatSoldLine({
-            sale_unit: item.sale_unit,
-            packaging_type: item.packaging_type ?? 'BOX_STRIP',
-            units_per_box: item.units_per_box,
-            quantity_base: item.quantity_base,
-            sale_quantity: item.sale_quantity,
-          })
+          const lines = packLines(item)
+          const name = (
+            <>
+              {item.product_name}
+              {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
+            </>
+          )
           return compact ? (
             <div key={index}>
-              <p className="font-semibold leading-snug">
-                {item.product_name}
-                {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
-              </p>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-neutral-700">{quantityText} × {formatPiastres(item.unit_price_piastres)}</span>
-                <span className="font-bold">{formatPiastres(item.amount_piastres)}</span>
-              </div>
+              <p className="font-semibold leading-snug">{name}</p>
+              {lines.map((line, li) => (
+                <div key={li} className="flex items-baseline justify-between gap-2">
+                  <span className="text-neutral-700">{line.qtyLabel}</span>
+                  <span className="font-bold">{formatPiastres(line.amountPiastres)}</span>
+                </div>
+              ))}
             </div>
           ) : (
             <div key={index} className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 shrink font-semibold leading-snug">
-                {item.product_name}
-                {strengthLabel && <span className="font-normal text-neutral-500"> {strengthLabel}</span>}
+              <span className="min-w-0 shrink font-semibold leading-snug">{name}</span>
+              <span className="shrink-0 whitespace-nowrap text-start text-neutral-700">
+                {lines.map((line, li) => (
+                  <span key={li} className="block">{line.qtyLabel}</span>
+                ))}
               </span>
-              <span className="shrink-0 whitespace-nowrap text-neutral-700">{quantityText}</span>
-              <span className="w-[22%] shrink-0 whitespace-nowrap text-start font-bold">{formatPiastres(item.amount_piastres)}</span>
+              <span className="w-[22%] shrink-0 whitespace-nowrap text-start font-bold">
+                {lines.map((line, li) => (
+                  <span key={li} className="block">{formatPiastres(line.amountPiastres)}</span>
+                ))}
+              </span>
             </div>
           )
         })}

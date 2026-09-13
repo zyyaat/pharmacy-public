@@ -44,6 +44,15 @@ class ReceiptPharmacy {
   const ReceiptPharmacy({this.name = '', this.city = '', this.address = '', this.phone = ''});
 }
 
+// ------------------------------------------------------------- تفكيك الكمية
+
+/// سطر كمية بعد التفكيك على أكبر وحدة صحيحة — نظير PackLine في receipt-template.tsx
+class _PackLine {
+  final String qtyLabel;
+  final int amountPiastres;
+  const _PackLine(this.qtyLabel, this.amountPiastres);
+}
+
 // ------------------------------------------------------------- القالب
 
 /// نسخة إيصال واحدة — طباعة النسختين وفاصل «قص هنا» تتولد في الشاشة المستدعية
@@ -97,6 +106,54 @@ class ReceiptTemplate extends StatelessWidget {
       ),
       i18n,
     );
+  }
+
+  /// تفكيك الكمية على أكبر وحدة صحيحة — packLines في receipt-template.tsx حرفياً:
+  /// 11 شريطاً وعلبة فيها 4 => «علبتان × 40» + «3 شرائط × 10» (سعر العلبة =
+  /// سعر الشريط × وحدات العلبة) ومجموع مبالغ السطرين = مبلغ الصنف حرفياً،
+  /// وبيع بالعلبة يشتق سعر الشريط من سعر العلبة ÷ وحداتها. منتج بلا تغليف
+  /// فعلية (units_per_box ≤ 1) يبقى سطراً واحداً كما هو.
+  static List<_PackLine> _packLines(SaleItemRow item, AppI18n i18n) {
+    final String locale = i18n.locale;
+    final int upb = item.unitsPerBox;
+    if (upb <= 1 || item.quantityBase <= 0) {
+      return <_PackLine>[_PackLine(_displayQuantity(item, i18n), item.amountPiastres)];
+    }
+    final int packs = item.quantityBase ~/ upb;
+    final int strips = item.quantityBase - packs * upb;
+    final int boxPrice = item.saleUnit == 'strip'
+        ? item.unitPricePiastres * upb
+        : item.unitPricePiastres;
+    final int stripPrice = item.saleUnit == 'strip'
+        ? item.unitPricePiastres
+        : item.unitPricePiastres ~/ upb;
+    final List<_PackLine> lines = <_PackLine>[];
+    int packedAmount = 0;
+    if (packs > 0) {
+      packedAmount = packs * boxPrice;
+      // التسمية عبر المنسق الموحد SSOT (قواعد الجمع: علبة واحدة/علبتان/N علب)
+      final String boxesLabel = SoldQuantity.text(
+        QuantityIntent(QuantityUnit.box, packs.toDouble()),
+        i18n,
+      );
+      lines.add(_PackLine(
+        '$boxesLabel × ${Fmt.money(boxPrice, locale: locale)}',
+        packedAmount,
+      ));
+    }
+    if (strips > 0) {
+      final String stripsLabel = SoldQuantity.text(
+        QuantityIntent(item.packagingType == 'BOX_STRIP' ? QuantityUnit.strip : QuantityUnit.unit, strips.toDouble()),
+        i18n,
+      );
+      lines.add(_PackLine(
+        '$stripsLabel × ${Fmt.money(stripPrice, locale: locale)}',
+        item.amountPiastres - packedAmount,
+      ));
+    }
+    return lines.isNotEmpty
+        ? lines
+        : <_PackLine>[_PackLine(_displayQuantity(item, i18n), item.amountPiastres)];
   }
 
   /// receiptDate — fmtDateTime(iso, {dateStyle:'short', timeStyle:'short'}):
@@ -268,15 +325,14 @@ class ReceiptTemplate extends StatelessWidget {
   static String _discountLabel(AppI18n i18n) =>
       i18n.t('sales', 'discount', {'amount': ''}).trim();
 
-  /// الأصناف — space-y-1 (4px بين السطور)؛ 58مم سطران للصنف و80مم سطر واحد
+  /// الأصناف — space-y-1 (4px بين الأصناف)؛ كل صنف يتفكك على أكبر وحدة صحيحة
+  /// (علب كاملة + الشريط المتبقي) بسطر أو سطرين أسفل الاسم في العرضين
   List<Widget> _buildItems(AppI18n i18n, bool compact, double contentWidth) {
     final List<Widget> out = <Widget>[];
     for (int i = 0; i < items.length; i++) {
       final SaleItemRow item = items[i];
       final String? strengthLabel = _extraStrengthLabel(item.productName, item.strength);
-      final String qty = _displayQuantity(item, i18n);
-      final String unitPrice = Fmt.money(item.unitPricePiastres, locale: i18n.locale);
-      final String amount = Fmt.money(item.amountPiastres, locale: i18n.locale);
+      final List<_PackLine> lines = _packLines(item, i18n);
       if (i > 0) out.add(const SizedBox(height: 4));
       final Widget name = Text.rich(
         TextSpan(
@@ -295,17 +351,23 @@ class ReceiptTemplate extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               name,
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: <Widget>[
-                  Expanded(
-                    child: Text('$qty × $unitPrice', style: const TextStyle(color: _kNeutral700)),
+              for (int li = 0; li < lines.length; li++)
+                Padding(
+                  padding: EdgeInsets.only(top: li == 0 ? 0 : 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(lines[li].qtyLabel,
+                            style: const TextStyle(color: _kNeutral700)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(Fmt.money(lines[li].amountPiastres, locale: i18n.locale),
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(amount, style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
+                ),
             ],
           ),
         );
@@ -317,13 +379,34 @@ class ReceiptTemplate extends StatelessWidget {
             children: <Widget>[
               Expanded(child: name),
               const SizedBox(width: 8),
-              Text(qty, style: const TextStyle(color: _kNeutral700)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  for (int li = 0; li < lines.length; li++)
+                    Padding(
+                      padding: EdgeInsets.only(top: li == 0 ? 0 : 2),
+                      child: Text(lines[li].qtyLabel,
+                          style: const TextStyle(color: _kNeutral700)),
+                    ),
+                ],
+              ),
               const SizedBox(width: 8),
               SizedBox(
                 width: contentWidth * 0.22, // w-[22%] بالويب
-                child: Text(amount,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                    textAlign: TextAlign.start),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    for (int li = 0; li < lines.length; li++)
+                      Padding(
+                        padding: EdgeInsets.only(top: li == 0 ? 0 : 2),
+                        child: Text(Fmt.money(lines[li].amountPiastres, locale: i18n.locale),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            textAlign: TextAlign.start),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
