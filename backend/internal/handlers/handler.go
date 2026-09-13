@@ -273,7 +273,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // every intention so the callback is code-driven, not dashboard-dependent;
 // PAYMOB_SECRET_KEY is the canonical secret env name (falls back to the
 // legacy PAYMOB_API_KEY).
-const APILevel = 62
+// 63 — Paymob intention wire contract fixed against the live API: endpoint
+// is POST {base}/v1/intention/ (integration ID inside the body as
+// payment_methods, never in the URL path) and "amount" is integer
+// piastres/cents as-is (the previous major-unit division undercharged by
+// 100x); billing country now 3-letter ISO (EGY); locked by
+// TestCreateIntentionWireContract.
+const APILevel = 63
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

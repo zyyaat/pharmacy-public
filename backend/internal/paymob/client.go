@@ -3,9 +3,11 @@
 //
 // Flow contract:
 //
-//      Backend   POST {base}/api/v1/intention/{integration_id}
+//      Backend   POST {base}/v1/intention/
 //                Authorization: Token <Secret Key>       (server-only secret,
 //                the dashboard field literally named "Secret Key")
+//                payment_methods   = [<Integration ID>]  (body, NOT the URL)
+//                amount            = integer piastres/cents (10000 = 100 EGP)
 //                special_reference = <our payments.id>   (idempotency anchor)
 //                notification_url  = <our webhook URL>   (drives the callback)
 //                ← { client_secret, intention_order_id, ... }
@@ -59,7 +61,7 @@ func New(secretKey, publicKey, cardIntegrationID, walletIntegrationID, baseURL s
 
 // IntentionRequest is the server-side payment intent we create per attempt.
 type IntentionRequest struct {
-        AmountPiastres   int64  // integer piastres (DB convention) — converted on the wire
+        AmountPiastres   int64  // sent as-is: Paymob's "amount" is in cents = our piastres
         Currency         string // e.g. EGP
         SpecialReference string // our payments.id — echoes back in webhooks
         NotificationURL  string // our webhook endpoint — Paymob POSTs the result here
@@ -79,13 +81,13 @@ type IntentionResponse struct {
         Raw              map[string]any
 }
 
-// CreateIntention calls POST /api/v1/intention/{integration_id}.
+// CreateIntention calls POST {base}/v1/intention/ (integration ID inside
+// the body as payment_methods — see the package contract above).
 func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*IntentionResponse, error) {
         if c.SecretKey == "" || c.CardIntegrationID == "" {
                 return nil, fmt.Errorf("paymob: missing secret key or card integration ID")
         }
 
-        amountMajor := float64(req.AmountPiastres) / 100.0
         channels := []int{}
         if c.CardIntegrationID != "" {
                 if id, err := strconv.Atoi(c.CardIntegrationID); err == nil {
@@ -121,13 +123,13 @@ func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*In
         // billing_data fields are mandatory on the intention API; they are
         // descriptive metadata only — the card is charged inside the iframe.
         body := map[string]any{
-                "amount":            amountMajor,
+                "amount":            req.AmountPiastres,
                 "currency":          req.Currency,
                 "payment_methods":   channels,
                 "special_reference": req.SpecialReference,
                 "items": []map[string]any{{
                         "name":        req.ItemName,
-                        "amount":      amountMajor,
+                        "amount":      req.AmountPiastres,
                         "description": req.ItemDescription,
                         "quantity":    1,
                 }},
@@ -143,7 +145,7 @@ func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*In
                         "shipping_method": "NA",
                         "postal_code":     "NA",
                         "city":            "Cairo",
-                        "country":         "EG",
+                        "country":         "EGY", // 3-letter ISO per intention API docs
                         "state":           "Cairo",
                 },
         }
@@ -158,7 +160,7 @@ func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*In
         if err != nil {
                 return nil, fmt.Errorf("paymob: marshal intention: %w", err)
         }
-        url := c.BaseURL + "/api/v1/intention/" + c.CardIntegrationID
+        url := c.BaseURL + "/v1/intention/"
         httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
         if err != nil {
                 return nil, fmt.Errorf("paymob: build request: %w", err)
