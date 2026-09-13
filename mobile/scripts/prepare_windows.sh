@@ -11,12 +11,15 @@ set -euo pipefail
 cd "$(dirname "$0")/.."   # mobile/
 
 echo "== prepare_windows: BINARY_NAME = PharmacyOS =="
-sed -i 's/set(BINARY_NAME "mobile")/set(BINARY_NAME "PharmacyOS")/' windows/CMakeLists.txt
+# القالب يُولَّد باسم مشروع CI (--project-name pharmacy_mobile ⇒ BINARY_NAME "pharmacy_mobile")
+# فالاستبدال بنمط عام لا يتأثر باسم المشروع (درس Run 34780249569: sed حرفي بلا مطابق ثم grep فاشل)
+sed -i -E 's/set\(BINARY_NAME "[^"]+"\)/set(BINARY_NAME "PharmacyOS")/' windows/CMakeLists.txt
 grep -q 'set(BINARY_NAME "PharmacyOS")' windows/CMakeLists.txt
 
 echo "== prepare_windows: window title/size =="
 sed -i 's/Win32Window::Size size(1280, 720);/Win32Window::Size size(1280, 820);/' windows/runner/main.cpp
-sed -i 's/window.Create(L"mobile", origin, size)/window.Create(L"Pharmacy OS", origin, size)/' windows/runner/main.cpp
+# نفس المبدأ: عنوان النافذة في القالب يتبع اسم المشروع (L"pharmacy_mobile")
+sed -i -E 's/window\.Create\(L"[^"]+", origin, size\)/window.Create(L"Pharmacy OS", origin, size)/' windows/runner/main.cpp
 grep -q 'L"Pharmacy OS"' windows/runner/main.cpp
 grep -q 'size(1280, 820)' windows/runner/main.cpp
 
