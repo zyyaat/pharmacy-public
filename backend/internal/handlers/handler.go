@@ -102,9 +102,12 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.DELETE("/plans/:id", auth.CSRF(auth.PlatformRealm), h.DeletePlatformPlan)
                 platformAdmin.GET("/features", h.ListPlatformFeatures)
                 platformAdmin.GET("/subscriptions", h.ListPlatformSubscriptions)
+                platformAdmin.GET("/subscriptions/overview", h.SubscriptionsOverview)
                 platformAdmin.POST("/subscriptions", auth.CSRF(auth.PlatformRealm), h.CreatePlatformSubscription)
                 platformAdmin.PATCH("/subscriptions/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformSubscription)
+                platformAdmin.GET("/payments", h.ListPlatformPayments)
                 platformAdmin.POST("/payments/manual", auth.CSRF(auth.PlatformRealm), h.CreateManualPayment)
+                platformAdmin.POST("/payments/:id/refund", auth.CSRF(auth.PlatformRealm), h.RefundPlatformPayment)
                 // Task 90 prod diagnostics — super-admin self-service for the
                 // intention 404 investigation: echoes the exact Paymob config
                 // and (with PAYMOB_DIAG_API_KEY) lists the integration IDs
@@ -146,6 +149,15 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // webhook is the only activation path.
                 pharmacy.POST("/subscription/checkout", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacyCheckout)
                 pharmacy.GET("/subscription/payments/:id", h.GetPharmacyPaymentStatus)
+                // Self-service billing (global best practice): cancel at period
+                // end + resume + the company's own payment history. Behind the
+                // billing permission EVERY plan grants (a company must always
+                // control its own billing) + mutation principal + CSRF on
+                // writes. Cancelling is a FLAG, not a kill switch: paid access
+                // continues to the end of the period, then normal expiry.
+                pharmacy.POST("/subscription/cancel", perm("settings.billing"), auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CancelPharmacySubscription)
+                pharmacy.POST("/subscription/resume", perm("settings.billing"), auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.ResumePharmacySubscription)
+                pharmacy.GET("/subscription/payments", perm("settings.billing"), h.ListPharmacyPayments)
                 // Delta sync (offline-first smart synchronization): one cheap
                 // round-trip returns only what changed since the caller's
                 // cursor + tombstoned deletions, in row shapes identical to
@@ -304,7 +316,15 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // forensic log (hmac source/length + exact concatenated string, no
 // secrets) on any future failure + HMAC secret fingerprint in the
 // paymob-diagnostics response so a Test/Live secret mismatch is visible.
-const APILevel = 66
+// 67 — subscriptions best-practice pass: 7-day post-expiry GRACE (access
+// continues with renewal urgency instead of instant lockout), tenant
+// self-service cancel-at-period-end/resume + payment history, admin
+// payments ledger + billing overview (MRR/expiring-7d) + refunds with
+// optional period shortening, trial-aware extend (extend no longer
+// silently converts trials to paid), reactivate always restores access
+// (fresh 30-day window when the period end is past), Stripe-style
+// idempotency keys on manual payments (migration 27).
+const APILevel = 67
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

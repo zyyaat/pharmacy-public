@@ -18,6 +18,14 @@ const (
         SubStatusPending   = "pending"
 )
 
+// GraceDays is the post-expiry grace window (global best practice: 7-14
+// days before lockout — cutting access the second a period ends churns
+// customers who simply had a busy week). During grace an expired
+// subscription keeps working and every surface shows an urgent renewal
+// banner; after it, the standard expired lockout applies. Cancelled and
+// suspended rows get NO grace — those are deliberate admin actions.
+const SubGraceDays = 7
+
 // Billing intervals.
 const (
         BillingIntervalNone    = "none"
@@ -141,6 +149,11 @@ type EffectivePlan struct {
         PeriodEnd      *time.Time     `json:"current_period_end,omitempty"`
         TrialEndsAt    *time.Time     `json:"trial_ends_at,omitempty"`
         CancelAtPeriodEnd bool        `json:"cancel_at_period_end"`
+        // Grace (report-only, never stored): an expired row whose deadline
+        // is still inside SubGraceDays keeps full access with renewal
+        // warnings. InGrace is true only for expired-by-deadline rows.
+        InGrace         bool            `json:"in_grace,omitempty"`
+        GraceEndsAt     *time.Time      `json:"grace_ends_at,omitempty"`
         Permissions    map[string]bool `json:"-"`
         Features       map[string]bool `json:"-"`
         Limits         map[string]int  `json:"-"`

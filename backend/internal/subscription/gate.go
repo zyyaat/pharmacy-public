@@ -99,11 +99,15 @@ func (s *Service) currentPlanSlugCached(c *gin.Context, companyID string) string
 
 // statusActive reports whether the (lazily evaluated) subscription grants
 // access. trial/active are the granting states; pending waits for a
-// webhook confirmation and grants nothing.
+// webhook confirmation and grants nothing; expired rows inside the grace
+// window keep working (renewal urgency is surfaced by the UI instead of a
+// hard lockout — global best practice for failed-renewal recovery).
 func statusActive(eff *models.EffectivePlan) bool {
 	switch eff.Status {
 	case models.SubStatusTrial, models.SubStatusActive:
 		return true
+	case models.SubStatusExpired:
+		return eff.InGrace
 	default:
 		return false
 	}

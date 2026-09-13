@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/sidebar'
 import BrandSplash from '@/components/brand-splash'
 import { useAuth } from '@/hooks/useAuth'
 import { useT } from '@/i18n/provider'
+import { fmtDate } from '@/i18n/format'
 import { PermissionsProvider } from '@/hooks/usePermissions'
 import { useSubscription } from '@/hooks/useSubscription'
 import { usePathname, useRouter } from 'next/navigation'
@@ -14,9 +15,20 @@ import { usePathname, useRouter } from 'next/navigation'
 // Task 90 — لافتة حالة الاشتراك: تظهر فوق المحتوى عند قرب انتهاء
 // التجربة أو انتهائها/تعليقها. الخادم هو الحاجب الحقيقي؛ هذه مجرد توجيه UX.
 function SubscriptionBanner() {
-  const { ready, status, daysLeft } = useSubscription()
+  const { ready, subscription } = useSubscription()
   const t = useT('subscription')
-  if (!ready || !status) return null
+  if (!ready || !subscription) return null
+  const status = subscription.subscription?.status
+  const daysLeft = subscription.subscription?.days_left ?? null
+  // فترة السماح: الخادم يسمح بالوصول بعد الانتهاء — تحذير عاجل بدل حجب كامل
+  if (subscription.subscription?.in_grace) {
+    const ends = subscription.subscription.grace_ends_at
+    return (
+      <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700">
+        {t('grace_notice', { date: ends ? fmtDate(ends, { dateStyle: 'long' }) : '' })}
+      </div>
+    )
+  }
   if (status === 'expired') {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">

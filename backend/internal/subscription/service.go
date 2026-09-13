@@ -173,6 +173,31 @@ func (s *Service) store(companyID string, eff *models.EffectivePlan) {
         s.cache[companyID] = &cacheEntry{eff: eff, expiresAt: time.Now().Add(s.ttl)}
 }
 
+// applyGrace evaluates the post-expiry grace window on an expired row
+// (global best practice: never hard-lock the moment a period ends — busy
+// owners renew within days; immediate lockout converts a payment hiccup
+// into churned customer). Expired-by-deadline rows inside
+// models.SubGraceDays keep FULL access (sets loaded, gate passes) while
+// every surface shows an urgent renewal state. Cancelled/suspended rows
+// are deliberate admin actions and get no grace.
+func applyGrace(eff *models.EffectivePlan) {
+        if eff.Status != models.SubStatusExpired {
+                return
+        }
+        deadline := eff.PeriodEnd
+        if deadline == nil {
+                deadline = eff.TrialEndsAt
+        }
+        if deadline == nil {
+                return
+        }
+        graceEnd := deadline.Add(models.SubGraceDays * 24 * time.Hour)
+        if time.Now().Before(graceEnd) {
+                eff.InGrace = true
+                eff.GraceEndsAt = &graceEnd
+        }
+}
+
 // load runs the lazy status evaluation then materializes the plan sets.
 func (s *Service) load(ctx context.Context, companyID string) (*models.EffectivePlan, error) {
         eff, err := s.loadLive(ctx, companyID)
@@ -184,7 +209,15 @@ func (s *Service) load(ctx context.Context, companyID string) (*models.Effective
                 if err != nil {
                         return nil, err
                 }
-                // Terminal rows need no sets — nothing is granted.
+                // Grace: a recently expired row keeps working (with sets) and
+                // only the UI urgency changes; truly terminal rows grant nothing.
+                applyGrace(eff)
+                if !eff.InGrace {
+                        return eff, nil
+                }
+                if err := s.loadSets(ctx, eff); err != nil {
+                        return nil, err
+                }
                 return eff, nil
         }
         if err != nil {
@@ -210,6 +243,7 @@ func (s *Service) load(ctx context.Context, companyID string) (*models.Effective
                 eff.Status = computed
         }
 
+        applyGrace(eff)
         if err := s.loadSets(ctx, eff); err != nil {
                 return nil, err
         }

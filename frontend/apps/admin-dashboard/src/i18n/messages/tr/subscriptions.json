@@ -21,7 +21,7 @@
   "search_placeholder": "Search by company name...",
   "assign": "Assign plan",
   "assign_title": "Assign a plan to a company",
-  "assign_company": "Company (ID)",
+  "assign_company": "Şirket",
   "assign_plan": "Plan",
   "assign_interval": "Billing interval",
   "interval_none": "None",
@@ -45,5 +45,17 @@
   "failed": "Operation failed",
   "confirm_cancel": "Cancel immediately? The company loses access except the subscription page.",
   "confirm_suspend": "Suspend the company's access entirely?",
-  "no_subscriptions": "No matching subscriptions"
+  "no_subscriptions": "No matching subscriptions",
+  "kpi_active": "Aktif abonelikler",
+  "kpi_trials": "Devam eden denemeler",
+  "kpi_expiring_7d": "7 gün içinde bitiyor",
+  "kpi_mrr": "Aylık yinelenen gelir (tahmini)",
+  "expiring_soon": "7 gün içinde bitiyor — süresi dolmadan iletişime geçin",
+  "cap_set": "Dönem sonunda iptal et",
+  "cap_unset": "Yenilemeyi sürdür",
+  "cap_pending": "Yenilenmeyecek",
+  "assign_company_search": "İsim veya e-posta ile şirket arayın...",
+  "extend_trial_title": "Denemeyi uzat",
+  "new_trial_end": "Yeni deneme bitiş tarihi",
+  "duplicate_payment": "Zaten kayıtlı — kopya oluşturulmadı"
 }

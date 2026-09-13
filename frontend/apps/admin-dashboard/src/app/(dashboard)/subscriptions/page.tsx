@@ -1,21 +1,28 @@
 "use client";
 
-// Task 90 — subscription operations: the super admin monitors every
-// company's subscription and applies lifecycle actions (extend, cancel,
-// suspend, reactivate) and registers manual payments — which perform the
-// exact subscription transitions the future Paymob webhook will drive.
+// Task 90 — subscription operations, aligned with global billing best
+// practices: an operator overview (active/trials/expiring/MRR KPIs),
+// lifecycle actions (extend — trial-aware, cancel-at-period-end, suspend,
+// reactivate), and idempotent manual payments. Assigning uses a company
+// SEARCH picker instead of pasting raw UUIDs.
 
-import React, { useCallback, useEffect, useState } from "react";
-import { CalendarClock, Ban, PauseCircle, PlayCircle, Wallet, UserPlus } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CalendarClock, Ban, PauseCircle, PlayCircle, Wallet, UserPlus,
+  Hourglass, Search, CheckCircle2, Users, TrendingUp, AlertTriangle,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Card, CardContent, Button, Input, Badge,
 } from "@/components/ui";
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
-import { plansApi, subscriptionsApi, type PlanRow, type SubscriptionRow } from "@/lib/api";
+import {
+  plansApi, subscriptionsApi, companiesApi,
+  type PlanRow, type SubscriptionRow, type BillingOverview,
+} from "@/lib/api";
 import { useT } from "@/i18n/provider";
-import { fmtDate } from "@/i18n/format";
+import { fmtDate, fmtNumber } from "@/i18n/format";
 
 const statusVariant: Record<SubscriptionRow["status"], "success" | "warning" | "destructive" | "secondary" | "default"> = {
   trial: "warning",
@@ -30,30 +37,38 @@ export default function SubscriptionsPage() {
   const t = useT("subscriptions");
   const [rows, setRows] = useState<SubscriptionRow[]>([]);
   const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
 
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assign, setAssign] = useState({ company_id: "", plan_id: "", interval: "monthly", trial_days: "0", period_end: "" });
+  const [assign, setAssign] = useState({ company_id: "", company_name: "", plan_id: "", interval: "monthly", trial_days: "0", period_end: "" });
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const companySearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [extendRow, setExtendRow] = useState<SubscriptionRow | null>(null);
   const [extendDate, setExtendDate] = useState("");
   const [payRow, setPayRow] = useState<SubscriptionRow | null>(null);
   const [pay, setPay] = useState({ plan_id: "", interval: "monthly", amount: "", note: "" });
+  const [payIdempotencyKey, setPayIdempotencyKey] = useState("");
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [subs, planList] = await Promise.all([
+      const [subs, planList, ov] = await Promise.all([
         subscriptionsApi.list({
           status: statusFilter === "all" ? undefined : statusFilter,
           search: search || undefined,
         }),
         plansApi.list(),
+        subscriptionsApi.overview().catch(() => null),
       ]);
       setRows(subs.data);
       setPlans(planList);
+      setOverview(ov);
     } catch {
       toast.error(t("load_failed"));
     } finally {
@@ -63,12 +78,41 @@ export default function SubscriptionsPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  // Company search for the assign picker — debounced, server-side.
+  useEffect(() => {
+    if (!assignOpen) return;
+    if (companySearchTimer.current) clearTimeout(companySearchTimer.current);
+    if (!companyQuery.trim()) { setCompanyResults([]); return; }
+    companySearchTimer.current = setTimeout(async () => {
+      try {
+        const res = await companiesApi.list({ search: companyQuery.trim(), limit: 8 });
+        setCompanyResults(res.data.map((c) => ({ id: c.id, name: c.name, email: c.email })));
+      } catch { setCompanyResults([]); }
+    }, 250);
+  }, [companyQuery, assignOpen]);
+
   const runAction = async (row: SubscriptionRow, action: "cancel" | "suspend" | "reactivate") => {
     if (action === "cancel" && !window.confirm(t("confirm_cancel"))) return;
     if (action === "suspend" && !window.confirm(t("confirm_suspend"))) return;
     setBusy(true);
     try {
       await subscriptionsApi.action(row.id, { action });
+      toast.success(t("saved"));
+      await reload();
+    } catch {
+      toast.error(t("failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleCancelAtPeriodEnd = async (row: SubscriptionRow) => {
+    setBusy(true);
+    try {
+      await subscriptionsApi.action(row.id, {
+        action: "set_cancel_at_period_end",
+        cancel_at_period_end: !row.cancel_at_period_end,
+      });
       toast.success(t("saved"));
       await reload();
     } catch {
@@ -124,14 +168,15 @@ export default function SubscriptionsPage() {
     if (!payRow || !pay.plan_id) return;
     setBusy(true);
     try {
-      await subscriptionsApi.manualPayment({
+      const res = await subscriptionsApi.manualPayment({
         company_id: payRow.company.id,
         plan_id: pay.plan_id,
         billing_interval: pay.interval as "monthly" | "yearly",
         amount_piastres: pay.amount ? Math.round(Number(pay.amount) * 100) : undefined,
         note: pay.note || undefined,
+        idempotency_key: payIdempotencyKey || undefined,
       });
-      toast.success(t("saved"));
+      toast.success(res?.duplicate ? t("duplicate_payment") : t("saved"));
       setPayRow(null);
       await reload();
     } catch {
@@ -147,6 +192,8 @@ export default function SubscriptionsPage() {
     return t("no_period");
   };
 
+  const egp = (piastres: number) => `${fmtNumber(piastres / 100)} EGP`;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -154,11 +201,55 @@ export default function SubscriptionsPage() {
           <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
-        <Button onClick={() => { setAssign({ company_id: "", plan_id: "", interval: "monthly", trial_days: "0", period_end: "" }); setAssignOpen(true); }}>
+        <Button onClick={() => { setAssign({ company_id: "", company_name: "", plan_id: "", interval: "monthly", trial_days: "0", period_end: "" }); setCompanyQuery(""); setCompanyResults([]); setAssignOpen(true); }}>
           <UserPlus className="h-4 w-4 ms-2" />
           {t("assign")}
         </Button>
       </div>
+
+      {/* Operator KPIs — active/trials/cancelling/MRR + expiring watch list */}
+      {overview && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            <div><div className="text-2xl font-bold">{overview.active_count}</div><div className="text-xs text-muted-foreground">{t("kpi_active")}</div></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <Hourglass className="h-8 w-8 text-amber-600" />
+            <div><div className="text-2xl font-bold">{overview.trial_count}</div><div className="text-xs text-muted-foreground">{t("kpi_trials")}</div></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <AlertTriangle className="h-8 w-8 text-amber-600" />
+            <div><div className="text-2xl font-bold">{overview.expiring_within_7_days.length}</div><div className="text-xs text-muted-foreground">{t("kpi_expiring_7d")}</div></div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3">
+            <TrendingUp className="h-8 w-8 text-emerald-600" />
+            <div><div className="text-2xl font-bold">{egp(overview.mrr_piastres)}</div><div className="text-xs text-muted-foreground">{t("kpi_mrr")}</div></div>
+          </CardContent></Card>
+        </div>
+      )}
+      {overview && overview.expiring_within_7_days.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+              <Users className="h-4 w-4 text-amber-600" />
+              {t("expiring_soon")}
+            </div>
+            <div className="space-y-1.5">
+              {overview.expiring_within_7_days.map((e) => (
+                <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-sm rounded-md border border-border px-3 py-1.5">
+                  <span className="font-medium">{e.company_name}</span>
+                  <span className="text-muted-foreground">{e.plan_name_ar || e.plan_name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {e.ends_at ? fmtDate(e.ends_at, { dateStyle: "medium" }) : ""}
+                  </span>
+                  {e.cancel_at_period_end && <Badge variant="secondary">{t("cap_pending")}</Badge>}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <Input className="sm:max-w-xs" placeholder={t("search_placeholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -203,16 +294,31 @@ export default function SubscriptionsPage() {
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={statusVariant[row.status]}>{t(`status_${row.status}`)}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm">{periodLabel(row)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {periodLabel(row)}
+                      {row.cancel_at_period_end && (
+                        <div className="mt-0.5"><Badge variant="secondary">{t("cap_pending")}</Badge></div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{t(`source_${row.source}`)}</td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" title={t("extend")}
+                        <Button variant="ghost" size="icon" title={row.status === "trial" ? t("extend_trial_title") : t("extend")}
                           onClick={() => { setExtendRow(row); setExtendDate(""); }}>
                           <CalendarClock className="h-4 w-4" />
                         </Button>
+                        {(row.status === "active" || row.status === "trial") && (
+                          <Button variant="ghost" size="icon" title={row.cancel_at_period_end ? t("cap_unset") : t("cap_set")}
+                            onClick={() => void toggleCancelAtPeriodEnd(row)}>
+                            <Hourglass className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" title={t("manual_payment")}
-                          onClick={() => { setPayRow(row); setPay({ plan_id: row.plan.id, interval: "monthly", amount: "", note: "" }); }}>
+                          onClick={() => {
+                            setPayRow(row);
+                            setPay({ plan_id: row.plan.id, interval: "monthly", amount: "", note: "" });
+                            setPayIdempotencyKey(crypto.randomUUID());
+                          }}>
                           <Wallet className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" title={t("suspend")}
@@ -237,14 +343,43 @@ export default function SubscriptionsPage() {
         </CardContent>
       </Card>
 
-      {/* Assign plan */}
+      {/* Assign plan — company SEARCH picker, never raw UUID paste */}
       <Modal isOpen={assignOpen} onClose={() => setAssignOpen(false)}>
         <div className="w-[440px] max-w-[92vw] space-y-4 text-start">
           <h2 className="text-lg font-bold">{t("assign_title")}</h2>
-          <label className="block text-sm space-y-1">
-            <span className="text-muted-foreground">{t("assign_company")}</span>
-            <Input dir="ltr" value={assign.company_id} onChange={(e) => setAssign({ ...assign, company_id: e.target.value })} />
-          </label>
+          <div className="space-y-1">
+            <span className="text-sm text-muted-foreground">{t("assign_company")}</span>
+            {assign.company_id ? (
+              <div className="flex items-center justify-between rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm">
+                <div>
+                  <div className="font-medium">{assign.company_name}</div>
+                  <div className="text-xs text-muted-foreground" dir="ltr">{assign.company_id}</div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setAssign({ ...assign, company_id: "", company_name: "" })}>
+                  <Ban className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute top-2.5 start-3 h-4 w-4 text-muted-foreground" />
+                <Input className="ps-9" placeholder={t("assign_company_search")} value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} />
+                {companyResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-56 overflow-y-auto">
+                    {companyResults.map((c) => (
+                      <button
+                        key={c.id}
+                        className="w-full text-start px-3 py-2 text-sm hover:bg-accent"
+                        onClick={() => { setAssign({ ...assign, company_id: c.id, company_name: c.name }); setCompanyResults([]); setCompanyQuery(""); }}
+                      >
+                        <div className="font-medium">{c.name}</div>
+                        <div className="text-xs text-muted-foreground" dir="ltr">{c.email}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <label className="block text-sm space-y-1">
             <span className="text-muted-foreground">{t("assign_plan")}</span>
             <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={assign.plan_id}
@@ -281,12 +416,12 @@ export default function SubscriptionsPage() {
         </div>
       </Modal>
 
-      {/* Extend */}
+      {/* Extend — trial-aware title/label */}
       <Modal isOpen={!!extendRow} onClose={() => setExtendRow(null)}>
         <div className="w-[380px] max-w-[92vw] space-y-4 text-start">
-          <h2 className="text-lg font-bold">{t("extend_title")}</h2>
+          <h2 className="text-lg font-bold">{extendRow?.status === "trial" ? t("extend_trial_title") : t("extend_title")}</h2>
           <label className="block text-sm space-y-1">
-            <span className="text-muted-foreground">{t("new_period_end")}</span>
+            <span className="text-muted-foreground">{extendRow?.status === "trial" ? t("new_trial_end") : t("new_period_end")}</span>
             <Input type="date" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
           </label>
           <div className="flex justify-end gap-2 pt-2">

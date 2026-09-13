@@ -1111,6 +1111,9 @@ export type MySubscription = {
     current_period_end: string | null
     trial_ends_at: string | null
     cancel_at_period_end: boolean
+    // ما بعد الانتهاء: فترة سماح لا قلق متاح فيها التجديد قبل القفل
+    in_grace?: boolean
+    grace_ends_at?: string | null
     days_left: number
   }
   plan: {
@@ -1185,4 +1188,32 @@ export const subscriptionApi = {
   async paymentStatus(paymentId: string) {
     return apiFetch<{ data: PaymentStatusResponse }>(`/pharmacy/subscription/payments/${paymentId}`)
   },
+  // الخدمة الذاتية (أفضل الممارسات العالمية): إلغاء عند نهاية الفترة
+  // يُبقي الوصول حتى نهاية ما دُفعت فعلاً، والاستئناف يرجع العلم.
+  async cancelSubscription() {
+    return apiFetch<{ data: { id: string; cancel_at_period_end: boolean } }>('/pharmacy/subscription/cancel', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+  async resumeSubscription() {
+    return apiFetch<{ data: { id: string; cancel_at_period_end: boolean } }>('/pharmacy/subscription/resume', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+  async payments() {
+    return apiFetch<{ data: SubscriptionPayment[] }>('/pharmacy/subscription/payments')
+  },
+}
+
+export type SubscriptionPayment = {
+  id: string
+  plan: { id: string; name: string; name_ar: string }
+  billing_interval: string
+  amount_piastres: number
+  currency: string
+  provider: string
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'voided' | 'cancelled'
+  created_at: string
 }

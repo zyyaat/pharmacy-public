@@ -535,7 +535,47 @@ export const featuresApi = {
   },
 }
 
+export type PaymentRow = {
+  id: string
+  company: { id: string; name: string; email: string }
+  plan: { id: string; slug: string; name: string; name_ar?: string }
+  billing_interval: 'monthly' | 'yearly'
+  amount_piastres: number
+  currency: string
+  provider: 'paymob' | 'manual'
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'voided' | 'cancelled'
+  note?: string
+  subscription_id?: string
+  created_at: string
+}
+
+export type BillingOverview = {
+  active_count: number
+  trial_count: number
+  terminal_count: number
+  cancelling_count: number
+  mrr_piastres: number
+  payments_30d_count: number
+  payments_30d_piastres: number
+  expiring_within_7_days: Array<{
+    id: string
+    company_id: string
+    company_name: string
+    company_email: string
+    plan_name: string
+    plan_name_ar: string
+    status: string
+    ends_at: string | null
+    cancel_at_period_end: boolean
+  }>
+}
+
 export const subscriptionsApi = {
+
+  async overview() {
+    const response = await apiFetch<{ data: BillingOverview }>('/platform-admin/subscriptions/overview')
+    return response.data
+  },
   async list(params: { status?: string; search?: string; page?: number; pageSize?: number } = {}) {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
@@ -580,9 +620,34 @@ export const subscriptionsApi = {
     billing_interval: 'monthly' | 'yearly'
     amount_piastres?: number
     note?: string
+    idempotency_key?: string
   }) {
-    const response = await apiFetch<{ data: { payment_id: string; subscription_id: string } }>(
+    const response = await apiFetch<{ data: { payment_id: string; subscription_id: string; amount_piastres?: number; status?: string; duplicate?: boolean } }>(
       '/platform-admin/payments/manual',
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+    return response.data
+  },
+}
+
+export const paymentsApi = {
+  async list(params: { status?: string; provider?: string; company_id?: string; search?: string; page?: number; pageSize?: number } = {}) {
+    const query = new URLSearchParams()
+    if (params.status) query.set('status', params.status)
+    if (params.provider) query.set('provider', params.provider)
+    if (params.company_id) query.set('company_id', params.company_id)
+    if (params.search) query.set('search', params.search)
+    query.set('page', String(params.page ?? 1))
+    query.set('page_size', String(params.pageSize ?? 50))
+    const response = await apiFetch<{ data: PaymentRow[]; pagination: { total: number } }>(
+      `/platform-admin/payments?${query.toString()}`
+    )
+    return response
+  },
+
+  async refund(id: string, payload: { note?: string; shorten_subscription?: boolean }) {
+    const response = await apiFetch<{ data: { id: string; status: string; shortened: boolean } }>(
+      `/platform-admin/payments/${id}/refund`,
       { method: 'POST', body: JSON.stringify(payload) }
     )
     return response.data

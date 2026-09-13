@@ -21,7 +21,7 @@
   "search_placeholder": "Search by company name...",
   "assign": "Assign plan",
   "assign_title": "Assign a plan to a company",
-  "assign_company": "Company (ID)",
+  "assign_company": "Entreprise",
   "assign_plan": "Plan",
   "assign_interval": "Billing interval",
   "interval_none": "None",
@@ -45,5 +45,17 @@
   "failed": "Operation failed",
   "confirm_cancel": "Cancel immediately? The company loses access except the subscription page.",
   "confirm_suspend": "Suspend the company's access entirely?",
-  "no_subscriptions": "No matching subscriptions"
+  "no_subscriptions": "No matching subscriptions",
+  "kpi_active": "Abonnements actifs",
+  "kpi_trials": "Essais en cours",
+  "kpi_expiring_7d": "Expirent sous 7 jours",
+  "kpi_mrr": "Revenu mensuel récurrent (est.)",
+  "expiring_soon": "Expirent sous 7 jours — contactez-les avant l'échéance",
+  "cap_set": "Annuler à la fin de la période",
+  "cap_unset": "Reprendre le renouvellement",
+  "cap_pending": "Ne sera pas renouvelé",
+  "assign_company_search": "Rechercher des entreprises par nom ou e-mail...",
+  "extend_trial_title": "Prolonger l'essai",
+  "new_trial_end": "Nouvelle date de fin d'essai",
+  "duplicate_payment": "Déjà enregistré — aucun doublon créé"
 }

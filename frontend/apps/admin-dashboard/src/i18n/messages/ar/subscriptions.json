@@ -21,7 +21,7 @@
   "search_placeholder": "بحث باسم الشركة...",
   "assign": "إسناد خطة",
   "assign_title": "إسناد خطة لشركة",
-  "assign_company": "الشركة (ID)",
+  "assign_company": "الشركة",
   "assign_plan": "الخطة",
   "assign_interval": "دورية الفوترة",
   "interval_none": "بدون",
@@ -45,5 +45,17 @@
   "failed": "فشلت العملية",
   "confirm_cancel": "إلغاء الاشتراك فورًا؟ يفقد العميل الوصول إلا لصفحة الاشتراكات.",
   "confirm_suspend": "تعليق وصول الشركة بالكامل؟",
-  "no_subscriptions": "لا اشتراكات مطابقة"
+  "no_subscriptions": "لا اشتراكات مطابقة",
+  "kpi_active": "اشتراكات نشطة",
+  "kpi_trials": "تجارب جارية",
+  "kpi_expiring_7d": "تنتهي خلال 7 أيام",
+  "kpi_mrr": "الإيراد الشهري المتكرر (تقديري)",
+  "expiring_soon": "تنتهي خلال 7 أيام — تواصل معهم قبل الانتهاء",
+  "cap_set": "إلغاء عند نهاية الفترة",
+  "cap_unset": "استئناف التجديد",
+  "cap_pending": "لن يُجدد",
+  "assign_company_search": "ابحث عن شركة بالاسم أو البريد...",
+  "extend_trial_title": "تمديد التجربة",
+  "new_trial_end": "تاريخ انتهاء التجربة الجديد",
+  "duplicate_payment": "تم تسجيلها سابقاً — لم يُنشأ مكرر"
 }

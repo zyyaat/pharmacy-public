@@ -6,9 +6,9 @@
 // والتأكيد الفعلي من ويبهوك Paymob الموثق. الصفحة ضمن allow-list الخادم:
 // تعمل حتى مع اشتراك منتهٍ — مسار الاسترجاع.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Crown } from 'lucide-react'
+import { AlertTriangle, Check, Crown, ReceiptText, RotateCcw, XCircle } from 'lucide-react'
 import { Card, CardContent, Button, Badge } from '@/components/ui'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useAccess } from '@/components/permissions/gate'
@@ -16,7 +16,7 @@ import { NoAccessCard } from '@/components/permissions/gate'
 import { EmbeddedCheckoutModal } from '@/components/subscription/EmbeddedCheckoutModal'
 import { useT } from '@/i18n/provider'
 import { fmtDate, fmtNumber } from '@/i18n/format'
-import type { PublicPlan } from '@/lib/api'
+import { subscriptionApi, type PublicPlan, type SubscriptionPayment } from '@/lib/api'
 
 const LIMIT_LABELS: Record<string, string> = {
   branches: 'limit_branches',
@@ -39,6 +39,36 @@ export default function SubscriptionPage() {
     ready, subscription, plans, status, daysLeft, limits, usage, reload,
   } = useSubscription()
   const [checkoutPlan, setCheckoutPlan] = useState<PublicPlan | null>(null)
+  const [payments, setPayments] = useState<SubscriptionPayment[]>([])
+  const [capBusy, setCapBusy] = useState(false)
+  const [capError, setCapError] = useState(false)
+
+  const loadPayments = useCallback(async () => {
+    try {
+      const res = await subscriptionApi.payments()
+      setPayments(res.data)
+    } catch { /* السجل للعرض فقط — لا يعطل الصفحة */ }
+  }, [])
+
+  useEffect(() => { void loadPayments() }, [loadPayments])
+
+  const toggleCancel = async () => {
+    if (!subscription) return
+    const cancelling = subscription.subscription?.cancel_at_period_end
+    if (!cancelling && !window.confirm(t('cancel_confirm'))) return
+    setCapBusy(true)
+    try {
+      if (cancelling) await subscriptionApi.resumeSubscription()
+      else await subscriptionApi.cancelSubscription()
+      setCapError(false)
+      await reload()
+      void loadPayments()
+    } catch {
+      setCapError(true)
+    } finally {
+      setCapBusy(false)
+    }
+  }
 
   // نفس نمط أقسام الإعدادات: قسم محمي بصلاحية settings.billing
   useEffect(() => {
@@ -63,6 +93,10 @@ export default function SubscriptionPage() {
 
   const deadline = status === 'trial' ? subscription?.subscription?.trial_ends_at
     : subscription?.subscription?.current_period_end
+  const sub = subscription?.subscription
+  const inGrace = !!sub?.in_grace
+  const cancelling = !!sub?.cancel_at_period_end
+  const canSelfService = (status === 'active' || status === 'trial') && !!sub
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -95,6 +129,41 @@ export default function SubscriptionPage() {
                 </p>
               )}
             </>
+          )}
+
+          {/* فترة السماح بعد الانتهاء — الوصول مستمر والتجديد عاجل */}
+          {inGrace && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <span>
+                {t('grace_notice', {
+                  date: sub?.grace_ends_at ? fmtDate(sub.grace_ends_at, { dateStyle: 'long' }) : '',
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* الإلغاء الذاتي عند نهاية الفترة + الاستئناف */}
+          {canSelfService && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                {cancelling ? (
+                  <>
+                    <Badge variant="secondary">{t('cancel_pending')}</Badge>
+                    <Button variant="outline" size="sm" disabled={capBusy} onClick={() => void toggleCancel()}>
+                      <RotateCcw className="h-4 w-4 ms-1" />
+                      {t('resume_cta')}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="ghost" size="sm" className="text-destructive" disabled={capBusy} onClick={() => void toggleCancel()}>
+                    <XCircle className="h-4 w-4 ms-1" />
+                    {t('cancel_cta')}
+                  </Button>
+                )}
+              </div>
+              {capError && <p className="text-xs text-destructive">{t('cancel_failed')}</p>}
+            </div>
           )}
 
           {/* عدادات الاستهلاك */}
@@ -194,6 +263,44 @@ export default function SubscriptionPage() {
             )
           })}
         </div>
+      )}
+
+      {/* سجل المدفوعات — إيصالات هذا الحساب (أونلاين ويدوي) */}
+      {payments.length > 0 && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <ReceiptText className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">{t('payments_title')}</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-start text-muted-foreground border-b border-border">
+                    <th className="py-2 text-start font-medium">{t('payments_col_date')}</th>
+                    <th className="py-2 text-start font-medium">{t('payments_col_plan')}</th>
+                    <th className="py-2 text-start font-medium">{t('payments_col_amount')}</th>
+                    <th className="py-2 text-start font-medium">{t('payments_col_status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p) => (
+                    <tr key={p.id} className="border-b border-border/60">
+                      <td className="py-2">{fmtDate(p.created_at, { dateStyle: 'medium' })}</td>
+                      <td className="py-2">{p.plan.name_ar || p.plan.name}</td>
+                      <td className="py-2 font-semibold">{egp(p.amount_piastres)}</td>
+                      <td className="py-2">
+                        <Badge variant={p.status === 'succeeded' ? 'success' : p.status === 'pending' ? 'warning' : p.status === 'refunded' ? 'secondary' : 'destructive'}>
+                          {t(`payment_${p.status}`)}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <p className="text-xs text-muted-foreground text-center pb-4">{t('contact_owner')}</p>

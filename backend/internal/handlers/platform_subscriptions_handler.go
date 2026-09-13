@@ -266,11 +266,12 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
         defer tx.Rollback(ctx)
 
         var companyID, planSlug, status string
+        var periodEndPtr *time.Time
         if err := tx.QueryRow(ctx, `
-                SELECT s.company_id::text, p.slug, s.status
+                SELECT s.company_id::text, p.slug, s.status, s.current_period_end
                 FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                 WHERE s.id = $1
-        `, id).Scan(&companyID, &planSlug, &status); err != nil {
+        `, id).Scan(&companyID, &planSlug, &status, &periodEndPtr); err != nil {
                 if err == pgx.ErrNoRows {
                         c.JSON(http.StatusNotFound, gin.H{"error": "subscription_not_found"})
                         return
@@ -286,21 +287,35 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                         c.JSON(http.StatusBadRequest, gin.H{"error": "period_end_required", "message": "تاريخ نهاية الفترة مطلوب"})
                         return
                 }
-                if _, err := tx.Exec(ctx, `
-                        UPDATE subscriptions SET status = 'active', current_period_end = $2,
-                               cancel_at_period_end = COALESCE($3, cancel_at_period_end), updated_at = NOW()
-                        WHERE id = $1 AND status IN ('trial','active','expired','suspended')
-                `, id, body.CurrentPeriodEnd, body.CancelAtPeriodEnd); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
-                        return
+                if status == models.SubStatusTrial {
+                        // Extending a TRIAL must extend the trial — never silently
+                        // convert it into a paid subscription (explicit state
+                        // transitions only; a silent trial→paid flip fabricates revenue).
+                        if _, err := tx.Exec(ctx, `
+                                UPDATE subscriptions SET trial_ends_at = $2, updated_at = NOW()
+                                WHERE id = $1 AND status = 'trial'
+                        `, id, body.CurrentPeriodEnd); err != nil {
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
+                                return
+                        }
+                        summary = "تمديد تجربة " + planSlug
+                } else {
+                        if _, err := tx.Exec(ctx, `
+                                UPDATE subscriptions SET status = 'active', current_period_end = $2,
+                                       cancel_at_period_end = COALESCE($3, cancel_at_period_end), updated_at = NOW()
+                                WHERE id = $1 AND status IN ('active','expired','suspended')
+                        `, id, body.CurrentPeriodEnd, body.CancelAtPeriodEnd); err != nil {
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
+                                return
+                        }
+                        if _, err := tx.Exec(ctx, `
+                                UPDATE companies SET status = 'active', updated_at = NOW() WHERE id = $1
+                        `, companyID); err != nil {
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "company_sync_failed"})
+                                return
+                        }
+                        summary = "تمديد اشتراك " + planSlug
                 }
-                if _, err := tx.Exec(ctx, `
-                        UPDATE companies SET status = 'active', updated_at = NOW() WHERE id = $1
-                `, companyID); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "company_sync_failed"})
-                        return
-                }
-                summary = "تمديد اشتراك " + planSlug
         case "cancel":
                 if _, err := tx.Exec(ctx, `
                         UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1
@@ -324,10 +339,24 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                 }
                 summary = "تعليق اشتراك " + planSlug
         case "reactivate":
+                // Reactivation must restore access IMMEDIATELY: reactivating a
+                // row whose period end is past (or missing) would be lazily
+                // re-expired on the very next read — an invisible no-op trap.
+                // Default to a fresh 30-day window unless the admin pins an
+                // explicit end date; an existing FUTURE period end is kept.
+                effectiveEnd := body.CurrentPeriodEnd
+                if effectiveEnd == nil {
+                        now := time.Now()
+                        if periodEndPtr == nil || !periodEndPtr.After(now) {
+                                t := now.AddDate(0, 0, 30)
+                                effectiveEnd = &t
+                        }
+                }
                 if _, err := tx.Exec(ctx, `
-                        UPDATE subscriptions SET status = 'active', updated_at = NOW() WHERE id = $1
-                        AND status IN ('suspended','expired','cancelled')
-                `, id); err != nil {
+                        UPDATE subscriptions SET status = 'active',
+                               current_period_end = COALESCE($2, current_period_end), updated_at = NOW()
+                        WHERE id = $1 AND status IN ('suspended','expired','cancelled')
+                `, id, effectiveEnd); err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_reactivate_failed"})
                         return
                 }
@@ -376,6 +405,7 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
                 BillingInterval string `json:"billing_interval"`
                 AmountPiastres  int64  `json:"amount_piastres"`
                 Note            string `json:"note"`
+                IdempotencyKey  string `json:"idempotency_key"`
         }
         if err := c.ShouldBindJSON(&body); err != nil || body.CompanyID == "" || body.PlanID == "" {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body", "message": "company_id و plan_id مطلوبان"})
@@ -418,17 +448,44 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
 
         principal, _ := auth.PrincipalFromContext(c)
 
+        // Idempotency (Stripe-style billing hygiene): a retried or
+        // double-clicked submission replays the SAME client-generated key
+        // and receives the original payment back instead of
+        // double-extending the subscription.
+        if key := strings.TrimSpace(body.IdempotencyKey); key != "" {
+                var existingID string
+                err := tx.QueryRow(ctx, `
+                        SELECT id::text FROM payments WHERE idempotency_key = $1
+                `, key).Scan(&existingID)
+                if err == nil {
+                        _ = tx.Rollback(ctx) // read-only replay — nothing to commit
+                        c.JSON(http.StatusOK, gin.H{"data": gin.H{
+                                "payment_id":      existingID,
+                                "subscription_id": "",
+                                "amount_piastres": 0,
+                                "status":          "succeeded",
+                                "duplicate":       true,
+                        }})
+                        return
+                }
+                if err != pgx.ErrNoRows {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_lookup_failed"})
+                        return
+                }
+        }
+
         // The payment ledger row — succeeded immediately (manual confirmation
         // by the super admin IS the proof on the manual path).
         var paymentID string
         if err := tx.QueryRow(ctx, `
                 INSERT INTO payments (company_id, plan_id, billing_interval,
-                                      amount_piastres, provider, status, metadata)
+                                      amount_piastres, provider, status, metadata, idempotency_key)
                 VALUES ($1, $2, $3, $4, 'manual', 'succeeded',
-                        jsonb_build_object('note', NULLIF($5, '')::text, 'actor', $6::text))
+                        jsonb_build_object('note', NULLIF($5, '')::text, 'actor', $6::text), NULLIF($7, '')::text)
                 RETURNING id::text
         `, body.CompanyID, body.PlanID, body.BillingInterval, amount,
-                strings.TrimSpace(body.Note), principal.Email).Scan(&paymentID); err != nil {
+                strings.TrimSpace(body.Note), principal.Email,
+                strings.TrimSpace(body.IdempotencyKey)).Scan(&paymentID); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{
                         "error": "payment_insert_failed", "detail": err.Error(),
                 })

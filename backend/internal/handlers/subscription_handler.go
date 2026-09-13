@@ -83,6 +83,8 @@ func (h *Handler) GetPharmacySubscription(c *gin.Context) {
 			"current_period_end":   timePtrJSON(eff.PeriodEnd),
 			"trial_ends_at":        timePtrJSON(eff.TrialEndsAt),
 			"cancel_at_period_end": eff.CancelAtPeriodEnd,
+			"in_grace":             eff.InGrace,
+			"grace_ends_at":        timePtrJSON(eff.GraceEndsAt),
 			"days_left":            daysLeft,
 		},
 		"plan": gin.H{

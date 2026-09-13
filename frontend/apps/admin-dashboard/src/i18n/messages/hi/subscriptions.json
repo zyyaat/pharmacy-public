@@ -21,7 +21,7 @@
   "search_placeholder": "Search by company name...",
   "assign": "Assign plan",
   "assign_title": "Assign a plan to a company",
-  "assign_company": "Company (ID)",
+  "assign_company": "कंपनी",
   "assign_plan": "Plan",
   "assign_interval": "Billing interval",
   "interval_none": "None",
@@ -45,5 +45,17 @@
   "failed": "Operation failed",
   "confirm_cancel": "Cancel immediately? The company loses access except the subscription page.",
   "confirm_suspend": "Suspend the company's access entirely?",
-  "no_subscriptions": "No matching subscriptions"
+  "no_subscriptions": "No matching subscriptions",
+  "kpi_active": "सक्रिय सदस्यताएँ",
+  "kpi_trials": "चल रहे ट्रायल",
+  "kpi_expiring_7d": "7 दिनों में समाप्त",
+  "kpi_mrr": "मासिक आवर्ती आय (अनुमानित)",
+  "expiring_soon": "7 दिनों में समाप्त — समाप्ति से पहले संपर्क करें",
+  "cap_set": "अवधि के अंत में रद्द करें",
+  "cap_unset": "नवीनीकरण फिर से शुरू करें",
+  "cap_pending": "नवीनीकरण नहीं होगा",
+  "assign_company_search": "नाम या ईमेल से कंपनियाँ खोजें...",
+  "extend_trial_title": "ट्रायल बढ़ाएँ",
+  "new_trial_end": "नई ट्रायल समाप्ति तिथि",
+  "duplicate_payment": "पहले दर्ज है — डुप्लिकेट नहीं बनाया गया"
 }

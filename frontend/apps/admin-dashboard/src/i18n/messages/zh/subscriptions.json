@@ -21,7 +21,7 @@
   "search_placeholder": "Search by company name...",
   "assign": "Assign plan",
   "assign_title": "Assign a plan to a company",
-  "assign_company": "Company (ID)",
+  "assign_company": "公司",
   "assign_plan": "Plan",
   "assign_interval": "Billing interval",
   "interval_none": "None",
@@ -45,5 +45,17 @@
   "failed": "Operation failed",
   "confirm_cancel": "Cancel immediately? The company loses access except the subscription page.",
   "confirm_suspend": "Suspend the company's access entirely?",
-  "no_subscriptions": "No matching subscriptions"
+  "no_subscriptions": "No matching subscriptions",
+  "kpi_active": "有效订阅",
+  "kpi_trials": "进行中的试用",
+  "kpi_expiring_7d": "7天内到期",
+  "kpi_mrr": "月度经常性收入（估算）",
+  "expiring_soon": "7天内到期 — 请在到期前联系",
+  "cap_set": "期末取消",
+  "cap_unset": "恢复续订",
+  "cap_pending": "不再续订",
+  "assign_company_search": "按名称或邮箱搜索公司...",
+  "extend_trial_title": "延长试用",
+  "new_trial_end": "新的试用截止日期",
+  "duplicate_payment": "此前已登记 — 未创建重复记录"
 }

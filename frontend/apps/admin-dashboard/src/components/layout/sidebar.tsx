@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   X,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -52,6 +53,11 @@ const sidebarItems: SidebarItem[] = [
     title: "subscriptions",
     href: "/subscriptions",
     icon: <RefreshCcw className="h-5 w-5" />,
+  },
+  {
+    title: "payments",
+    href: "/payments",
+    icon: <Wallet className="h-5 w-5" />,
   },
   {
     title: "users",
