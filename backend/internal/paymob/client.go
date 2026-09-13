@@ -211,9 +211,85 @@ func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*In
                 resp, err = send(channels[:1])
         }
         if err != nil {
+                // Diagnostic breadcrumbs (prod 404 forensics): the integration
+                // ID is account configuration, not a secret credential —
+                // printing the exact values we put on the wire makes a
+                // dashboard mismatch provable from the server log alone.
+                // Secret keys are never logged.
+                log.Printf("[paymob] intention failed: base_url=%s payment_methods=%v amount=%d piastres special_reference=%s",
+                        c.BaseURL, channels, req.AmountPiastres, req.SpecialReference)
                 return nil, err
         }
         return resp, nil
+}
+
+// ProbeAccountIntegrations is a diagnostic-only call (never used by the
+// payment flow): it authenticates with the legacy API key (dashboard →
+// Developers → API Keys) and lists the integration IDs that actually exist
+// on that account. This answers the one question an intention 404 leaves
+// open — "is the configured integration ID real, and on the same account
+// as our Secret Key?" — without screenshots or guesswork.
+func (c *Client) ProbeAccountIntegrations(ctx context.Context, diagAPIKey string) (map[string]any, error) {
+        diagAPIKey = strings.TrimSpace(diagAPIKey)
+        if diagAPIKey == "" {
+                return nil, fmt.Errorf("paymob: empty diagnostic API key")
+        }
+
+        // Step 1 — legacy auth: POST {base}/api/auth/tokens {api_key} → token
+        authBody, _ := json.Marshal(map[string]string{"api_key": diagAPIKey})
+        authReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/auth/tokens", bytes.NewReader(authBody))
+        if err != nil {
+                return nil, fmt.Errorf("paymob: build auth request: %w", err)
+        }
+        authReq.Header.Set("Content-Type", "application/json")
+        authResp, err := c.HTTP.Do(authReq)
+        if err != nil {
+                return nil, fmt.Errorf("paymob: auth call failed: %w", err)
+        }
+        defer authResp.Body.Close()
+        authRaw, _ := io.ReadAll(io.LimitReader(authResp.Body, 1<<20))
+        var authDecoded map[string]any
+        if json.Unmarshal(authRaw, &authDecoded) != nil {
+                return nil, fmt.Errorf("paymob: decode auth response (http %d): %.200s", authResp.StatusCode, string(authRaw))
+        }
+        if authResp.StatusCode < 200 || authResp.StatusCode >= 300 {
+                // a wrong API key lands here with 401/403 — the probe output
+                // distinguishes "key rejected" from "ID not listed".
+                return nil, fmt.Errorf("paymob: auth rejected (http %d): %.200s", authResp.StatusCode, string(authRaw))
+        }
+        token, _ := authDecoded["token"].(string)
+        if token == "" {
+                return nil, fmt.Errorf("paymob: auth response missing token: %.200s", string(authRaw))
+        }
+
+        // Step 2 — list the account's integrations. Two candidate legacy paths
+        // are tried so an API rename can't silently break the diagnostic; the
+        // raw response body is returned either way for inspection.
+        var lastErr error
+        for _, path := range []string{"/api/ecommerce/integrations", "/api/v1/integrations/"} {
+                req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+path, nil)
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: build list request: %w", err)
+                }
+                req.Header.Set("Authorization", "Bearer "+token)
+                resp, err := c.HTTP.Do(req)
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: list call failed: %w", err)
+                }
+                raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+                resp.Body.Close()
+                var decoded any
+                if json.Unmarshal(raw, &decoded) != nil {
+                        lastErr = fmt.Errorf("paymob: decode list response (http %d, %s): %.200s", resp.StatusCode, path, string(raw))
+                        continue
+                }
+                if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+                        lastErr = fmt.Errorf("paymob: list rejected (http %d, %s): %.200s", resp.StatusCode, path, string(raw))
+                        continue
+                }
+                return map[string]any{"path": path, "integrations": decoded}, nil
+        }
+        return nil, lastErr
 }
 
 // EmbedURL builds the Unified Checkout iframe src — the form rendered

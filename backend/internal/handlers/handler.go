@@ -105,6 +105,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.POST("/subscriptions", auth.CSRF(auth.PlatformRealm), h.CreatePlatformSubscription)
                 platformAdmin.PATCH("/subscriptions/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformSubscription)
                 platformAdmin.POST("/payments/manual", auth.CSRF(auth.PlatformRealm), h.CreateManualPayment)
+                // Task 90 prod diagnostics — super-admin self-service for the
+                // intention 404 investigation: echoes the exact Paymob config
+                // and (with PAYMOB_DIAG_API_KEY) lists the integration IDs
+                // that really exist on the account. Read-only GET.
+                platformAdmin.GET("/payments/paymob-diagnostics", h.PaymobDiagnostics)
 
                 // Pharmacy data is scoped from the authenticated employee/company
                 // principal. These endpoints intentionally do not accept a pharmacy
@@ -285,7 +290,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // with multiple channels the client retries once with the card channel
 // alone; HMAC concatenation locked to Paymob's official worked example
 // (TestHMACConcatenationMatchesPaymobDocsExample).
-const APILevel = 64
+// 65 — super-admin diagnostics: GET /platform-admin/payments/paymob-
+// diagnostics echoes the exact Paymob config in use (base URL, masked
+// keys, literal integration IDs) and — when PAYMOB_DIAG_API_KEY is set —
+// probes the legacy API (auth/tokens → integrations list) to enumerate the
+// integration IDs that really exist on the account; intention failures now
+// log the exact base_url + payment_methods sent, making a dashboard
+// mismatch provable from the server log alone.
+const APILevel = 65
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
