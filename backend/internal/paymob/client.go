@@ -30,8 +30,10 @@ import (
         "encoding/json"
         "fmt"
         "io"
+        "log"
         "net/http"
         "strconv"
+        "strings"
         "time"
 )
 
@@ -156,43 +158,60 @@ func (c *Client) CreateIntention(ctx context.Context, req IntentionRequest) (*In
                 body["notification_url"] = req.NotificationURL
         }
 
-        payload, err := json.Marshal(body)
-        if err != nil {
-                return nil, fmt.Errorf("paymob: marshal intention: %w", err)
-        }
         url := c.BaseURL + "/v1/intention/"
-        httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-        if err != nil {
-                return nil, fmt.Errorf("paymob: build request: %w", err)
-        }
-        httpReq.Header.Set("Content-Type", "application/json")
-        httpReq.Header.Set("Authorization", "Token "+c.SecretKey)
+        send := func(channels []int) (*IntentionResponse, error) {
+                body["payment_methods"] = channels
+                payload, err := json.Marshal(body)
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: marshal intention: %w", err)
+                }
+                httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: build request: %w", err)
+                }
+                httpReq.Header.Set("Content-Type", "application/json")
+                httpReq.Header.Set("Authorization", "Token "+c.SecretKey)
 
-        httpResp, err := c.HTTP.Do(httpReq)
-        if err != nil {
-                return nil, fmt.Errorf("paymob: intention call failed: %w", err)
-        }
-        defer httpResp.Body.Close()
-        raw, err := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
-        if err != nil {
-                return nil, fmt.Errorf("paymob: read intention response: %w", err)
+                httpResp, err := c.HTTP.Do(httpReq)
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: intention call failed: %w", err)
+                }
+                defer httpResp.Body.Close()
+                raw, err := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
+                if err != nil {
+                        return nil, fmt.Errorf("paymob: read intention response: %w", err)
+                }
+
+                var decoded map[string]any
+                if err := json.Unmarshal(raw, &decoded); err != nil {
+                        return nil, fmt.Errorf("paymob: decode intention response (http %d): %w", httpResp.StatusCode, err)
+                }
+                if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+                        return nil, fmt.Errorf("paymob: intention rejected (http %d): %.300s", httpResp.StatusCode, string(raw))
+                }
+
+                clientSecret, _ := decoded["client_secret"].(string)
+                if clientSecret == "" {
+                        return nil, fmt.Errorf("paymob: intention response missing client_secret: %.200s", string(raw))
+                }
+                resp := &IntentionResponse{ClientSecret: clientSecret, Raw: decoded}
+                if id, ok := decoded["intention_order_id"].(float64); ok {
+                        resp.IntentionOrderID = int64(id)
+                }
+                return resp, nil
         }
 
-        var decoded map[string]any
-        if err := json.Unmarshal(raw, &decoded); err != nil {
-                return nil, fmt.Errorf("paymob: decode intention response (http %d): %w", httpResp.StatusCode, err)
+        resp, err := send(channels)
+        if err != nil && strings.Contains(err.Error(), "(http 404)") && len(channels) > 1 {
+                // ONE bad optional channel ID fails the whole intention with
+                // "Integration ID does not exist" (Paymob validates every
+                // payment_methods entry). Retry once with the card channel
+                // alone so a stale wallet ID can never block payments.
+                log.Printf("[paymob] intention 404 with %d channels — retrying with card channel only", len(channels))
+                resp, err = send(channels[:1])
         }
-        if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-                return nil, fmt.Errorf("paymob: intention rejected (http %d): %.300s", httpResp.StatusCode, string(raw))
-        }
-
-        clientSecret, _ := decoded["client_secret"].(string)
-        if clientSecret == "" {
-                return nil, fmt.Errorf("paymob: intention response missing client_secret: %.200s", string(raw))
-        }
-        resp := &IntentionResponse{ClientSecret: clientSecret, Raw: decoded}
-        if id, ok := decoded["intention_order_id"].(float64); ok {
-                resp.IntentionOrderID = int64(id)
+        if err != nil {
+                return nil, err
         }
         return resp, nil
 }

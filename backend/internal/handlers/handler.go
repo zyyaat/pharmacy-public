@@ -279,7 +279,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // piastres/cents as-is (the previous major-unit division undercharged by
 // 100x); billing country now 3-letter ISO (EGY); locked by
 // TestCreateIntentionWireContract.
-const APILevel = 63
+// 64 — intention resilience: Paymob rejects the WHOLE intention with 404
+// "Integration ID does not exist" when ANY payment_methods entry is bad,
+// so a stale optional wallet ID no longer blocks card payments — on 404
+// with multiple channels the client retries once with the card channel
+// alone; HMAC concatenation locked to Paymob's official worked example
+// (TestHMACConcatenationMatchesPaymobDocsExample).
+const APILevel = 64
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

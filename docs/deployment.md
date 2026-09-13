@@ -223,7 +223,7 @@ service).
 | `PAYMOB_SECRET_KEY` | Yes | The dashboard field literally named **Secret Key**. Used server-side for the Intention API: `Authorization: Token <SECRET_KEY>` (the literal word `Token`, not `Bearer`). Never exposed to any client. |
 | `PAYMOB_PUBLIC_KEY` | Yes | The dashboard field named **Public Key** (`pk_test_...` / `pk_live_...`); the ONLY safe client-side credential. Builds the embedded Unified Checkout URL. |
 | `PAYMOB_CARD_INTEGRATION_ID` | Yes | Numeric integration ID of the **Online Card** channel. |
-| `PAYMOB_WALLET_INTEGRATION_ID` | Optional | Numeric integration ID of the **Mobile Wallets** channel (Vodafone Cash etc.). |
+| `PAYMOB_WALLET_INTEGRATION_ID` | Optional | Numeric integration ID of the **Mobile Wallets** channel (Vodafone Cash etc.). Leave EMPTY if you do not offer wallets: Paymob rejects the whole intention (404 "Integration ID does not exist") when ANY sent channel ID is bad. The backend self-heals by retrying card-only on 404, but a correct/empty value is always better. Must match the Secret Key's Test/Live mode. |
 | `PAYMOB_HMAC_SECRET` | Yes | The dashboard field named **HMAC Secret** (same page as the keys). Verifies webhook HMAC-SHA512. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. |
 | `PAYMOB_WEBHOOK_TOKEN` | Recommended | NOT from Paymob — you generate it yourself (`openssl rand -hex 32`). Appended to the webhook URL (`?token=…`) as a second provider-independent check. |
 | `PAYMOB_BASE_URL` | Optional | NOT from Paymob — leave unset; defaults to `https://accept.paymob.com` (Egypt). Override only for sandbox drills. |

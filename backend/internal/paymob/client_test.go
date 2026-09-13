@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -137,5 +138,87 @@ func TestCreateIntentionWireContract(t *testing.T) {
         }
         if resp.ClientSecret != "csk_test_abc" || resp.IntentionOrderID != 777000 {
                 t.Fatalf("response parse = %+v", resp)
+        }
+}
+
+// One bad OPTIONAL channel (e.g. a stale wallet integration ID) fails the
+// whole intention with 404 "Integration ID does not exist" — Paymob
+// validates every payment_methods entry. The client must retry once with
+// the card channel alone instead of blocking payments.
+func TestCreateIntentionRetriesCardOnlyOn404(t *testing.T) {
+        calls := 0
+        var secondCallMethods []any
+        srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                calls++
+                var body map[string]any
+                raw, _ := io.ReadAll(r.Body)
+                _ = json.Unmarshal(raw, &body)
+                if calls == 1 {
+                        w.Header().Set("Content-Type", "application/json")
+                        w.WriteHeader(http.StatusNotFound)
+                        _, _ = w.Write([]byte(`{"detail":"Integration ID does not exist in our system"}`))
+                        return
+                }
+                secondCallMethods = body["payment_methods"].([]any)
+                w.Header().Set("Content-Type", "application/json")
+                _, _ = w.Write([]byte(`{"client_secret":"csk_retry_ok","intention_order_id":99}`))
+        }))
+        defer srv.Close()
+
+        c := New("sk_test_secret", "pk_test_public", "456987", "111222", srv.URL) // card + (bad) wallet
+        resp, err := c.CreateIntention(context.Background(), IntentionRequest{
+                AmountPiastres: 10000,
+                Currency:       "EGP",
+                ItemName:       "Plan",
+        })
+        if err != nil {
+                t.Fatalf("retry path failed: %v", err)
+        }
+        if calls != 2 {
+                t.Fatalf("calls = %d, want 2 (original + card-only retry)", calls)
+        }
+        if len(secondCallMethods) != 1 || secondCallMethods[0].(float64) != 456987 {
+                t.Fatalf("retry payment_methods = %v, want [456987] card only", secondCallMethods)
+        }
+        if resp.ClientSecret != "csk_retry_ok" || resp.IntentionOrderID != 99 {
+                t.Fatalf("resp = %+v", resp)
+        }
+}
+
+// Locks the concatenation to Paymob's OFFICIAL worked example
+// (hmac-verification.md): exact field order + value rendering must produce
+// the exact documented string before any hash is trusted.
+func TestHMACConcatenationMatchesPaymobDocsExample(t *testing.T) {
+        obj := map[string]any{
+                "amount_cents":          float64(100),
+                "created_at":            "2020-03-25T18:39:44.719228",
+                "currency":              "EGP",
+                "error_occured":         false,
+                "has_parent_transaction": false,
+                "id":                    float64(2556706),
+                "integration_id":        float64(6741),
+                "is_3d_secure":          true,
+                "is_auth":               false,
+                "is_capture":            false,
+                "is_refunded":           false,
+                "is_standalone_payment": true,
+                "is_voided":             false,
+                "order": map[string]any{"id": float64(4778239)},
+                "owner":                 float64(4705),
+                "pending":               false,
+                "source_data": map[string]any{
+                        "pan":      "2346",
+                        "sub_type": "MasterCard",
+                        "type":     "card",
+                },
+                "success": true,
+        }
+        var b strings.Builder
+        for _, f := range hmacFieldOrder {
+                b.WriteString(hmacValue(hmacLookup(obj, f)))
+        }
+        const want = "1002020-03-25T18:39:44.719228EGPfalsefalse25567066741truefalsefalsefalsetruefalse47782394705false2346MasterCardcardtrue"
+        if got := b.String(); got != want {
+                t.Fatalf("concat mismatch:\n got  %s\n want %s", got, want)
         }
 }
