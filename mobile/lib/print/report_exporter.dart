@@ -2,16 +2,23 @@
 // المبدأ نفس نهج receipt_printer (Task 68): بناء صفحات التقرير ويدجت Flutter
 // ثم التقاطها RepaintBoundary → صور ناضجة → صفحات PDF مقاس A4 → مشاركة عبر
 // نظام المشاركة في أندرويد (حفظ في الملفات / بريد / واتساب…).
+// Windows: لا لوحة مشاركة — يُحفظ الملف في Downloads ويُكشف في Explorer.
 // العربية آمنة 100% لأن تشكيلها يقوم به محرك نصوص Flutter نفسه — لا نص عربي
 // داخل مكتبة PDF إطلاقًا. المصدر بيانات في الذاكرة (من الكاش عند الانقطاع)
 // فالتصدير يعمل بلا إنترنت تمامًا.
+import 'dart:io' show File, Platform, Process;
 import 'dart:ui' as ui show ImageByteFormat;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart' show GlobalKey;
 import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
+/// هل نعمل على سطح مكتب بلا لوحة مشاركة (ويندوز)؟
+bool get _isWindowsDesktop => !kIsWeb && Platform.isWindows;
 
 /// نتيجة التصدير — ok=true فُتحت ورقة المشاركة (أو ألغاها المستخدم).
 class ReportExportResult {
@@ -62,7 +69,8 @@ Future<(pw.Document, int)> _captureReportDocument(
 }
 
 /// يلتقط كل مفتاح RepaintBoundary (صفحة تقرير) ويحوّله لصفحة PDF بمقاس A4،
-/// ثم يستدعي ورقة المشاركة في أندرويد عبر Printing.sharePdf.
+/// ثم يستدعي ورقة المشاركة في أندرويد عبر Printing.sharePdf — أو على
+/// ويندوز يحفظ الملف في Downloads ويكشفه في Explorer (لا share sheet هناك).
 Future<ReportExportResult> shareReportPdf({
   required List<GlobalKey> boundaryKeys,
   required String jobName,
@@ -71,6 +79,20 @@ Future<ReportExportResult> shareReportPdf({
     final (doc, pages) = await _captureReportDocument(boundaryKeys);
     if (pages == 0) {
       return const ReportExportResult(ok: false, error: 'report_capture_failed');
+    }
+    if (_isWindowsDesktop) {
+      final dir = await getDownloadsDirectory();
+      if (dir == null) {
+        return const ReportExportResult(ok: false, error: 'no_downloads_dir');
+      }
+      final String path =
+          '${dir.path}${Platform.pathSeparator}$jobName.pdf';
+      await File(path).writeAsBytes(await doc.save());
+      // كشف الملف في Explorer — بأمان: فشله لا يفسد نجاح الحفظ
+      try {
+        await Process.run('explorer.exe', <String>['/select,', path]);
+      } catch (_) {}
+      return const ReportExportResult(ok: true);
     }
     await Printing.sharePdf(bytes: await doc.save(), filename: '$jobName.pdf');
     return const ReportExportResult(ok: true);

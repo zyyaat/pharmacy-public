@@ -117,15 +117,15 @@ class HomeShellState extends State<HomeScreen> {
     if (!current.allowed) {
       current = _firstAllowedPage(pages) ?? pages.first;
     }
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: _SidebarDrawer(active: current.key, onSelect: (String key) => goTo(key)),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
+    // سطح المكتب (≥1100px): القائمة الجانبية دائمة مثل الويب والمحتوى
+    // مقيّد بعرض 1200px موسّطًا؛ الهاتف يبقى بدرجه المنسدل كما هو.
+    final double shellWidth = MediaQuery.sizeOf(context).width;
+    final bool wide = shellWidth >= 1100;
+    final Widget mainColumn = Column(
+      children: <Widget>[
             _HeaderBar(
               onMenu: _openDrawer,
+              showMenu: !wide,
               onAlertsChanged: _refreshAlerts,
               alertCount: (state.can('inventory.view') ? _lowStock.length : 0) +
                   (state.can('customers.view') ? _debts.length : 0),
@@ -147,20 +147,44 @@ class HomeShellState extends State<HomeScreen> {
                   : const SizedBox.shrink(),
             ),
             Expanded(
-              child: IndexedStack(
-                index: pages.indexOf(current),
-                children: <Widget>[
-                  for (final ShellPage p in pages)
-                    p.allowed
-                        ? (p.builder != null
-                            ? p.builder!(context)
-                            : NoAccessScreen(key: ValueKey<String>('na_${p.key}'), title: p.label))
-                        : NoAccessScreen(key: ValueKey<String>('na_${p.key}'), title: p.label),
-                ],
+              // شاشات الكمبيوتر: صفحات بمركز مقروء بعرض صفحات الويب
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: IndexedStack(
+                    index: pages.indexOf(current),
+                    children: <Widget>[
+                      for (final ShellPage p in pages)
+                        p.allowed
+                            ? (p.builder != null
+                                ? p.builder!(context)
+                                : NoAccessScreen(key: ValueKey<String>('na_${p.key}'), title: p.label))
+                            : NoAccessScreen(key: ValueKey<String>('na_${p.key}'), title: p.label),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
-        ),
+        );
+
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: _SidebarDrawer(active: current.key, onSelect: (String key) => goTo(key)),
+      body: SafeArea(
+        bottom: false,
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _SidebarDrawer(
+                      embedded: true,
+                      active: current.key,
+                      onSelect: (String key) => goTo(key)),
+                  Expanded(child: mainColumn),
+                ],
+              )
+            : mainColumn,
       ),
     );
   }
@@ -283,7 +307,12 @@ class HomeNav {
 class _SidebarDrawer extends StatelessWidget {
   final String active;
   final ValueChanged<String> onSelect;
-  const _SidebarDrawer({required this.active, required this.onSelect});
+
+  /// سطح المكتب: تُعرض كلوحة دائمة داخل Row بدل درج الهاتف —
+  /// نفس المحتوى حرفيًا، بلا غلاف Drawer وبلا Navigator.pop.
+  final bool embedded;
+  const _SidebarDrawer(
+      {required this.active, required this.onSelect, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -317,11 +346,7 @@ class _SidebarDrawer extends StatelessWidget {
             : i18n.t('nav', 'user_fallback'));
     final role = ctx?.user.role ?? i18n.t('nav', 'pharmacy_account');
 
-    return Drawer(
-      width: 260, // w-[260px]
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(),
-      child: SafeArea(
+    final Widget sidebarContent = SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -391,7 +416,7 @@ class _SidebarDrawer extends StatelessWidget {
                         active: active == key,
                         primary: primary,
                         onTap: () {
-                          Navigator.pop(context); // إغلاق الدرج
+                          if (!embedded) Navigator.pop(context); // إغلاق الدرج
                           onSelect(key);
                         },
                       ),
@@ -413,7 +438,7 @@ class _SidebarDrawer extends StatelessWidget {
                       active: active == 'settings',
                       primary: primary,
                       onTap: () {
-                        Navigator.pop(context);
+                        if (!embedded) Navigator.pop(context);
                         onSelect('settings');
                       },
                     ),
@@ -469,7 +494,28 @@ class _SidebarDrawer extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      );
+
+    if (embedded) {
+      // لوحة دائمة بعرض الويب نفسه w-[260px] وحد فاصل جهة النهاية
+      return Container(
+        width: 260,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          border:
+              BorderDirectional(end: BorderSide(color: theme.dividerColor)),
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          child: sidebarContent,
+        ),
+      );
+    }
+    return Drawer(
+      width: 260, // w-[260px]
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(),
+      child: sidebarContent,
     );
   }
 }
@@ -571,7 +617,10 @@ class _HeaderBar extends StatelessWidget {
     required this.alertCount,
     required this.lowStock,
     required this.debts,
+    this.showMenu = true, // سطح المكتب: القائمة دائمة فيخفى الهمبرغر
   });
+
+  final bool showMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -591,8 +640,10 @@ class _HeaderBar extends StatelessWidget {
           ),
           child: Row(
             children: <Widget>[
-              IconButtonGhost(Icons.menu, onPressed: onMenu),
-              const SizedBox(width: 8),
+              if (showMenu) ...<Widget>[
+                IconButtonGhost(Icons.menu, onPressed: onMenu),
+                const SizedBox(width: 8),
+              ],
               // حقل البحث — مثل الويب
               Expanded(
                 child: ConstrainedBox(

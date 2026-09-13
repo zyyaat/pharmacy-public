@@ -29,6 +29,13 @@ dependencies:
   # Phase G — الدفع المضمّن: فورم Paymob داخل WebView في التطبيق نفسه
   # (بدون خروج لمتصفح خارجي). minSdk 23 من prepare_android.sh يكفي.
   webview_flutter: ^4.9.0
+  # Windows desktop — بناء EXE بجانب الـAPK:
+  # window_manager: نافذة 1280×820 بحد أدنى وتوسيط وعنوان العلامة.
+  # path_provider: حفظ PDF المشارَك في Downloads على ويندوز (لا share sheet).
+  # url_launcher: فورم Paymob في المتصفح الخارجي على ويندوز (لا WebView).
+  window_manager: ^0.4.3
+  path_provider: ^2.1.4
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

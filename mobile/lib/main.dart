@@ -1,7 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/api_client.dart';
 import 'core/offline.dart';
@@ -17,6 +20,22 @@ import 'state/app_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Windows desktop — نافذة بحجم شاشة كمبيوتر محترم: 1280×820 بحد أدنى
+  // 1024×680، موسّطة، بعنوان العلامة. الهاتف لا يمر من هذا المسار إطلاقًا.
+  if (!kIsWeb && Platform.isWindows) {
+    await windowManager.ensureInitialized();
+    const WindowOptions options = WindowOptions(
+      size: Size(1280, 820),
+      minimumSize: Size(1024, 680),
+      center: true,
+      title: 'Pharmacy OS',
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    await windowManager.waitUntilReadyToShow(options, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
   // شبكة أمان: أي استثناء build يعرض بطاقة خطأ مقروءة بدل الصندوق الرمادي
   // الصامت في وضع release، ويُبقي بقية الواجهة واضحة ومتفاعلة.
   ErrorWidget.builder = (FlutterErrorDetails details) => Material(

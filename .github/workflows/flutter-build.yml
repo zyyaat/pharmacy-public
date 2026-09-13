@@ -116,3 +116,82 @@ jobs:
           name: pharmacy-mobile-apk-universal-${{ github.run_number }}
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+  # Windows desktop — EXE بجانب الـAPK: بناء Flutter Windows ثم مثبّت
+  # Inno Setup احترافي (معالج عربي بصور العلامة) + حزمة portable مضغوطة.
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ inputs.flutter_version || '3.24.5' }}
+          cache: true
+
+      - name: Generate env.json (نفس طبقة dart-define الخاصة بالـAPK)
+        working-directory: mobile
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.api_base_url }}
+          VAR_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          API_URL="$INPUT_URL"
+          if [ -z "$API_URL" ]; then API_URL="$VAR_URL"; fi
+          if [ -z "$API_URL" ]; then
+            API_URL="https://pharmacy-public.dockhosting.dev/api/v1"
+            echo "::warning::API_BASE_URL is not set (neither run input nor repository variable) — using the baked-in production default (DockHosting)."
+          fi
+          printf '{"API_BASE_URL":"%s"}\n' "$API_URL" > env.json
+          echo "Built with API_BASE_URL=$API_URL"
+
+      - name: flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Smoke test (compile check before the Windows build)
+        working-directory: mobile
+        run: flutter test
+
+      - name: Generate windows/ scaffold from the pinned Flutter template
+        shell: bash
+        run: |
+          flutter --version
+          rm -rf /tmp/genw
+          flutter create /tmp/genw --project-name pharmacy_mobile --org com.zyyaat --platforms windows
+          rm -rf mobile/windows
+          cp -r /tmp/genw/windows mobile/windows
+          bash mobile/scripts/prepare_windows.sh
+          ls mobile/windows/runner/resources/
+
+      - name: Build Windows EXE
+        working-directory: mobile
+        run: flutter build windows --release --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} --dart-define-from-file=env.json
+
+      - name: Zip portable build (تشغيل مباشر بلا تثبيت)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path 'mobile/build/windows/x64/runner/Release/*' -DestinationPath "artifacts/PharmacyOS-windows-portable-1.0.${{ github.run_number }}.zip" -Force
+
+      - name: Compile installer (Inno Setup — معالج عربي بصور العلامة)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion="1.0.${{ github.run_number }}" mobile\setup\pharmacy_os_setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-windows-setup-${{ github.run_number }}
+          path: mobile/setup/output/*.exe
+          if-no-files-found: error
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-windows-portable-${{ github.run_number }}
+          path: artifacts/*.zip
+          if-no-files-found: error
