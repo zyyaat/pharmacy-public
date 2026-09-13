@@ -22,6 +22,7 @@ import (
         "io"
         "log"
         "net/http"
+        "net/url"
         "strconv"
         "strings"
         "time"
@@ -135,13 +136,14 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
                         "/settings/subscription?payment=" + paymentID
         }
 
-        client := paymob.New(h.config.PaymobAPIKey, h.config.PaymobPublicKey,
+        client := paymob.New(h.config.PaymobSecretKey, h.config.PaymobPublicKey,
                 h.config.PaymobCardIntegrationID, h.config.PaymobWalletIntegrationID,
                 h.config.PaymobBaseURL)
         intention, err := client.CreateIntention(ctx, paymob.IntentionRequest{
                 AmountPiastres:   amount,
                 Currency:         currency,
                 SpecialReference: paymentID,
+                NotificationURL:  h.paymobWebhookURL(c),
                 RedirectionURL:   redirectionURL,
                 ItemName:         planName,
                 ItemDescription:  intervalLabel + " — " + planName,
@@ -416,6 +418,25 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
                 return
         }
         c.JSON(http.StatusOK, gin.H{"received": true, "result": "recorded"})
+}
+
+// paymobWebhookURL derives the public callback URL Paymob should POST to:
+// the same host the checkout request reached (DockHosting terminates TLS
+// and preserves Host / X-Forwarded-Proto), plus the URL token when one is
+// configured. This URL is sent as notification_url on every intention —
+// the dashboard-registered webhook is only a fallback.
+func (h *Handler) paymobWebhookURL(c *gin.Context) string {
+        scheme := "https"
+        if proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")); proto != "" {
+                scheme = proto
+        } else if c.Request.TLS != nil {
+                scheme = "https"
+        }
+        u := scheme + "://" + c.Request.Host + "/api/v1/payments/webhook/paymob"
+        if h.config != nil && h.config.PaymobWebhookToken != "" {
+                u += "?token=" + url.QueryEscape(h.config.PaymobWebhookToken)
+        }
+        return u
 }
 
 // paymentBillingInterval reads the interval off the payment row (the

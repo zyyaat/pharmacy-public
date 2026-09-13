@@ -269,7 +269,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // GET /pharmacy/subscription/payments/:id polling, HMAC-SHA512-verified
 // POST /payments/webhook/paymob as the only online activation path, shared
 // applySucceededPaymentTx transition for manual + webhook payments.
-const APILevel = 61
+// 62 — checkout now sends notification_url (our webhook URL + token) on
+// every intention so the callback is code-driven, not dashboard-dependent;
+// PAYMOB_SECRET_KEY is the canonical secret env name (falls back to the
+// legacy PAYMOB_API_KEY).
+const APILevel = 62
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

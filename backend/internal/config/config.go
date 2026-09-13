@@ -51,7 +51,7 @@ type Config struct {
         // absent the online checkout endpoint answers paymob_not_configured and
         // the super-admin manual payment remains the billing path. Secrets live
         // only in the hosting environment — never in Vercel or NEXT_PUBLIC_*.
-        PaymobAPIKey              string // server-only secret (Authorization: Token …)
+        PaymobSecretKey            string // dashboard "Secret Key" — server-only (Authorization: Token …)
         PaymobPublicKey           string // pk_... embedded in the Unified Checkout iframe URL
         PaymobCardIntegrationID   string // numeric Online Card integration ID
         PaymobWalletIntegrationID string // numeric Mobile Wallets integration ID (optional)
@@ -99,7 +99,9 @@ func Load() *Config {
                 BootstrapSuperAdminCompany:   getEnv("BOOTSTRAP_SUPER_ADMIN_COMPANY", "Pharmacy OS"),
 
                 // Paymob payments (Phase G)
-                PaymobAPIKey:              strings.TrimSpace(getEnv("PAYMOB_API_KEY", "")),
+                // Dashboard field literally named "Secret Key". Falls back to the
+                // legacy PAYMOB_API_KEY name so pre-rename deployments keep working.
+                PaymobSecretKey: strings.TrimSpace(getEnv("PAYMOB_SECRET_KEY", getEnv("PAYMOB_API_KEY", ""))),
                 PaymobPublicKey:           strings.TrimSpace(getEnv("PAYMOB_PUBLIC_KEY", "")),
                 PaymobCardIntegrationID:   strings.TrimSpace(getEnv("PAYMOB_CARD_INTEGRATION_ID", "")),
                 PaymobWalletIntegrationID: strings.TrimSpace(getEnv("PAYMOB_WALLET_INTEGRATION_ID", "")),
@@ -136,11 +138,11 @@ func (c *Config) IsProduction() bool {
 }
 
 // PaymobEnabled reports whether the online checkout has its required
-// credential subset: API key (server auth), public key (iframe URL), one
+// credential subset: secret key (server auth), public key (iframe URL), one
 // payment channel integration ID, and the webhook HMAC secret. Missing any
 // of them keeps billing on the manual-payment path.
 func (c *Config) PaymobEnabled() bool {
-        return c.PaymobAPIKey != "" &&
+        return c.PaymobSecretKey != "" &&
                 c.PaymobPublicKey != "" &&
                 c.PaymobCardIntegrationID != "" &&
                 c.PaymobHMACSecret != ""

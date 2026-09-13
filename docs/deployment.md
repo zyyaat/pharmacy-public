@@ -220,34 +220,70 @@ service).
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `PAYMOB_API_KEY` | Yes | Secret API key used server-side to authenticate intention requests (`Authorization: Token …`). Never exposed to any client. |
-| `PAYMOB_PUBLIC_KEY` | Yes | Public key (`pk_test_...` / `pk_live_...`) embedded in the Unified Checkout iframe URL, built server-side. |
+| `PAYMOB_SECRET_KEY` | Yes | The dashboard field literally named **Secret Key**. Used server-side for the Intention API: `Authorization: Token <SECRET_KEY>` (the literal word `Token`, not `Bearer`). Never exposed to any client. |
+| `PAYMOB_PUBLIC_KEY` | Yes | The dashboard field named **Public Key** (`pk_test_...` / `pk_live_...`); the ONLY safe client-side credential. Builds the embedded Unified Checkout URL. |
 | `PAYMOB_CARD_INTEGRATION_ID` | Yes | Numeric integration ID of the **Online Card** channel. |
 | `PAYMOB_WALLET_INTEGRATION_ID` | Optional | Numeric integration ID of the **Mobile Wallets** channel (Vodafone Cash etc.). |
-| `PAYMOB_HMAC_SECRET` | Yes | HMAC-SHA512 secret used to verify Paymob webhooks. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. |
-| `PAYMOB_WEBHOOK_TOKEN` | Recommended | Long random string appended to the webhook URL (`?token=…`) as a second provider-independent check. |
-| `PAYMOB_BASE_URL` | Optional | API base override; defaults to `https://accept.paymob.com`. For staging/testing only. |
+| `PAYMOB_HMAC_SECRET` | Yes | The dashboard field named **HMAC Secret** (same page as the keys). Verifies webhook HMAC-SHA512. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. |
+| `PAYMOB_WEBHOOK_TOKEN` | Recommended | NOT from Paymob — you generate it yourself (`openssl rand -hex 32`). Appended to the webhook URL (`?token=…`) as a second provider-independent check. |
+| `PAYMOB_BASE_URL` | Optional | NOT from Paymob — leave unset; defaults to `https://accept.paymob.com` (Egypt). Override only for sandbox drills. |
+| `PAYMOB_API_KEY` | Optional | The dashboard field named **API Key**. Needed ONLY by the Transaction Inquiry fallback (planned, not yet used). Leave empty today. |
 
-Where to get each value (Paymob dashboard → Developers section):
+Where to get each value (current Paymob dashboard, verified against Paymob's
+official integration guide, 2026-06 — the old "Developers → Account
+Information" paths are gone):
 
-| Value | Dashboard location |
-| --- | --- |
-| API Key | Developers → Account Information → API Key |
-| Public Key | Developers → Account Information → Public Key (`pk_...`) |
-| Integration IDs | Developers → Payment Integrations → numeric ID beside each channel (Online Card, Mobile Wallets) |
-| HMAC secret | Developers → Webhooks → the HMAC secret shown when registering a webhook response URL |
+| Value | Its name in the Paymob dashboard | Exact location |
+| --- | --- | --- |
+| `PAYMOB_SECRET_KEY` | **Secret Key** | Dashboard → **Settings → API Keys** → click **View** beside Secret Key (choose the Test or Live tab to match the mode you want) |
+| `PAYMOB_PUBLIC_KEY` | **Public Key** | Same page: **Settings → API Keys** → **View** beside Public Key (`pk_test_...` / `pk_live_...`) |
+| `PAYMOB_HMAC_SECRET` | **HMAC Secret** | Same page: **Settings → API Keys** → **View** beside HMAC Secret |
+| `PAYMOB_*_INTEGRATION_ID` | **Integration ID** (a plain number) | Dashboard → **Settings → Payment Integrations** → the numeric **ID** column beside each channel (Online Card, Mobile Wallets). Each channel has a **Test and a Live ID** — copy the one matching your key mode |
+| `PAYMOB_WEBHOOK_TOKEN` | — (not a Paymob value) | Generate locally: `openssl rand -hex 32` |
 
-Webhook URL to register in the Paymob dashboard (HTTPS only, exact path —
-the route is LIVE now):
+Collection checklist (about 5 minutes):
+
+1. Log in to the Paymob dashboard and note the **Test/Live mode toggle** —
+   keys and Integration IDs are mode-specific and MUST match (a Live key with
+   a Test Integration ID fails with `404 Integration ID does not exist`).
+2. **Settings → API Keys** → View and copy: Secret Key → `PAYMOB_SECRET_KEY`,
+   Public Key → `PAYMOB_PUBLIC_KEY`, HMAC Secret → `PAYMOB_HMAC_SECRET`.
+3. **Settings → Payment Integrations** → copy the numeric ID of the **Online
+   Card** channel → `PAYMOB_CARD_INTEGRATION_ID`; Mobile Wallets →
+   `PAYMOB_WALLET_INTEGRATION_ID` if enabled.
+4. Generate `PAYMOB_WEBHOOK_TOKEN` yourself — no hosting terminal needed,
+   any one of these works: `openssl rand -hex 32` (Mac/Linux terminal),
+   `-join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })`
+   (Windows PowerShell), or in ANY browser press F12 → Console and run
+   `[...crypto.getRandomValues(new Uint8Array(32))].map(b=>b.toString(16).padStart(2,'0')).join('')`.
+5. Register the webhook URL (below) in **Settings → Webhooks**.
+6. Sandbox drills use Test-mode keys + Test IDs with Paymob's test cards
+   (Visa `4111 1111 1111 1111` / Mastercard `5123 4567 8901 2346`, expiry
+   `01/39`, CVV `123`; wallet `01010101010`, MPIN `123456`, OTP `123456`).
+   Go-live = switch dashboard to Live and swap in Live keys/IDs — same code,
+   same base URL.
+7. Paymob's self-service **Integration Wizard** (`https://wizard.paymob.com`)
+   can validate your HMAC and webhook setup interactively if anything looks off.
+
+Webhook URL (HTTPS only, exact path — the route is LIVE now):
 
 ```text
 https://<backend-host>/api/v1/payments/webhook/paymob?token=<PAYMOB_WEBHOOK_TOKEN>
 ```
 
+Paste this URL anywhere the dashboard asks for a webhook/callback — the
+per-integration webhook field (Settings → Payment Integrations → the Card
+integration) and/or the account-level webhooks page. Registration there is
+a fallback only: with the Intention API the backend itself sends this same
+URL as `notification_url` on every intention creation (Paymob's documented
+pattern), so the callback is driven by the code, not by the dashboard.
+When Paymob fires the callback it appends `&hmac=…`, so the request arrives
+with BOTH the URL token and the HMAC — the backend enforces both.
+
 Embedded payment flow (why these variables are enough):
 
 1. `POST /pharmacy/subscription/checkout` (owner session + CSRF) creates a
-   `pending` payment row, then the intention server-side (`PAYMOB_API_KEY`,
+   `pending` payment row, then the intention server-side (`PAYMOB_SECRET_KEY`,
    snapshot pricing from the plan row — later plan edits never change an
    open invoice) and returns `client_secret` + the iframe URL.
 2. The subscription page (web) or an in-app WebView (mobile) renders the
