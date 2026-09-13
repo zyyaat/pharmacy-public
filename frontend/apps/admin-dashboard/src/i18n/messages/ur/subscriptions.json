@@ -57,5 +57,14 @@
   "assign_company_search": "نام یا ای میل سے کمپنی تلاش کریں...",
   "extend_trial_title": "ٹرائل بڑھائیں",
   "new_trial_end": "نئی ٹرائل اختتامی تاریخ",
-  "duplicate_payment": "پہلے سے درج ہے — ڈپلیکیٹ نہیں بنایا گیا"
+  "duplicate_payment": "پہلے سے درج ہے — ڈپلیکیٹ نہیں بنایا گیا",
+  "reactivate_title": "سبسکرپشن دوبارہ فعال کریں",
+  "reactivate_hint": "منتخب مدت کے اختتام تک اکاؤنت فوراً رسالت حاصل کر لیتا ہے — ختم یا منسوخ ہونے کے بعد بھی۔",
+  "reactivate_until": "فعال تک:",
+  "reactivate_confirm": "ابھی فعال کریں",
+  "reactivate_custom": "مخصوص تاریخ (تیز دنوں کے بجائے)",
+  "reactivate_p7": "7 دن",
+  "reactivate_p14": "14 دن",
+  "reactivate_p30": "30 دن",
+  "reactivate_p90": "90 دن"
 }

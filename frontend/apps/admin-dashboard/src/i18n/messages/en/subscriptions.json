@@ -57,5 +57,14 @@
   "assign_company_search": "Search companies by name or email...",
   "extend_trial_title": "Extend trial",
   "new_trial_end": "New trial end date",
-  "duplicate_payment": "Already registered earlier — no duplicate created"
+  "duplicate_payment": "Already registered earlier — no duplicate created",
+  "reactivate_title": "Reactivate subscription",
+  "reactivate_hint": "The account regains access immediately until the chosen period ends — available even after expiry or cancellation.",
+  "reactivate_until": "Active until:",
+  "reactivate_confirm": "Activate now",
+  "reactivate_custom": "Custom date (instead of quick days)",
+  "reactivate_p7": "7 days",
+  "reactivate_p14": "14 days",
+  "reactivate_p30": "30 days",
+  "reactivate_p90": "90 days"
 }

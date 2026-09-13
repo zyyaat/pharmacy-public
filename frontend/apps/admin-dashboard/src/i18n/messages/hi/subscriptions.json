@@ -57,5 +57,14 @@
   "assign_company_search": "नाम या ईमेल से कंपनियाँ खोजें...",
   "extend_trial_title": "ट्रायल बढ़ाएँ",
   "new_trial_end": "नई ट्रायल समाप्ति तिथि",
-  "duplicate_payment": "पहले दर्ज है — डुप्लिकेट नहीं बनाया गया"
+  "duplicate_payment": "पहले दर्ज है — डुप्लिकेट नहीं बनाया गया",
+  "reactivate_title": "सब्सक्रिप्शन पुनः सक्रिय करें",
+  "reactivate_hint": "चुनी गई अवधि के अंत तक खाता तुरंत एक्सेस पा लेता है — समाप्ति या रद्दीकरण के बाद भी।",
+  "reactivate_until": "सक्रिय अवधि:",
+  "reactivate_confirm": "अभी सक्रिय करें",
+  "reactivate_custom": "कस्टम तिथि (त्वरित दिनों के बजाय)",
+  "reactivate_p7": "7 दिन",
+  "reactivate_p14": "14 दिन",
+  "reactivate_p30": "30 दिन",
+  "reactivate_p90": "90 दिन"
 }

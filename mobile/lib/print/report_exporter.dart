@@ -26,45 +26,73 @@ class ReportExportResult {
 const double kReportPageWidth = 794;
 const double kReportPageHeight = 1123;
 
-/// يلتقط كل مفتاح RepaintBoundary (صفحة تقرير) ويحوّله لصفحة PDF بمقاس A4
-/// (عرض ثابت 210مم والارتفاع بنسبة الالتقاط محصورًا بسقف 297مم)، ثم يستدعي
-/// ورقة المشاركة في أندرويد عبر Printing.sharePdf.
+/// يلتقط كل مفتاح RepaintBoundary (صفحة تقرير) ويبني مستند PDF بمقاس A4
+/// (عرض ثابت 210مم والارتفاع بنسبة الالتقاط محصورًا بسقف 297مم).
+/// الدالة المشتركة بين المشاركة (sharePdf) والطباعة (layoutPdf).
+Future<(pw.Document, int)> _captureReportDocument(
+  List<GlobalKey> boundaryKeys,
+) async {
+  final doc = pw.Document();
+  var pages = 0;
+  for (final key in boundaryKeys) {
+    final boundary =
+        key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) continue;
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) continue;
+    final bytes = byteData.buffer.asUint8List();
+    const double pageW = 210.0 * PdfPageFormat.mm;
+    const double pageH = 297.0 * PdfPageFormat.mm;
+    // الارتفاع بنسبة الصورة الملتقطة بعرض A4 — والسقف ارتفاع A4. صفحة
+    // مبنية بمقاس A4 الصحيح تعطي النسبة نفسها فتملأ الصفحة تمامًا.
+    final double drawH = (pageW * image.height / image.width).clamp(0.0, pageH);
+    doc.addPage(pw.Page(
+      pageFormat: PdfPageFormat(pageW, drawH, marginAll: 0),
+      build: (ctx) => pw.Image(
+        pw.MemoryImage(bytes),
+        width: pageW,
+        height: drawH,
+        fit: pw.BoxFit.fill,
+      ),
+    ));
+    pages++;
+  }
+  return (doc, pages);
+}
+
+/// يلتقط كل مفتاح RepaintBoundary (صفحة تقرير) ويحوّله لصفحة PDF بمقاس A4،
+/// ثم يستدعي ورقة المشاركة في أندرويد عبر Printing.sharePdf.
 Future<ReportExportResult> shareReportPdf({
   required List<GlobalKey> boundaryKeys,
   required String jobName,
 }) async {
   try {
-    final doc = pw.Document();
-    var pages = 0;
-    for (final key in boundaryKeys) {
-      final boundary =
-          key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) continue;
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) continue;
-      final bytes = byteData.buffer.asUint8List();
-      const double pageW = 210.0 * PdfPageFormat.mm;
-      const double pageH = 297.0 * PdfPageFormat.mm;
-      // الارتفاع بنسبة الصورة الملتقطة بعرض A4 — والسقف ارتفاع A4. صفحة
-      // مبنية بمقاس A4 الصحيح تعطي النسبة نفسها فتملأ الصفحة تمامًا.
-      final double drawH = (pageW * image.height / image.width).clamp(0.0, pageH);
-      doc.addPage(pw.Page(
-        pageFormat: PdfPageFormat(pageW, drawH, marginAll: 0),
-        build: (ctx) => pw.Image(
-          pw.MemoryImage(bytes),
-          width: pageW,
-          height: drawH,
-          fit: pw.BoxFit.fill,
-        ),
-      ));
-      pages++;
-    }
+    final (doc, pages) = await _captureReportDocument(boundaryKeys);
     if (pages == 0) {
       return const ReportExportResult(ok: false, error: 'report_capture_failed');
     }
     await Printing.sharePdf(bytes: await doc.save(), filename: '$jobName.pdf');
+    return const ReportExportResult(ok: true);
+  } catch (e) {
+    return ReportExportResult(ok: false, error: e.toString());
+  }
+}
+
+/// يلتقط كل مفتاح RepaintBoundary (صفحة تقرير) ويحوّله لصفحة PDF بمقاس A4،
+/// ثم يفتح منتقي الطباعة في أندرويد عبر Printing.layoutPdf — نفس نافذة
+/// طباعة الإيصال (receipt_printer): أي طابعة مثبتة أو «حفظ كـ PDF».
+Future<ReportExportResult> printReportPdf({
+  required List<GlobalKey> boundaryKeys,
+  required String jobName,
+}) async {
+  try {
+    final (doc, pages) = await _captureReportDocument(boundaryKeys);
+    if (pages == 0) {
+      return const ReportExportResult(ok: false, error: 'report_capture_failed');
+    }
+    await Printing.layoutPdf(
+        onLayout: (_) async => doc.save(), name: jobName);
     return const ReportExportResult(ok: true);
   } catch (e) {
     return ReportExportResult(ok: false, error: e.toString());

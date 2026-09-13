@@ -57,5 +57,14 @@
   "assign_company_search": "按名称或邮箱搜索公司...",
   "extend_trial_title": "延长试用",
   "new_trial_end": "新的试用截止日期",
-  "duplicate_payment": "此前已登记 — 未创建重复记录"
+  "duplicate_payment": "此前已登记 — 未创建重复记录",
+  "reactivate_title": "重新激活订阅",
+  "reactivate_hint": "账户立即恢复访问，直至所选周期结束——即使订阅已过期或取消也可使用。",
+  "reactivate_until": "有效期至：",
+  "reactivate_confirm": "立即激活",
+  "reactivate_custom": "自定义日期（代替快捷天数）",
+  "reactivate_p7": "7 天",
+  "reactivate_p14": "14 天",
+  "reactivate_p30": "30 天",
+  "reactivate_p90": "90 天"
 }

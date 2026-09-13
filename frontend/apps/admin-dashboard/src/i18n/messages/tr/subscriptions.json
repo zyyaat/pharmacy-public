@@ -57,5 +57,14 @@
   "assign_company_search": "İsim veya e-posta ile şirket arayın...",
   "extend_trial_title": "Denemeyi uzat",
   "new_trial_end": "Yeni deneme bitiş tarihi",
-  "duplicate_payment": "Zaten kayıtlı — kopya oluşturulmadı"
+  "duplicate_payment": "Zaten kayıtlı — kopya oluşturulmadı",
+  "reactivate_title": "Aboneliği yeniden etkinleştir",
+  "reactivate_hint": "Hesap, seçilen dönemin sonuna kadar anında erişim kazanır — süresi bitse veya iptal edilse bile.",
+  "reactivate_until": "Etkinlik bitişi:",
+  "reactivate_confirm": "Şimdi etkinleştir",
+  "reactivate_custom": "Özel tarih (hızlı günler yerine)",
+  "reactivate_p7": "7 gün",
+  "reactivate_p14": "14 gün",
+  "reactivate_p30": "30 gün",
+  "reactivate_p90": "90 gün"
 }

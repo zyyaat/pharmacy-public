@@ -57,5 +57,14 @@
   "assign_company_search": "Buscar empresas por nombre o correo...",
   "extend_trial_title": "Extender prueba",
   "new_trial_end": "Nueva fecha de fin de prueba",
-  "duplicate_payment": "Ya registrada antes — no se creó duplicado"
+  "duplicate_payment": "Ya registrada antes — no se creó duplicado",
+  "reactivate_title": "Reactivar suscripción",
+  "reactivate_hint": "La cuenta recupera el acceso de inmediato hasta el final del período elegido — disponible incluso tras la expiración o cancelación.",
+  "reactivate_until": "Activo hasta:",
+  "reactivate_confirm": "Activar ahora",
+  "reactivate_custom": "Fecha personalizada (en lugar de los días rápidos)",
+  "reactivate_p7": "7 días",
+  "reactivate_p14": "14 días",
+  "reactivate_p30": "30 días",
+  "reactivate_p90": "90 días"
 }

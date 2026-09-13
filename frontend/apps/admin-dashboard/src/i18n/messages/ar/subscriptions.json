@@ -57,5 +57,14 @@
   "assign_company_search": "ابحث عن شركة بالاسم أو البريد...",
   "extend_trial_title": "تمديد التجربة",
   "new_trial_end": "تاريخ انتهاء التجربة الجديد",
-  "duplicate_payment": "تم تسجيلها سابقاً — لم يُنشأ مكرر"
+  "duplicate_payment": "تم تسجيلها سابقاً — لم يُنشأ مكرر",
+  "reactivate_title": "إعادة تفعيل الاشتراك",
+  "reactivate_hint": "يعود الحساب للعمل فورًا حتى نهاية الفترة المختارة — متاح حتى بعد انتهاء الاشتراك أو إلغائه.",
+  "reactivate_until": "يعمل حتى:",
+  "reactivate_confirm": "تفعيل الآن",
+  "reactivate_custom": "تاريخ مخصص (بديل عن الأيام السريعة)",
+  "reactivate_p7": "7 أيام",
+  "reactivate_p14": "14 يومًا",
+  "reactivate_p30": "30 يومًا",
+  "reactivate_p90": "90 يومًا"
 }

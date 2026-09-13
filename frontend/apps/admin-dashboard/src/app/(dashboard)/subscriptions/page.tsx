@@ -55,6 +55,20 @@ export default function SubscriptionsPage() {
   const [payIdempotencyKey, setPayIdempotencyKey] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // إعادة التفعيل بفترة يختارها المسؤول — حتى بعد الانتهاء أو الإلغاء
+  const [reactRow, setReactRow] = useState<SubscriptionRow | null>(null);
+  const [reactMode, setReactMode] = useState<"days" | "date">("days");
+  const [reactDays, setReactDays] = useState(30);
+  const [reactDate, setReactDate] = useState("");
+
+  const reactEndIso = (): string => {
+    if (reactMode === "date" && reactDate) {
+      const d = new Date(`${reactDate}T23:59:59`);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+    return new Date(Date.now() + reactDays * 86400000).toISOString();
+  };
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -91,7 +105,7 @@ export default function SubscriptionsPage() {
     }, 250);
   }, [companyQuery, assignOpen]);
 
-  const runAction = async (row: SubscriptionRow, action: "cancel" | "suspend" | "reactivate") => {
+  const runAction = async (row: SubscriptionRow, action: "cancel" | "suspend") => {
     if (action === "cancel" && !window.confirm(t("confirm_cancel"))) return;
     if (action === "suspend" && !window.confirm(t("confirm_suspend"))) return;
     setBusy(true);
@@ -138,6 +152,24 @@ export default function SubscriptionsPage() {
       });
       toast.success(t("saved"));
       setAssignOpen(false);
+      await reload();
+    } catch {
+      toast.error(t("failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doReactivate = async () => {
+    if (!reactRow) return;
+    setBusy(true);
+    try {
+      await subscriptionsApi.action(reactRow.id, {
+        action: "reactivate",
+        current_period_end: reactEndIso(),
+      });
+      toast.success(t("saved"));
+      setReactRow(null);
       await reload();
     } catch {
       toast.error(t("failed"));
@@ -303,10 +335,12 @@ export default function SubscriptionsPage() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">{t(`source_${row.source}`)}</td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" title={row.status === "trial" ? t("extend_trial_title") : t("extend")}
-                          onClick={() => { setExtendRow(row); setExtendDate(""); }}>
-                          <CalendarClock className="h-4 w-4" />
-                        </Button>
+                        {(row.status === "active" || row.status === "trial") && (
+                          <Button variant="ghost" size="icon" title={row.status === "trial" ? t("extend_trial_title") : t("extend")}
+                            onClick={() => { setExtendRow(row); setExtendDate(""); }}>
+                            <CalendarClock className="h-4 w-4" />
+                          </Button>
+                        )}
                         {(row.status === "active" || row.status === "trial") && (
                           <Button variant="ghost" size="icon" title={row.cancel_at_period_end ? t("cap_unset") : t("cap_set")}
                             onClick={() => void toggleCancelAtPeriodEnd(row)}>
@@ -321,18 +355,29 @@ export default function SubscriptionsPage() {
                           }}>
                           <Wallet className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title={t("suspend")}
-                          onClick={() => void runAction(row, "suspend")}>
-                          <PauseCircle className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title={t("reactivate")}
-                          onClick={() => void runAction(row, "reactivate")}>
-                          <PlayCircle className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" title={t("cancel_sub")}
-                          onClick={() => void runAction(row, "cancel")}>
-                          <Ban className="h-4 w-4" />
-                        </Button>
+                        {(row.status === "active" || row.status === "trial") && (
+                          <Button variant="ghost" size="icon" title={t("suspend")}
+                            onClick={() => void runAction(row, "suspend")}>
+                            <PauseCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(row.status === "expired" || row.status === "cancelled" || row.status === "suspended") && (
+                          <Button variant="ghost" size="icon" title={t("reactivate")}
+                            onClick={() => {
+                              setReactRow(row);
+                              setReactMode("days");
+                              setReactDays(30);
+                              setReactDate("");
+                            }}>
+                            <PlayCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {row.status !== "cancelled" && (
+                          <Button variant="ghost" size="icon" className="text-destructive" title={t("cancel_sub")}
+                            onClick={() => void runAction(row, "cancel")}>
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </TableRow>
@@ -427,6 +472,45 @@ export default function SubscriptionsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setExtendRow(null)}>{t("cancel_sub")}</Button>
             <Button disabled={busy || !extendDate} onClick={() => void doExtend()}>{busy ? "…" : t("saved")}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reactivate — فترة يختارها المسؤول (أيام سريعة أو تاريخ مخصص) */}
+      <Modal isOpen={!!reactRow} onClose={() => setReactRow(null)}>
+        <div className="w-[420px] max-w-[92vw] space-y-4 text-start">
+          <h2 className="text-lg font-bold">{t("reactivate_title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("reactivate_hint")}</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[7, 14, 30, 90].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={reactMode === "days" && reactDays === d ? "default" : "outline"}
+                onClick={() => { setReactMode("days"); setReactDays(d); }}
+              >
+                {t(`reactivate_p${d}`)}
+              </Button>
+            ))}
+          </div>
+          <label className="block text-sm space-y-1">
+            <span className="text-muted-foreground">{t("reactivate_custom")}</span>
+            <Input
+              type="date"
+              value={reactDate}
+              onChange={(e) => {
+                setReactDate(e.target.value);
+                if (e.target.value) setReactMode("date");
+              }}
+            />
+          </label>
+          <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
+            {t("reactivate_until")}{" "}
+            <span className="font-semibold">{fmtDate(reactEndIso(), { dateStyle: "medium" })}</span>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setReactRow(null)}>{t("cancel_sub")}</Button>
+            <Button disabled={busy} onClick={() => void doReactivate()}>{busy ? "…" : t("reactivate_confirm")}</Button>
           </div>
         </div>
       </Modal>
