@@ -47,5 +47,8 @@
   "limit_branches": "Branches",
   "limit_users": "Dashboard users",
   "limit_employees": "Employees",
-  "limit_products": "Products"
+  "limit_products": "Products",
+  "price_required": "قیمت کے صفحے پر دکھائی جانے والی پلان کے لیے کم از کم ایک قیمت (ماہانہ یا سالانہ) ضروری ہے",
+  "price_hint": "قیمت کے صفحے پر دکھائی جانے والی فعال پلان کے لیے کم از کم ایک قیمت ضروری ہے — غیر فعال یا چھپی پلانیں بغیر قیمت کے رہ سکتی ہیں۔",
+  "unpriced": "سیٹ نہیں"
 }

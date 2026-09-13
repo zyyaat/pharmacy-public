@@ -47,5 +47,8 @@
   "limit_branches": "Branches",
   "limit_users": "Dashboard users",
   "limit_employees": "Employees",
-  "limit_products": "Products"
+  "limit_products": "Products",
+  "price_required": "Fiyat sayfasında görünen bir planın en az bir fiyatı olmalı (aylık veya yıllık)",
+  "price_hint": "Fiyat sayfasında görünen etkin bir planın en az bir fiyatı olmalı — etkin olmayan veya gizli planlar fiyatlandırılmadan kalabilir.",
+  "unpriced": "Ayarlanmadı"
 }

@@ -66,5 +66,6 @@
   "payment_failed": "فاشلة",
   "payment_refunded": "مستردة",
   "payment_voided": "ملغاة",
-  "payment_cancelled": "ملغاة"
+  "payment_cancelled": "ملغاة",
+  "plan_unpriced": "سعر هذه الخطة غير مضبوط بعد — تواصل مع الدعم للاشتراك أو اختَر خطة أخرى"
 }

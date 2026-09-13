@@ -47,5 +47,8 @@
   "limit_branches": "Branches",
   "limit_users": "Dashboard users",
   "limit_employees": "Employees",
-  "limit_products": "Products"
+  "limit_products": "Products",
+  "price_required": "A plan shown on the pricing page needs at least one price (monthly or yearly)",
+  "price_hint": "An active plan shown on the pricing page needs at least one price — inactive or hidden plans may stay unpriced.",
+  "unpriced": "Not set"
 }

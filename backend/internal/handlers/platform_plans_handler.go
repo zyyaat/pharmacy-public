@@ -254,7 +254,7 @@ func (p *platformPlanPayload) normalize() {
         }
 }
 
-func (p *platformPlanPayload) validate(requireSlug bool) string {
+func (p *platformPlanPayload) validate(requireSlug bool, isActive, isPublic bool) string {
         if requireSlug && !planSlugPattern.MatchString(p.Slug) {
                 return "المعرّف (slug) مطلوب: حروف صغيرة وأرقام وشرطات فقط"
         }
@@ -263,6 +263,14 @@ func (p *platformPlanPayload) validate(requireSlug bool) string {
         }
         if p.MonthlyPricePiastres < 0 || p.YearlyPricePiastres < 0 {
                 return "الأسعار لا يمكن أن تكون سالبة"
+        }
+        // Best practice (Stripe/Paddle model): a plan offered on the public
+        // pricing page must carry at least one positive price — a 0/0 plan
+        // renders as "0 EGP" and dead-ends at checkout (intention creation
+        // refuses zero-amount payments). Private/inactive plans may stay
+        // unpriced: they are assigned manually or hidden from self-serve.
+        if isActive && isPublic && p.MonthlyPricePiastres <= 0 && p.YearlyPricePiastres <= 0 {
+                return "الخطة المفعّلة والظاهرة في صفحة الأسعار تحتاج سعرًا واحدًا على الأقل (شهريًا أو سنويًا) — أدخل سعرًا أو اجعلها غير ظاهرة أو عطّلها"
         }
         if err := verifyLimits(p.Limits); err != nil {
                 return "قيم الحدود يجب أن تكون عددًا موجبًا أو -1 لغير محدود"
@@ -278,7 +286,15 @@ func (h *Handler) CreatePlatformPlan(c *gin.Context) {
                 return
         }
         payload.normalize()
-        if msg := payload.validate(true); msg != "" {
+        // create defaults — same values the INSERT below falls back to
+        createActive, createPublic := true, true
+        if payload.IsActive != nil {
+                createActive = *payload.IsActive
+        }
+        if payload.IsPublic != nil {
+                createPublic = *payload.IsPublic
+        }
+        if msg := payload.validate(true, createActive, createPublic); msg != "" {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_plan", "message": msg})
                 return
         }
@@ -300,13 +316,7 @@ func (h *Handler) CreatePlatformPlan(c *gin.Context) {
         }
         defer tx.Rollback(ctx)
 
-        isActive, isPublic := true, true
-        if payload.IsActive != nil {
-                isActive = *payload.IsActive
-        }
-        if payload.IsPublic != nil {
-                isPublic = *payload.IsPublic
-        }
+        isActive, isPublic := createActive, createPublic
         sortOrder := 0
         if payload.SortOrder != nil {
                 sortOrder = *payload.SortOrder
@@ -353,11 +363,30 @@ func (h *Handler) UpdatePlatformPlan(c *gin.Context) {
                 return
         }
         payload.normalize()
-        if msg := payload.validate(false); msg != "" {
+        ctx := c.Request.Context()
+        // Effective visibility: the payload flag when sent, otherwise the
+        // value already stored (nil means "keep current" in the UPDATE).
+        effectiveActive, effectivePublic := false, false
+        if err := h.db.QueryRow(ctx,
+                `SELECT is_active, is_public FROM plans WHERE id = $1 AND deleted_at IS NULL`, id,
+        ).Scan(&effectiveActive, &effectivePublic); err != nil {
+                if err == pgx.ErrNoRows {
+                        c.JSON(http.StatusNotFound, gin.H{"error": "plan_not_found"})
+                        return
+                }
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "plan_query_failed"})
+                return
+        }
+        if payload.IsActive != nil {
+                effectiveActive = *payload.IsActive
+        }
+        if payload.IsPublic != nil {
+                effectivePublic = *payload.IsPublic
+        }
+        if msg := payload.validate(false, effectiveActive, effectivePublic); msg != "" {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_plan", "message": msg})
                 return
         }
-        ctx := c.Request.Context()
         if err := verifyFeaturesExist(ctx, h.db, payload.Features); err != nil {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_plan", "message": "ميزة غير معروفة: " + err.Error()})
                 return

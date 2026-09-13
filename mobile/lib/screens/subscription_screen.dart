@@ -232,12 +232,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            Text(
-              '${Fmt.number(plan.monthlyPiastres / 100)} ${plan.currency} '
-              '${i18n.t('subscription', 'per_month')}',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
+            // السعر: الشهرية إن وُجدت وإلا السنوية — الخطة بلا سعر لا تُقدَّم
+            // للدفع أصلًا (نية بدفع 0 ترفض من Paymob حتمًا)
+            if (plan.monthlyPiastres > 0 || plan.yearlyPiastres > 0)
+              Text(
+                plan.monthlyPiastres > 0
+                    ? '${Fmt.number(plan.monthlyPiastres / 100)} ${plan.currency} '
+                        '${i18n.t('subscription', 'per_month')}'
+                    : '${Fmt.number(plan.yearlyPiastres / 100)} ${plan.currency} '
+                        '${i18n.t('subscription', 'per_year')}',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              )
+            else
+              Text(
+                i18n.t('subscription', 'plan_unpriced'),
+                style: theme.textTheme.bodySmall,
+              ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -258,7 +269,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
               ],
             ),
-            if (!isCurrent) ...<Widget>[
+            if (!isCurrent &&
+                (plan.monthlyPiastres > 0 || plan.yearlyPiastres > 0)) ...<Widget>[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -277,35 +289,50 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   /// Phase G — بدء الدفع المضمّن: اختيار الدورة ثم نية خادمية ثم فورم
   /// Paymob داخل WebView. النتيجة: true نجاح / false فشل / null خروج.
+  /// الدور غير المسعّر لا يُعرض في الحوار أصلًا، والخطة بلا سعر لا تدخل
+  /// المسار إطلاقًا (الخادم يرفض نية 0 أيضًا — حزام أمان مزدوج).
   Future<void> _startCheckout(
       BuildContext context, AppI18n i18n, PublicPlanInfo plan) async {
     final state = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
 
-    final interval = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text(i18n.t('subscription', 'cycle_title')),
-        children: <Widget>[
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(dialogContext).pop('monthly'),
-            child: Text(
-              '${i18n.t('subscription', 'month')} — '
-              '${Fmt.number(plan.monthlyPiastres / 100)} ${plan.currency} '
-              '${i18n.t('subscription', 'per_month')}',
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(dialogContext).pop('yearly'),
-            child: Text(
-              '${i18n.t('subscription', 'year')} — '
-              '${Fmt.number(plan.yearlyPiastres / 100)} ${plan.currency} '
-              '${i18n.t('subscription', 'per_year')}',
-            ),
-          ),
-        ],
-      ),
-    );
+    final intervals = <String, String>{
+      if (plan.monthlyPiastres > 0)
+        'monthly':
+            '${i18n.t('subscription', 'month')} — '
+                '${Fmt.number(plan.monthlyPiastres / 100)} ${plan.currency} '
+                '${i18n.t('subscription', 'per_month')}',
+      if (plan.yearlyPiastres > 0)
+        'yearly':
+            '${i18n.t('subscription', 'year')} — '
+                '${Fmt.number(plan.yearlyPiastres / 100)} ${plan.currency} '
+                '${i18n.t('subscription', 'per_year')}',
+    };
+    if (intervals.isEmpty) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(i18n.t('subscription', 'plan_unpriced')),
+      ));
+      return;
+    }
+
+    String? interval;
+    if (intervals.length == 1) {
+      interval = intervals.keys.first;
+    } else {
+      interval = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(i18n.t('subscription', 'cycle_title')),
+          children: <Widget>[
+            for (final entry in intervals.entries)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(dialogContext).pop(entry.key),
+                child: Text(entry.value),
+              ),
+          ],
+        ),
+      );
+    }
     if (interval == null || !context.mounted) return;
 
     try {
@@ -331,7 +358,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         content: Text(
           e.code == 'paymob_not_configured'
               ? i18n.t('subscription', 'paymob_not_configured')
-              : i18n.t('subscription', 'checkout_error'),
+              : e.code == 'plan_price_not_configured'
+                  ? i18n.t('subscription', 'plan_unpriced')
+                  : i18n.t('subscription', 'checkout_error'),
         ),
       ));
     } catch (_) {

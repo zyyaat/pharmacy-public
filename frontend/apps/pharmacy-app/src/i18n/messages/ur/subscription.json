@@ -30,5 +30,6 @@
   "payment_failed": "ناکام",
   "payment_refunded": "واپس",
   "payment_voided": "منسوخ",
-  "payment_cancelled": "منسوخ"
+  "payment_cancelled": "منسوخ",
+  "plan_unpriced": "اس پلان کی قیمت ابھی ترتیب نہیں دی گئی — سبسکرائب کرنے کے لیے سپورٹ سے رابطہ کریں یا کوئی اور پلان منتخب کریں"
 }

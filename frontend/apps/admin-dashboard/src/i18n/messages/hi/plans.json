@@ -47,5 +47,8 @@
   "limit_branches": "Branches",
   "limit_users": "Dashboard users",
   "limit_employees": "Employees",
-  "limit_products": "Products"
+  "limit_products": "Products",
+  "price_required": "प्राइसिंग पेज पर दिखने वाले प्लान के लिए कम से कम एक कीमत (मासिक या वार्षिक) आवश्यक है",
+  "price_hint": "प्राइसिंग पेज पर दिखने वाले सक्रिय प्लान के लिए कम से कम एक कीमत आवश्यक है — निष्क्रिय या छिपे प्लान बिना कीमत के रह सकते हैं।",
+  "unpriced": "सेट नहीं"
 }

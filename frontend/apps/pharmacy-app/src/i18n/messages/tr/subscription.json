@@ -30,5 +30,6 @@
   "payment_failed": "Başarısız",
   "payment_refunded": "İade edildi",
   "payment_voided": "İptal edildi",
-  "payment_cancelled": "İptal edildi"
+  "payment_cancelled": "İptal edildi",
+  "plan_unpriced": "Bu planın fiyatı henüz ayarlanmadı — abone olmak için desteğe ulaşın veya başka bir plan seçin"
 }

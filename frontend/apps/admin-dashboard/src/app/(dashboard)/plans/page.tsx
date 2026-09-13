@@ -146,6 +146,15 @@ export default function PlansPage() {
   };
 
   const save = async () => {
+    // Stripe-model guard: a plan shown on the public pricing page must carry
+    // a price — a zero-priced public plan renders as "0 EGP" and dead-ends
+    // at checkout (the server refuses zero-amount intentions too).
+    const monthlyPiastres = Math.round(Number(editor.monthly || "0") * 100);
+    const yearlyPiastres = Math.round(Number(editor.yearly || "0") * 100);
+    if (editor.isPublic && editor.isActive && monthlyPiastres <= 0 && yearlyPiastres <= 0) {
+      toast.error(t("price_required"));
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -153,8 +162,8 @@ export default function PlansPage() {
         name: editor.name,
         name_ar: editor.name_ar,
         description: editor.description,
-        monthly_price_piastres: Math.round(Number(editor.monthly || "0") * 100),
-        yearly_price_piastres: Math.round(Number(editor.yearly || "0") * 100),
+        monthly_price_piastres: monthlyPiastres,
+        yearly_price_piastres: yearlyPiastres,
         is_active: editor.isActive,
         is_public: editor.isPublic,
         sort_order: Number(editor.sortOrder || "0"),
@@ -242,8 +251,14 @@ export default function PlansPage() {
                       <div className="font-medium">{plan.name_ar || plan.name}</div>
                       <div className="text-xs text-muted-foreground" dir="ltr">{plan.slug}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm">{egp(plan.monthly_price_piastres)}</td>
-                    <td className="px-4 py-3 text-sm">{egp(plan.yearly_price_piastres)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {plan.monthly_price_piastres > 0 ? egp(plan.monthly_price_piastres)
+                        : <span className="text-muted-foreground">{t("unpriced")}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {plan.yearly_price_piastres > 0 ? egp(plan.yearly_price_piastres)
+                        : <span className="text-muted-foreground">{t("unpriced")}</span>}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={plan.is_active ? "success" : "secondary"}>
                         {plan.is_active ? t("active") : t("inactive")}
@@ -298,6 +313,7 @@ export default function PlansPage() {
               <Input type="number" min="0" value={editor.yearly} onChange={(e) => setEditor({ ...editor, yearly: e.target.value })} />
             </Field>
           </div>
+          <p className="text-xs text-muted-foreground">{t("price_hint")}</p>
           <Field label={t("form_description")}>
             <Input value={editor.description} onChange={(e) => setEditor({ ...editor, description: e.target.value })} />
           </Field>

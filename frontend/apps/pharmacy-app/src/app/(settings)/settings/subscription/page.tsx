@@ -220,13 +220,26 @@ export default function SubscriptionPage() {
                     <h3 className="font-bold">{p.name_ar || p.name}</h3>
                     {isCurrent && <Badge variant="default">{t('current_plan')}</Badge>}
                   </div>
-                  <div>
-                    <span className="text-2xl font-extrabold">{egp(p.monthly_price_piastres)}</span>
-                    <span className="text-sm text-muted-foreground">{t('per_month')}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {egp(p.yearly_price_piastres)}{t('per_year')}
-                  </div>
+                  {/* السعر: الشهرية إن وُجدت وإلا السنوية — الخطة بلا سعر
+                      لا تُقدَّم للدفع إطلاقًا (بديلها: تواصل مع الدعم) */}
+                  {p.monthly_price_piastres > 0 ? (
+                    <div>
+                      <span className="text-2xl font-extrabold">{egp(p.monthly_price_piastres)}</span>
+                      <span className="text-sm text-muted-foreground">{t('per_month')}</span>
+                    </div>
+                  ) : p.yearly_price_piastres > 0 ? (
+                    <div>
+                      <span className="text-2xl font-extrabold">{egp(p.yearly_price_piastres)}</span>
+                      <span className="text-sm text-muted-foreground">{t('per_year')}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-muted-foreground">{t('plan_unpriced')}</p>
+                  )}
+                  {p.monthly_price_piastres > 0 && p.yearly_price_piastres > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {egp(p.yearly_price_piastres)}{t('per_year')}
+                    </div>
+                  )}
 
                   {/* الميزات */}
                   <ul className="space-y-1.5 pt-1">
@@ -249,6 +262,9 @@ export default function SubscriptionPage() {
 
                   {isCurrent ? (
                     <Button className="w-full" disabled>{t('current_plan')}</Button>
+                  ) : (p.monthly_price_piastres <= 0 && p.yearly_price_piastres <= 0) ? (
+                    // خطة بلا سعر: لا زر اشتراك أصلًا — بدل زر ينتهي بخطأ
+                    <p className="text-center text-xs text-muted-foreground">{t('plan_unpriced')}</p>
                   ) : (
                     <Button
                       className="w-full"

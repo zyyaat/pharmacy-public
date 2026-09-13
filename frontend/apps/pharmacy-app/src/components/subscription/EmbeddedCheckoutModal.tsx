@@ -322,7 +322,9 @@ export function EmbeddedCheckoutModal({
                 {phase === 'succeeded' ? t('checkout_success_title') : (plan.name_ar || plan.name)}
               </div>
               <div className="text-xs text-gray-500" dir="ltr">
-                {egp(checkout?.amount_piastres ?? plan.monthly_price_piastres)}
+                {egp(checkout?.amount_piastres ?? (plan.monthly_price_piastres > 0
+                  ? plan.monthly_price_piastres
+                  : plan.yearly_price_piastres))}
               </div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
@@ -332,34 +334,42 @@ export function EmbeddedCheckoutModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* اختيار دورة الفوترة */}
+          {/* اختيار دورة الفوترة — الدور غير المسعّر لا يُعرض أصلًا:
+              زر يقدّم نية بدفع 0 جنيه سيفشل حتمًا على Paymob */}
           {phase === 'cycle' && (
             <>
               <p className="text-sm text-gray-500">
                 {t('cycle_title')}: <span className="font-semibold text-gray-900">{plan.name_ar || plan.name}</span>
               </p>
               <div className="grid grid-cols-1 gap-3">
-                <button
-                  onClick={() => void startCheckout('monthly')}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">{t('month')}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{t('per_month')}</div>
-                  </div>
-                  <div className="text-lg font-extrabold text-gray-900">{egp(plan.monthly_price_piastres)}</div>
-                </button>
-                <button
-                  onClick={() => void startCheckout('yearly')}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">{t('year')}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{t('per_year')}</div>
-                  </div>
-                  <div className="text-lg font-extrabold text-gray-900">{egp(plan.yearly_price_piastres)}</div>
-                </button>
+                {plan.monthly_price_piastres > 0 && (
+                  <button
+                    onClick={() => void startCheckout('monthly')}
+                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{t('month')}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{t('per_month')}</div>
+                    </div>
+                    <div className="text-lg font-extrabold text-gray-900">{egp(plan.monthly_price_piastres)}</div>
+                  </button>
+                )}
+                {plan.yearly_price_piastres > 0 && (
+                  <button
+                    onClick={() => void startCheckout('yearly')}
+                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-start hover:border-emerald-600 hover:ring-1 hover:ring-emerald-600 transition-all"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{t('year')}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{t('per_year')}</div>
+                    </div>
+                    <div className="text-lg font-extrabold text-gray-900">{egp(plan.yearly_price_piastres)}</div>
+                  </button>
+                )}
               </div>
+              {plan.monthly_price_piastres <= 0 && plan.yearly_price_piastres <= 0 && (
+                <p className="text-sm font-medium text-red-600">{t('plan_unpriced')}</p>
+              )}
               <p className="flex items-center gap-1.5 text-xs text-gray-500">
                 <CreditCard className="h-3.5 w-3.5" />
                 {t('checkout_secure_hint')}
@@ -428,10 +438,12 @@ export function EmbeddedCheckoutModal({
               <p className="font-semibold text-gray-900">
                 {errorCode === 'paymob_not_configured'
                   ? t('paymob_not_configured')
-                  : t('checkout_error')}
+                  : errorCode === 'plan_price_not_configured'
+                    ? t('plan_unpriced')
+                    : t('checkout_error')}
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {errorCode !== 'paymob_not_configured' && (
+                {errorCode !== 'paymob_not_configured' && errorCode !== 'plan_price_not_configured' && (
                   <Button variant="outline" onClick={reset}>{t('retry')}</Button>
                 )}
                 <Button variant="outline" onClick={close}>{t('close')}</Button>

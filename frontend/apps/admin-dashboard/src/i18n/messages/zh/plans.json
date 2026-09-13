@@ -47,5 +47,8 @@
   "limit_branches": "Branches",
   "limit_users": "Dashboard users",
   "limit_employees": "Employees",
-  "limit_products": "Products"
+  "limit_products": "Products",
+  "price_required": "显示在价格页上的方案至少需要一个价格（月付或年付）",
+  "price_hint": "在价格页上显示的启用方案至少需要一个价格——停用或隐藏的方案可以不设价格。",
+  "unpriced": "未设置"
 }

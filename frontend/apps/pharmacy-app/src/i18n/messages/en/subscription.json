@@ -66,5 +66,6 @@
   "payment_failed": "Failed",
   "payment_refunded": "Refunded",
   "payment_voided": "Voided",
-  "payment_cancelled": "Cancelled"
+  "payment_cancelled": "Cancelled",
+  "plan_unpriced": "This plan has no price configured yet — contact support to subscribe or pick another plan"
 }

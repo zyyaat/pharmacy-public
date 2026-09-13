@@ -324,7 +324,11 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // silently converts trials to paid), reactivate always restores access
 // (fresh 30-day window when the period end is past), Stripe-style
 // idempotency keys on manual payments (migration 27).
-const APILevel = 67
+// 68 — plan pricing gate: a public+active plan must carry at least one
+// positive price (Stripe-model) — closes the "0 EGP" dead-end checkout
+// (plan editor no longer accepts unpriced public plans; pharmacy UI renders
+// them as contact-support instead of a doomed subscribe button).
+const APILevel = 68
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
