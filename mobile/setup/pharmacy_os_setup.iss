@@ -40,6 +40,15 @@ MinVersion=10.0
 [Languages]
 Name: "arabic"; MessagesFile: "Arabic.isl"
 
+; رسائل مخصّصة على مستوى السكربت — Arabic.isl المخصّص لا يعرّفها وInno لا يسقط
+; تلقائيًا إلى Default.isl لمفاتيح [CustomMessages] (درس Run 34782708489:
+; "A custom message named CreateDesktopIcon has not been defined")
+[CustomMessages]
+CreateDesktopIcon=إنشاء أيقونة على سطح المكتب
+AdditionalIcons=أيقونات إضافية:
+UninstallProgram=إزالة %1
+LaunchProgram=تشغيل %1
+
 [Tasks]
 Name: "desktopicon"; \
     Description: "{cm:CreateDesktopIcon}"; \
