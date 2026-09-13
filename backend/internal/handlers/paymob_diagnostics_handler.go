@@ -48,7 +48,7 @@ func (h *Handler) PaymobDiagnostics(c *gin.Context) {
 			// the dashboard's Payment Integrations table
 			"card_integration_id":   integrationIDState(cfg.PaymobCardIntegrationID),
 			"wallet_integration_id": integrationIDState(cfg.PaymobWalletIntegrationID),
-			"hmac_secret_present":   cfg.PaymobHMACSecret != "",
+			"hmac_secret":           gin.H{"present": cfg.PaymobHMACSecret != "", "hint": maskConfigSecret(cfg.PaymobHMACSecret)},
 			"webhook_token_present": cfg.PaymobWebhookToken != "",
 		},
 	}

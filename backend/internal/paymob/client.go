@@ -360,18 +360,29 @@ func hmacLookup(obj map[string]any, dotted string) any {
         return nested[child]
 }
 
+// TransactionConcatString builds the documented ordered concatenation from
+// a transaction object — the EXACT string the HMAC-SHA512 is computed
+// over. Exported for webhook forensics: on a verification failure the
+// handler logs this string (it contains no secrets — the PAN arrives
+// already masked from Paymob), so a mismatch can be replayed offline
+// against the dashboard secret to prove whether the secret or the payload
+// rendering is at fault.
+func TransactionConcatString(obj map[string]any) string {
+        concat := make([]byte, 0, 256)
+        for _, field := range hmacFieldOrder {
+                concat = append(concat, hmacValue(hmacLookup(obj, field))...)
+        }
+        return string(concat)
+}
+
 // VerifyTransactionHMAC recomputes the signature over the documented field
 // order and compares it (constant-time) with the provided hex digest.
 func VerifyTransactionHMAC(obj map[string]any, providedHMAC, secret string) bool {
         if providedHMAC == "" || secret == "" || obj == nil {
                 return false
         }
-        concat := make([]byte, 0, 256)
-        for _, field := range hmacFieldOrder {
-                concat = append(concat, hmacValue(hmacLookup(obj, field))...)
-        }
         mac := hmac.New(sha512.New, []byte(secret))
-        mac.Write(concat)
+        mac.Write([]byte(TransactionConcatString(obj)))
         expected := mac.Sum(nil)
         provided, err := hex.DecodeString(providedHMAC)
         if err != nil {

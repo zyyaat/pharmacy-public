@@ -224,7 +224,7 @@ service).
 | `PAYMOB_PUBLIC_KEY` | Yes | The dashboard field named **Public Key** (`pk_test_...` / `pk_live_...`); the ONLY safe client-side credential. Builds the embedded Unified Checkout URL. |
 | `PAYMOB_CARD_INTEGRATION_ID` | Yes | Numeric integration ID of the **Online Card** channel. |
 | `PAYMOB_WALLET_INTEGRATION_ID` | Optional | Numeric integration ID of the **Mobile Wallets** channel (Vodafone Cash etc.). Leave EMPTY if you do not offer wallets: Paymob rejects the whole intention (404 "Integration ID does not exist") when ANY sent channel ID is bad. The backend self-heals by retrying card-only on 404, but a correct/empty value is always better. Must match the Secret Key's Test/Live mode. |
-| `PAYMOB_HMAC_SECRET` | Yes | The dashboard field named **HMAC Secret** (same page as the keys). Verifies webhook HMAC-SHA512. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. |
+| `PAYMOB_HMAC_SECRET` | Yes | The dashboard field named **HMAC Secret** (same page as the keys). Verifies webhook HMAC-SHA512. Webhook activation is the ONLY trusted path that activates or extends a paid subscription. **The Test and Live accounts have DIFFERENT HMAC secrets — while testing with Test keys, this value MUST be the Test account's HMAC Secret** (dashboard Test/Live toggle), otherwise every callback is rejected with `HMAC verification failed`. |
 | `PAYMOB_WEBHOOK_TOKEN` | Recommended | NOT from Paymob — you generate it yourself (`openssl rand -hex 32`). Appended to the webhook URL (`?token=…`) as a second provider-independent check. |
 | `PAYMOB_BASE_URL` | Optional | NOT from Paymob — leave unset; defaults to `https://accept.paymob.com` (Egypt). Override only for sandbox drills. |
 | `PAYMOB_API_KEY` | Optional | The dashboard field named **API Key**. Needed ONLY by the Transaction Inquiry fallback (planned, not yet used). Leave empty today. |
@@ -237,7 +237,7 @@ Information" paths are gone):
 | --- | --- | --- |
 | `PAYMOB_SECRET_KEY` | **Secret Key** | Dashboard → **Settings → API Keys** → click **View** beside Secret Key (choose the Test or Live tab to match the mode you want) |
 | `PAYMOB_PUBLIC_KEY` | **Public Key** | Same page: **Settings → API Keys** → **View** beside Public Key (`pk_test_...` / `pk_live_...`) |
-| `PAYMOB_HMAC_SECRET` | **HMAC Secret** | Same page: **Settings → API Keys** → **View** beside HMAC Secret |
+| `PAYMOB_HMAC_SECRET` | **HMAC Secret** | Same page: **Settings → API Keys** → **View** beside HMAC Secret — in the SAME Test/Live tab as the Secret Key you copied (the two accounts have different HMAC secrets) |
 | `PAYMOB_*_INTEGRATION_ID` | **Integration ID** (a plain number) | Dashboard → **Settings → Payment Integrations** → the numeric **ID** column beside each channel (Online Card, Mobile Wallets). Each channel has a **Test and a Live ID** — copy the one matching your key mode |
 | `PAYMOB_WEBHOOK_TOKEN` | — (not a Paymob value) | Generate locally: `openssl rand -hex 32` |
 

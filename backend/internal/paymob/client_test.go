@@ -6,7 +6,6 @@ import (
         "io"
         "net/http"
         "net/http/httptest"
-        "strings"
         "testing"
 )
 
@@ -277,12 +276,9 @@ func TestHMACConcatenationMatchesPaymobDocsExample(t *testing.T) {
                 },
                 "success": true,
         }
-        var b strings.Builder
-        for _, f := range hmacFieldOrder {
-                b.WriteString(hmacValue(hmacLookup(obj, f)))
-        }
+        // exercises the EXPORTED production path (handler forensics share it)
         const want = "1002020-03-25T18:39:44.719228EGPfalsefalse25567066741truefalsefalsefalsetruefalse47782394705false2346MasterCardcardtrue"
-        if got := b.String(); got != want {
+        if got := TransactionConcatString(obj); got != want {
                 t.Fatalf("concat mismatch:\n got  %s\n want %s", got, want)
         }
 }

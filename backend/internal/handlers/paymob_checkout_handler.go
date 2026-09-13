@@ -287,9 +287,24 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
         }
         obj := envelope.Obj
 
-        providedHMAC, _ := obj["hmac"].(string)
+        // Paymob delivers the HMAC as a QUERY PARAMETER on the callback URL
+        // (?hmac=… appended after our ?token=…) — it is NEVER inside the JSON
+        // body (official docs + every official sample read req.query.hmac).
+        // The body field is still accepted as a defensive fallback for proxy
+        // variants that inline it into obj.
+        providedHMAC := c.Query("hmac")
+        hmacSource := "query"
+        if providedHMAC == "" {
+                providedHMAC, _ = obj["hmac"].(string)
+                hmacSource = "body"
+        }
         if !paymob.VerifyTransactionHMAC(obj, providedHMAC, h.config.PaymobHMACSecret) {
-                log.Printf("[paymob] webhook rejected: HMAC verification failed (type=%s)", envelope.Type)
+                // Forensics: log WHERE the hmac came from, its length, and the exact
+                // concatenated string the signature is computed over (no secrets —
+                // PAN arrives masked). A wrong secret vs wrong payload rendering is
+                // now provable from this one line by replaying it offline.
+                log.Printf("[paymob] webhook rejected: HMAC verification failed (type=%s hmac_src=%s hmac_len=%d concat=%q)",
+                        envelope.Type, hmacSource, len(providedHMAC), paymob.TransactionConcatString(obj))
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_hmac"})
                 return
         }

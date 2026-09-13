@@ -297,7 +297,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // integration IDs that really exist on the account; intention failures now
 // log the exact base_url + payment_methods sent, making a dashboard
 // mismatch provable from the server log alone.
-const APILevel = 65
+// 66 — webhook HMAC fix: Paymob delivers the HMAC as a QUERY PARAMETER on
+// the callback URL (docs + every official sample); the handler read
+// obj["hmac"] from the body (always absent) so EVERY genuine webhook was
+// rejected. Now read from the query first (body kept as fallback) +
+// forensic log (hmac source/length + exact concatenated string, no
+// secrets) on any future failure + HMAC secret fingerprint in the
+// paymob-diagnostics response so a Test/Live secret mismatch is visible.
+const APILevel = 66
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
