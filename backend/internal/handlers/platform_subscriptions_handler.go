@@ -10,16 +10,30 @@
 package handlers
 
 import (
+        "errors"
+        "log"
         "net/http"
         "strconv"
-                "strings"
+        "strings"
         "time"
 
         "github.com/gin-gonic/gin"
         "github.com/jackc/pgx/v5"
+        "github.com/jackc/pgx/v5/pgconn"
         "github.com/pharmacy-os/backend/internal/auth"
         "github.com/pharmacy-os/backend/internal/models"
 )
+
+// uniqueViolation reports PostgreSQL 23505 — the partial unique index
+// one_live_subscription_per_company(company_id) WHERE status IN
+// ('pending','trial','active') rejects a second live row, which is exactly
+// what extend/reactivate create. Proven by scripts/reactivate_conflict_repro.py:
+// reactivating an expired row while a stale pending payment-intent row exists
+// used to surface as an opaque 500; it is a legitimate admin-facing conflict.
+func uniqueViolation(err error) bool {
+        var pgErr *pgconn.PgError
+        return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 // ListPlatformSubscriptions returns the subscription ledger with company
 // and plan labels. Filters: status, company_id, search (company name).
@@ -276,6 +290,7 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                         c.JSON(http.StatusNotFound, gin.H{"error": "subscription_not_found"})
                         return
                 }
+                log.Printf("[platform-subscriptions] lookup db error id=%s: %v", id, err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_lookup_failed"})
                 return
         }
@@ -305,6 +320,12 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                                        cancel_at_period_end = COALESCE($3, cancel_at_period_end), updated_at = NOW()
                                 WHERE id = $1 AND status IN ('active','expired','suspended')
                         `, id, body.CurrentPeriodEnd, body.CancelAtPeriodEnd); err != nil {
+                                if uniqueViolation(err) {
+                                        c.JSON(http.StatusConflict, gin.H{"error": "subscription_conflict",
+                                                "message": "لا يمكن التمديد: توجد حالة اشتراك أخرى «حية» لنفس الشركة — ألغِ تلك الحالة من القائمة أولًا"})
+                                        return
+                                }
+                                log.Printf("[platform-subscriptions] extend db error id=%s: %v", id, err)
                                 c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
                                 return
                         }
@@ -358,6 +379,12 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                         WHERE id = $1 AND status IN ('suspended','expired','cancelled')
                 `, id, effectiveEnd)
                 if err != nil {
+                        if uniqueViolation(err) {
+                                c.JSON(http.StatusConflict, gin.H{"error": "subscription_conflict",
+                                        "message": "لا يمكن إعادة التفعيل: توجد حالة اشتراك أخرى «حية» لنفس الشركة (قيد الانتظار أو تجربة أو نشطة) — ألغِ تلك الحالة من القائمة أولًا ثم أعد التفعيل"})
+                                return
+                        }
+                        log.Printf("[platform-subscriptions] reactivate db error id=%s: %v", id, err)
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_reactivate_failed"})
                         return
                 }
@@ -395,6 +422,7 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
         _ = writeAuditLog(ctx, tx, principal, "subscription."+body.Action, "billing", "subscription", id,
                 map[string]any{"action": body.Action, "from_status": status}, summary)
         if err := tx.Commit(ctx); err != nil {
+                log.Printf("[platform-subscriptions] commit error action=%s id=%s: %v", body.Action, id, err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_commit_failed"})
                 return
         }

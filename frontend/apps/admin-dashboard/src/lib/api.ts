@@ -78,7 +78,9 @@ async function apiFetch<T>(
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }))
       throw new ApiError(
-        error.message || `API Error: ${response.status}`,
+        // Backend 500s carry only a machine code ({"error": "..."}); surface it
+        // instead of a bare "API Error: 500" so a failing action is reportable.
+        error.message || error.error || `API Error: ${response.status}`,
         error.code || error.error || 'API_ERROR',
         response.status,
       )
