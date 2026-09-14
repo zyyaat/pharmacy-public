@@ -909,7 +909,7 @@ function PaymentsTab({ payments, egp, t, fmtDate }: {
                 <Badge variant={p.status === "succeeded" ? "success" : p.status === "pending" ? "warning" : "destructive"}>
                   {p.status}
                 </Badge>
-                <Badge variant="outline">{t(`source_${p.provider === "manual" ? "manual" : "paymob"}`)}</Badge>
+                <Badge variant="outline">{t(`source_${p.provider === "manual" ? "manual" : "online"}`)}</Badge>
                 <div className="text-xs text-muted-foreground">{fmtDate(p.created_at, { dateStyle: "medium" })}</div>
               </div>
             ))}

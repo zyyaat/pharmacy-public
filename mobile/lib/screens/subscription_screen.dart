@@ -7,12 +7,13 @@ import '../core/strings.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/ui.dart';
-import 'paymob_checkout_screen.dart';
+import 'gateway_checkout_screen.dart';
 
-/// Task 90 + Phase G — شاشة الاشتراك: الخطة الحالية + عدادات الاستهلاك +
-/// الخطط المتاحة. زر «اشترك الآن» يفتح الدفع المضمّن: فورم Paymob داخل
-/// التطبيق نفسه (WebView — بدون خروج لمتصفح خارجي)، والتأكيد الفعلي من
-/// ويبهوك Paymob الموثق. النقاط المصدرية ضمن allow-list فتعمل مع انتهاء
+/// Task 90 + Phase X — شاشة الاشتراك: الخطة الحالية + عدادات الاستهلاك +
+/// الخطط المتاحة. زر «اشترك الآن» يفتح الدفع المضمّن: صفحة البوابة النشطة
+/// (xpay أو paymob) داخل التطبيق نفسه (WebView — بدون خروج لمتصفح خارجي)،
+/// والتأكيد الفعلي من
+/// ويبهوك البوابة الموثق. النقاط المصدرية ضمن allow-list فتعمل مع انتهاء
 /// التجربة أيضًا (مسار الاسترجاع).
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -336,12 +337,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (interval == null || !context.mounted) return;
 
     try {
-      final checkout =
-          await state.api.subscriptionCheckout(plan.id, interval);
+      final checkout = await state.api.subscriptionCheckout(
+          plan.id, interval,
+          locale: state.locale);
       if (!context.mounted) return;
       final result = await Navigator.of(context).push<bool>(
         MaterialPageRoute<bool>(
-          builder: (_) => PaymobCheckoutScreen(checkout: checkout),
+          builder: (_) => GatewayCheckoutScreen(checkout: checkout),
         ),
       );
       if (result == true) {
@@ -356,8 +358,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(
         content: Text(
-          e.code == 'paymob_not_configured'
-              ? i18n.t('subscription', 'paymob_not_configured')
+          (e.code == 'paymob_not_configured' || e.code == 'payment_not_configured')
+              ? i18n.t('subscription', 'payment_not_configured')
               : e.code == 'plan_price_not_configured'
                   ? i18n.t('subscription', 'plan_unpriced')
                   : i18n.t('subscription', 'checkout_error'),

@@ -1007,8 +1007,8 @@ class PublicPlanInfo {
       );
 }
 
-/// Phase G — نتيجة بدء الدفع المضمّن: نية خادمية + embed_url يُفتح داخل
-/// WebView في التطبيق نفسه (بدون خروج لمتصفح خارجي).
+/// نتيجة بدء الدفع المضمّن: جلسة خادمية + embed_url يُفتح داخل WebView
+/// في التطبيق نفسه (بدون خروج لمتصفح خارجي) — البوابة النشطة يعيّنها الخادم.
 class CheckoutInfo {
   final String paymentId, clientSecret, embedUrl, currency, billingInterval;
   final int amountPiastres;

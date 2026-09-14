@@ -16,6 +16,7 @@
   "source_manual": "Manual",
   "source_registration": "Registration",
   "source_payment": "Payment",
+  "source_online": "آن لائن",
   "source_migration": "Migration",
   "filter_status_all": "All statuses",
   "search_placeholder": "Search by company name...",

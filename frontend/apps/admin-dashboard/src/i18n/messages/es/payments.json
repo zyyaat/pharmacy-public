@@ -5,6 +5,7 @@
   "filter_status_all": "Todos los estados",
   "filter_provider_all": "Todos los proveedores",
   "provider_paymob": "Paymob (en línea)",
+  "provider_xpay": "XPay (en línea)",
   "provider_manual": "Manual",
   "status_pending": "Pendiente",
   "status_succeeded": "Exitoso",

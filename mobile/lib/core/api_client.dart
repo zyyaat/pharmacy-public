@@ -217,16 +217,22 @@ class ApiClient {
   }
 
   // ------------------------------------------------------------ الدفع المضمّن (Phase G)
-  // نية خادمية + embed_url لفتح فورم Paymob داخل التطبيق (WebView) —
-  // لا خروج لمتصفح خارجي. التفعيل يحدث حصرًا من ويبهوك Paymob الموثق؛
-  // الـ polling هنا للعرض فقط. ضمن مسار الاسترجاع: تعمل مع اشتراك منتهٍ.
+  // جلسة خادمية + embed_url (رابط الجلسة المضيّف) لفتحه داخل التطبيق
+  // (WebView) — لا خروج لمتصفح خارجي. البوابة النشطة (xpay أو paymob)
+  // يعيّنها الخادم، والتفعيل يحدث حصرًا من ويبهوكها الموثق؛ الـ polling
+  // هنا للعرض فقط. ضمن مسار الاسترجاع: تعمل مع اشتراك منتهٍ.
 
   Future<CheckoutInfo> subscriptionCheckout(
-      String planId, String billingInterval) async {
+      String planId, String billingInterval,
+      {String? locale}) async {
+    // ui_mode=hosted: الجوال يفتح رابط الجلسة المضيّف في WebView داخلية —
+    // البوابة النشطة (xpay أو paymob) يعيّنها الخادم والتفعيل من ويبهوكه.
     final body = await _send('POST', '/pharmacy/subscription/checkout',
         body: <String, dynamic>{
           'plan_id': planId,
           'billing_interval': billingInterval,
+          'ui_mode': 'hosted',
+          if (locale != null) 'locale': locale,
         });
     return CheckoutInfo.fromJson(mOf(body['data']));
   }

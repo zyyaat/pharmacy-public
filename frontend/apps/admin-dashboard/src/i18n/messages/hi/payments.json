@@ -5,6 +5,7 @@
   "filter_status_all": "सभी स्थितियाँ",
   "filter_provider_all": "सभी प्रदाता",
   "provider_paymob": "Paymob (ऑनलाइन)",
+  "provider_xpay": "XPay (ऑनलाइन)",
   "provider_manual": "मैनुअल",
   "status_pending": "लंबित",
   "status_succeeded": "सफल",

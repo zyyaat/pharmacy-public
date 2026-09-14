@@ -1144,14 +1144,17 @@ export type PublicPlan = {
   limits: Record<string, number>
 }
 
-// Phase G — الدفع المضمّن: النية تُنشأ خادميًا والعميل يستلم client_secret
-// + embed_url ليصيّر فورم Paymob داخل مودال الموقع نفسه (بدون خروج).
+// Phase X — الدفع المضمّن: الجلسة تُنشأ خادميًا والعميل يستلم client_secret
+// + public_key ليصيّر فورم XPay داخل الموقع نفسه (بدون خروج — Drop-in
+// inline)، أو embed_url (المسار المضيّف للجوال). المزود يعود من الخادم:
+// 'xpay' هو البوابة النشطة، و'paymob' ما زال مدعومًا كخطة رجوع.
 export type CheckoutResponse = {
   payment_id: string
   amount_piastres: number
   currency: string
   billing_interval: string
   plan: { id: string; name: string }
+  provider: 'xpay' | 'paymob'
   client_secret: string
   public_key: string
   embed_url: string
@@ -1175,12 +1178,19 @@ export const subscriptionApi = {
   async listPlans() {
     return apiFetch<{ data: PublicPlan[] }>('/pharmacy/plans')
   },
-  // Phase G — يفتح نية دفع Paymob (سعر الخطة snapshot خادميًا) ويعيد رابط
-  // الـ iframe المضمّن. التفعيل يحدث حصرًا من ويبهوك Paymob الموثق.
-  async checkout(planId: string, billingInterval: 'monthly' | 'yearly') {
+  // Phase X — يفتح جلسة دفع على البوابة النشطة (xpay أو paymob — سعر الخطة
+  // snapshot خادميًا) ويعيد بيانات الفورم المضمّن. التفعيل يحدث حصرًا من
+  // ويبهوك البوابة الموثق خادميًا. ui_mode=embedded للويب (iframe على
+  // نطاقنا)، locale يمرر لغة صفحة الدفع.
+  async checkout(planId: string, billingInterval: 'monthly' | 'yearly', locale?: 'en' | 'ar') {
     return apiFetch<{ data: CheckoutResponse }>('/pharmacy/subscription/checkout', {
       method: 'POST',
-      body: JSON.stringify({ plan_id: planId, billing_interval: billingInterval }),
+      body: JSON.stringify({
+        plan_id: planId,
+        billing_interval: billingInterval,
+        ui_mode: 'embedded',
+        ...(locale ? { locale } : {}),
+      }),
     })
   },
   // Phase G — polling حالة الدفع أثناء فتح مودال الدفع (الويبهوك هو الذي

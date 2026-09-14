@@ -298,3 +298,80 @@ Embedded payment flow (why these variables are enough):
    then activates or extends the subscription via the SAME transition the
    manual-payment path uses. Replays are idempotent; a tampered amount
    fails the payment instead of activating it.
+
+## 7. XPay payment environment variables (Phase X — the ACTIVE gateway)
+
+XPay (`https://xpay.app`, docs at `https://docs.xpay.app`) replaces Paymob
+as the default online gateway. The backend picks the gateway by config
+priority: when the XPay credential subset below is present, NEW checkout
+sessions go to XPay; unset `XPAY_*` to fall back to Paymob instantly
+(rollback = env change + rebuild). Pending payments keep resolving through
+their OWN provider's webhook either way — a gateway switch never strands
+in-flight payments, and both webhooks stay mounted.
+
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `XPAY_SECRET_KEY` | Yes | Dashboard **Developers → API Keys** → the Secret key (`sk_test_...` / `sk_live_...`). Server-only: `Authorization: Bearer <SECRET>` on `POST https://api.xpay.app/checkout/sessions`. |
+| `XPAY_PUBLISHABLE_KEY` | Yes | Same page → the Publishable key (`pk_test_...` / `pk_live_...`). The ONLY client-side credential: loaded by the browser Drop-in SDK (`https://checkout.xpay.app/v1/sdk.js`) and returned to the web app in the checkout response. |
+| `XPAY_WEBHOOK_SECRET` | Yes | The webhook endpoint's signing secret (`whsec_...`, shown ONCE when the endpoint is created). Verifies `XPay-Signature: t=…,v1=…` = HMAC-SHA256 over `<timestamp>.<raw body>` with a 5-minute replay window. Test and Live endpoints have DIFFERENT secrets. |
+| `XPAY_WEBHOOK_TOKEN` | Recommended | NOT from XPay — generate it yourself (`openssl rand -hex 32`). Appended to the webhook URL (`?token=…`) as a second provider-independent check. |
+| `XPAY_BASE_URL` | Optional | NOT from XPay — leave unset; defaults to `https://api.xpay.app`. Override only for sandbox drills (the e2e suite points it at a local stub). |
+
+Collection checklist (about 5 minutes):
+
+1. Log in to the XPay dashboard (`app.xpay.app`). New accounts start in
+   **Test mode** — `sk_test_*` / `pk_test_*` work immediately; Live keys
+   arrive once the business is approved.
+2. **Developers → API Keys** → copy Secret key → `XPAY_SECRET_KEY`,
+   Publishable key → `XPAY_PUBLISHABLE_KEY` (keep both from the SAME mode).
+3. **Developers → Webhooks → Add endpoint** → paste the webhook URL (below)
+   → subscribe to `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`, `checkout.session.expired` and
+   `charge.failed` → copy the `whsec_...` shown once → `XPAY_WEBHOOK_SECRET`.
+4. Generate `XPAY_WEBHOOK_TOKEN` yourself (`openssl rand -hex 32`).
+5. Test cards (Test mode): Mastercard `5123 4500 0000 0008` /
+   Visa `4508 7500 1574 1019`, CVV `100` — the EXPIRY DATE decides the
+   outcome: `01/39` approved, `05/39` declined, `01/27` insufficient funds.
+
+Webhook URL (HTTPS only, exact path — the route is LIVE now):
+
+```text
+https://<backend-host>/api/v1/payments/webhook/xpay?token=<XPAY_WEBHOOK_TOKEN>
+```
+
+Unlike Paymob, XPay drives webhooks ONLY from the registered endpoint (no
+per-session notification URL), so dashboard registration here is mandatory,
+not a fallback. Activation semantics are identical to the Paymob path and
+even stricter on fulfilment: the backend fulfils ONLY on
+`paymentStatus: "paid"` from `checkout.session.completed` or
+`checkout.session.async_payment_succeeded` (a `completed` session with
+`paymentStatus: "unpaid"` is a Fawry-style reference still pending — never
+fulfilled, never failed), dedups on `event.id`, cross-checks
+`amount_total` against the stored snapshot, and records every verified
+delivery in `payment_transactions`.
+
+Checkout flow (why these variables are enough):
+
+1. `POST /pharmacy/subscription/checkout` (owner session + CSRF) creates a
+   `pending` payment row (provider = active gateway) then a Checkout
+   Session server-side with `Idempotency-Key = payments.id` and
+   `metadata.payment_id` (the webhook anchor) — snapshot pricing from the
+   plan row, later plan edits never change an open invoice.
+2. Web app: `uiMode=embedded` → the response's `client_secret` +
+   `publishable_key` drive the Drop-in **inline** iframe on our own domain
+   (card data never touches our servers). Mobile app (and legacy clients
+   that send no `ui_mode`): `uiMode=hosted` → the session `url` opens in
+   the in-app WebView.
+3. While the checkout is open the app polls
+   `GET /pharmacy/subscription/payments/:id` — display only.
+4. The signed webhook activates or extends the subscription via the SAME
+   transition the manual-payment path uses. `charge.failed` is recorded
+   without failing the payment (the customer can retry inside the same
+   session); `checkout.session.expired` / `async_payment_failed` flip only
+   pending rows.
+
+Super-admin diagnostics (`GET /platform-admin/payments/paymob-diagnostics`)
+now reports `active_gateway` plus the masked XPay config subset, so a
+"which gateway is live?" question is answerable from the server without
+credentials.

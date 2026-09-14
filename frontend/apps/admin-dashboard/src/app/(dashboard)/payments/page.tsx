@@ -109,6 +109,7 @@ export default function PaymentsPage() {
         >
           <option value="all">{t("filter_provider_all")}</option>
           <option value="paymob">{t("provider_paymob")}</option>
+          <option value="xpay">{t("provider_xpay")}</option>
           <option value="manual">{t("provider_manual")}</option>
         </select>
         <span className="text-sm text-muted-foreground self-center ms-auto">{fmtNumber(total)}</span>

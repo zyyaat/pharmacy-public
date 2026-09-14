@@ -627,7 +627,7 @@ export type PaymentRow = {
   billing_interval: 'monthly' | 'yearly'
   amount_piastres: number
   currency: string
-  provider: 'paymob' | 'manual'
+  provider: 'paymob' | 'xpay' | 'manual'
   status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'voided' | 'cancelled'
   note?: string
   subscription_id?: string

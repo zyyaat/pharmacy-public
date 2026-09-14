@@ -5,6 +5,7 @@
   "filter_status_all": "Tous les statuts",
   "filter_provider_all": "Tous les fournisseurs",
   "provider_paymob": "Paymob (en ligne)",
+  "provider_xpay": "XPay (en ligne)",
   "provider_manual": "Manuel",
   "status_pending": "En attente",
   "status_succeeded": "Réussi",

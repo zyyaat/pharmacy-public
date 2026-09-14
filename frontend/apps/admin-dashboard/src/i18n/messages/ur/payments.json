@@ -5,6 +5,7 @@
   "filter_status_all": "تمام حالتیں",
   "filter_provider_all": "تمام فراہم کنندگان",
   "provider_paymob": "Paymob (آن لائن)",
+  "provider_xpay": "XPay (آن لائن)",
   "provider_manual": "دستی",
   "status_pending": "زیر التوا",
   "status_succeeded": "کامیاب",

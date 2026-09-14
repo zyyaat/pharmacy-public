@@ -5,6 +5,7 @@
   "filter_status_all": "全部状态",
   "filter_provider_all": "全部渠道",
   "provider_paymob": "Paymob（在线）",
+  "provider_xpay": "XPay（在线）",
   "provider_manual": "手动",
   "status_pending": "待定",
   "status_succeeded": "成功",

@@ -2,13 +2,16 @@
 
 // Checkout كصفحة مستقلة كاملة — المعيار العالمي (Stripe Checkout وReplit
 // وHostinger): الدفع في مسار مخصص بلا ازدحام النوافذ، الفورم بعرض الحاوية
-// كاملاً ومتجاوب، وملخص الطلب ثابت فوقه. المنطق منقول حرفيًا من مودال
-// Phase G المُجرَّب إنتاجيًا: دورة → إنشاء نية → فورم Paymob Pixel
-// (وبديل iframe) → نجاح/فشل/خطأ، مع polling كل 3 ثوانٍ — الحقيقة تبقى
-// حصرًا من ويبهوك Paymob الموثق HMAC خادميًا.
-// العميل لا يخرج من الموقع إطلاقًا، وبيانات البطاقة لا تلمس خوادمنا
-// (PCI على Paymob). عند فشل تحميل الـ SDK (حجب CDN مثلًا) نرجع للـ iframe
-// الرسمي (embed_url) كخطة بديلة حتى لا تتعطل الدفعة أبدًا.
+// كاملاً ومتجاوب، وملخص الطلب ثابت فوقه.
+// Phase X — البوابة النشطة يعيّنها الخادم (checkout.provider):
+//   • xpay: Drop-in inline — فورم XPay الرسمي iframe داخل الصفحة نفسها
+//     (checkout.xpay.app) — العميل لا يخرج من الموقع، بيانات البطاقة لا
+//     تلمس خوادمنا (PCI على XPay). عند فشل تحميل الـ SDK (حجب CDN مثلًا)
+//     يبقى الـ polling شغالًا ويظهر تلميح إعادة المحاولة.
+//   • paymob: مسار Phase G المُجرَّب إنتاجيًا (Pixel وبديل iframe) — ما زال
+//     مدعومًا كخطة رجوع، ودفعاته الجارية تُفعّل من ويبهوكه.
+// في الحالتين: دورة → إنشاء جلسة خادميًا → فورم مضمّن → نجاح/فشل/خطأ، مع
+// polling كل 3 ثوانٍ — الحقيقة تبقى حصرًا من ويبهوك البوابة الموثق خادميًا.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, CheckCircle2, CreditCard, Lock, ShieldAlert } from 'lucide-react'
@@ -43,6 +46,7 @@ type PixelOptions = {
 declare global {
   interface Window {
     Pixel?: new (options: PixelOptions) => unknown
+    XPay?: XPayFactory
   }
 }
 
@@ -79,6 +83,56 @@ function loadPixelSDK(): Promise<void> {
   return pixelLoader
 }
 
+// XPay Drop-in SDK (Phase X) — سكربت تقليدي يدوّر المصنع العالمي
+// XPay(publishableKey)، ومنه xpay.checkout({ mode: 'inline' }) يركّب
+// فورم الدفع داخل حاويتنا. مستنسخ من نمط تحميل Pixel أعلاه.
+const XPAY_SDK_URL = 'https://checkout.xpay.app/v1/sdk.js'
+
+type XPayInlineHandle = { destroy?: () => void; open?: () => void }
+
+type XPayFactoryOptions = {
+  clientSecret: string
+  mode: 'modal' | 'inline'
+  container?: string | HTMLElement
+  appearance?: Record<string, unknown>
+  onComplete?: (result: { paymentIntentId?: string; redirectUrl?: string }) => void
+  onClose?: () => void
+}
+
+type XPayFactory = (publishableKey: string) => {
+  checkout: (opts: XPayFactoryOptions) => XPayInlineHandle
+}
+
+let xpayLoader: Promise<void> | null = null
+
+function loadXPaySDK(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no_window'))
+  if (window.XPay) return Promise.resolve()
+  if (xpayLoader) return xpayLoader
+  xpayLoader = new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = XPAY_SDK_URL
+    script.async = true
+    script.onload = () => {
+      const deadline = Date.now() + 5000
+      const check = () => {
+        if (window.XPay) resolve()
+        else if (Date.now() > deadline) {
+          xpayLoader = null
+          reject(new Error('xpay_sdk_missing'))
+        } else setTimeout(check, 50)
+      }
+      check()
+    }
+    script.onerror = () => {
+      xpayLoader = null
+      reject(new Error('xpay_sdk_load_failed'))
+    }
+    document.head.appendChild(script)
+  })
+  return xpayLoader
+}
+
 export function CheckoutView({
   plan, onBack, onActivated,
 }: {
@@ -94,9 +148,13 @@ export function CheckoutView({
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const startedAt = useRef(0)
   const pixelRef = useRef<unknown>(null)
+  // مقبض xpay.checkout inline — يُدمَّر عند الخروج حتى لا يبقى iframe يتيمًا
+  const xpayHandleRef = useRef<XPayInlineHandle | null>(null)
   // حاوية الـ Pixel: React يمتلك العنصر ويفرغه عند الخروج — ما يحقنه
   // الـ SDK داخله (Shadow DOM) يُزال معه تلقائيًا
   const pixelMountRef = useRef<HTMLDivElement | null>(null)
+  // حاوية الـ XPay inline (iframe auto-resize بديل Pixel)
+  const xpayMountRef = useRef<HTMLDivElement | null>(null)
 
   const stopPolling = useCallback(() => {
     if (pollTimer.current) {
@@ -108,6 +166,8 @@ export function CheckoutView({
   const reset = useCallback(() => {
     stopPolling()
     pixelRef.current = null
+    try { xpayHandleRef.current?.destroy?.() } catch { /* مدمّر مسبقًا */ }
+    xpayHandleRef.current = null
     setPhase('cycle')
     setCheckout(null)
     setErrorCode(null)
@@ -149,7 +209,10 @@ export function CheckoutView({
     setPhase('creating')
     setErrorCode(null)
     try {
-      const res = await subscriptionApi.checkout(plan.id, billingInterval)
+      // لغة صفحة الدفع تتبع لغة الواجهة — لا تأثير على حالة الفوترة
+      const lang = (typeof document !== 'undefined' ? document.documentElement.lang : '') || ''
+      const locale: 'en' | 'ar' = lang.toLowerCase().startsWith('ar') ? 'ar' : 'en'
+      const res = await subscriptionApi.checkout(plan.id, billingInterval, locale)
       setCheckout(res.data)
       setSdkFailed(false)
       setPhase('form')
@@ -160,12 +223,53 @@ export function CheckoutView({
     }
   }, [plan, startPolling])
 
-  // تركيب الـ Pixel الرسمي بمجرد دخول طور الدفع — الحقول تُصيَّر داخل
-  // حاويتنا (Shadow DOM) بعرض كامل ولغة/اتجاه الصفحة نفسها.
+  // تركيب فورم الدفع بمجرد دخول طور الدفع — حسب البوابة النشطة من الخادم:
+  // xpay → Drop-in inline داخل حاويتنا، paymob → Pixel الرسمي (خطة الرجوع).
   useEffect(() => {
     if (phase !== 'form' || !checkout) return
     let cancelled = false
 
+    // ---- Phase X: فرع XPay — inline iframe داخل الصفحة نفسها -------------
+    if (checkout.provider === 'xpay') {
+      loadXPaySDK()
+        .then(() => {
+          if (cancelled) return
+          const container = xpayMountRef.current
+          if (!container || !window.XPay) {
+            setSdkFailed(true) // الـ polling يبقى شغالًا + تلميح إعادة المحاولة
+            return
+          }
+          const elId = 'xpay-inline-' + Math.random().toString(36).slice(2, 10)
+          container.id = elId
+          const xpay = window.XPay(checkout.public_key)
+          xpayHandleRef.current = xpay.checkout({
+            clientSecret: checkout.client_secret,
+            mode: 'inline',
+            container: '#' + elId,
+            // هوية المنتج على فورم البوابة (الجلسة تحمل locale الخادمي أيضًا)
+            appearance: {
+              colorMode: 'light',
+              borderStyle: 'rounded',
+              colors: { primary: '#047857', primaryForeground: '#ffffff' },
+            },
+            // إشارة UI فقط — الحقيقة تبقى من الويبهوك الموثق عبر الـ polling.
+            // redirectUrl (afterCompletion) مقصود تجاهله: نبقى في الصفحة حتى
+            // يأكد الـ polling التفعيل.
+            onComplete: () => { void checkOnce(checkout.payment_id) },
+          })
+        })
+        .catch(() => {
+          if (!cancelled) setSdkFailed(true)
+        })
+
+      return () => {
+        cancelled = true
+        try { xpayHandleRef.current?.destroy?.() } catch { /* مدمّر مسبقًا */ }
+        xpayHandleRef.current = null
+      }
+    }
+
+    // ---- Phase G: فرع Paymob (خطة الرجوع) --------------------------------
     const dir: 'rtl' | 'ltr' =
       typeof document !== 'undefined' && document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl'
     const ar = dir === 'rtl'
@@ -373,11 +477,28 @@ export function CheckoutView({
         </div>
       )}
 
-      {/* الفورم الرسمي المضمّن — Pixel SDK داخل الصفحة نفسها بعرض كامل */}
+      {/* الفورم الرسمي المضمّن — حسب البوابة النشطة من الخادم */}
       {phase === 'form' && checkout && (
         <div className="space-y-3">
-          {sdkFailed ? (
-            // خطة بديلة عند تعذّر تحميل الـ SDK: iframe Unified Checkout
+          {checkout.provider === 'xpay' ? (
+            // XPay: Drop-in inline داخل حاويتنا — عند فشل تحميل الـ SDK
+            // (حجب CDN) الـ polling يبقى شغالًا ويظهر تلميح إعادة المحاولة
+            sdkFailed ? (
+              <div className="rounded-2xl border border-border bg-card py-10 px-6 text-center space-y-3">
+                <ShieldAlert className="h-10 w-10 text-amber-600 mx-auto" />
+                <p className="text-sm text-muted-foreground">{t('checkout_sdk_blocked')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={reset}>{t('retry')}</Button>
+                  <Button variant="outline" onClick={onBack}>{t('close')}</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-white p-4">
+                <div ref={xpayMountRef} className="min-h-[300px]" aria-busy="true" />
+              </div>
+            )
+          ) : sdkFailed ? (
+            // Paymob — خطة بديلة عند تعذّر تحميل الـ SDK: iframe Unified Checkout
             <div className="rounded-2xl overflow-hidden border border-border">
               <iframe
                 src={checkout.embed_url}
@@ -427,14 +548,14 @@ export function CheckoutView({
         <div className="rounded-2xl border border-border bg-card py-10 px-6 text-center space-y-4">
           <ShieldAlert className="h-12 w-12 text-destructive mx-auto" />
           <p className="font-semibold text-gray-900 dark:text-gray-50">
-            {errorCode === 'paymob_not_configured'
-              ? t('paymob_not_configured')
+            {errorCode === 'paymob_not_configured' || errorCode === 'payment_not_configured'
+              ? t('payment_not_configured')
               : errorCode === 'plan_price_not_configured'
                 ? t('plan_unpriced')
                 : t('checkout_error')}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {errorCode !== 'paymob_not_configured' && errorCode !== 'plan_price_not_configured' && (
+            {errorCode !== 'paymob_not_configured' && errorCode !== 'payment_not_configured' && errorCode !== 'plan_price_not_configured' && (
               <Button variant="outline" onClick={reset}>{t('retry')}</Button>
             )}
             <Button variant="outline" onClick={onBack}>{t('close')}</Button>

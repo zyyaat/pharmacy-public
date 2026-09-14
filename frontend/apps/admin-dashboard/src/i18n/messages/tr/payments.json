@@ -5,6 +5,7 @@
   "filter_status_all": "Tüm durumlar",
   "filter_provider_all": "Tüm sağlayıcılar",
   "provider_paymob": "Paymob (çevrimiçi)",
+  "provider_xpay": "XPay (çevrimiçi)",
   "provider_manual": "Manuel",
   "status_pending": "Beklemede",
   "status_succeeded": "Başarılı",

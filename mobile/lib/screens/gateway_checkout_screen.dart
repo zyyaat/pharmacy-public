@@ -15,23 +15,24 @@ import '../widgets/ui.dart';
 /// هل نعمل على ويندوز (سطح مكتب) — لا WebView متاحًا هناك؟
 bool get _isWindows => !kIsWeb && Platform.isWindows;
 
-/// Phase G — شاشة الدفع المضمّن: فورم Paymob يُصيَّر داخل WebView داخل
-/// التطبيق نفسه — العميل لا يخرج إلى متصفح خارجي إطلاقًا، وبيانات البطاقة
-/// لا تلمس خوادمنا (PCI على Paymob). التفعيل يحدث حصرًا من الويبهوك الموثق
-/// خادميًا؛ الـ polling هنا للعرض فقط:
+/// شاشة الدفع المضمّن (Phase X) — البوابة النشطة يعيّنها الخادم: صفحة
+/// الدفع (xpay المضيّفة أو بديل Paymob) تُصيَّر داخل WebView داخل التطبيق
+/// نفسه — العميل لا يخرج إلى متصفح خارجي إطلاقًا، وبيانات البطاقة لا تلمس
+/// خوادمنا. التفعيل يحدث حصرًا من الويبهوك الموثق خادميًا؛ الـ polling هنا
+/// للعرض فقط:
 ///   succeeded → pop(true)  |  failed/cancelled/voided → pop(false).
-/// Windows desktop: لا WebView في الإطارات لويندوز — يُفتح الفورم في
+/// Windows desktop: لا WebView في الإطارات لويندوز — تُفتح الصفحة في
 /// متصفح الكمبيوتر الخارجي ونفس الـ polling يكشف النتيجة هنا تلقائيًا.
-class PaymobCheckoutScreen extends StatefulWidget {
+class GatewayCheckoutScreen extends StatefulWidget {
   final CheckoutInfo checkout;
 
-  const PaymobCheckoutScreen({super.key, required this.checkout});
+  const GatewayCheckoutScreen({super.key, required this.checkout});
 
   @override
-  State<PaymobCheckoutScreen> createState() => _PaymobCheckoutScreenState();
+  State<GatewayCheckoutScreen> createState() => _GatewayCheckoutScreenState();
 }
 
-class _PaymobCheckoutScreenState extends State<PaymobCheckoutScreen> {
+class _GatewayCheckoutScreenState extends State<GatewayCheckoutScreen> {
   /// null على ويندوز — الفورم في المتصفح الخارجي بدل الـWebView.
   WebViewController? _web;
   Timer? _poll;

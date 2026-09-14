@@ -5,6 +5,7 @@
   "filter_status_all": "كل الحالات",
   "filter_provider_all": "كل المصادر",
   "provider_paymob": "باي موب (أونلاين)",
+  "provider_xpay": "إكس باي (أونلاين)",
   "provider_manual": "يدوي",
   "status_pending": "قيد الانتظار",
   "status_succeeded": "ناجحة",

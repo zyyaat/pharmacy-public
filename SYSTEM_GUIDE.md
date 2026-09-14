@@ -695,9 +695,10 @@ Core facts (all enforced in `internal/subscription`):
   replace) — the payment provider never changes billing semantics, and the
   webhook is the sole activation authority for online payments (the frontend
   never proves payment).
-- **Paymob embedded checkout (Phase G)**: the card form renders INSIDE the
-  app (Unified Checkout iframe on web; in-app WebView on mobile) — no
-  navigation to a Paymob page and back. `POST /pharmacy/subscription/checkout`
+- **Paymob embedded checkout (Phase G, now the FALLBACK gateway)**: the
+  card form renders INSIDE the app (Unified Checkout iframe on web; in-app
+  WebView on mobile) — no navigation to a Paymob page and back.
+  `POST /pharmacy/subscription/checkout`
   (deliberately OUTSIDE the plan gates: an expired company must be able to
   pay to recover) creates the pending payment, builds the intention
   server-side with snapshot pricing, and returns the iframe URL. The modal
@@ -708,7 +709,26 @@ Core facts (all enforced in `internal/subscription`):
   idempotent (replays never double-extend; amount tampering fails the
   payment). Credentials come exclusively from `PAYMOB_*` backend env vars
   (`docs/deployment.md` §6); with them unset the checkout answers
-  `paymob_not_configured` and billing stays on manual payments.
+  `payment_not_configured` and billing stays on manual payments.
+- **XPay checkout (Phase X — the ACTIVE gateway)**: XPay
+  (`xpay.app`, an Egyptian payment infrastructure — cards, ValU, Fawry,
+  InstaPay, wallets) replaces Paymob as the default via config priority:
+  `XPAY_SECRET_KEY` + `XPAY_PUBLISHABLE_KEY` + `XPAY_WEBHOOK_SECRET` present
+  ⇒ new checkout sessions go to XPay; unset `XPAY_*` ⇒ Paymob; neither ⇒
+  manual only. The server calls `POST /checkout/sessions`
+  (api.xpay.app) with `Idempotency-Key = payments.id` and
+  `metadata.payment_id` as the webhook anchor. Web renders XPay's Drop-in
+  INLINE (the checkout iframe lives on our domain); mobile/legacy clients
+  get the hosted session URL for the in-app WebView.
+  `POST /payments/webhook/xpay` verifies `XPay-Signature` (HMAC-SHA256
+  `t.rawBody`, 5-minute replay window) plus an optional URL token, fulfils
+  ONLY on `paymentStatus=paid` from `checkout.session.completed` /
+  `async_payment_succeeded` (a completed+unpaid session is a Fawry-style
+  reference still pending), dedups on `event.id`, cross-checks
+  `amount_total` against the snapshot, and never lets a succeeded payment
+  regress on late `expired` events. Credentials from `XPAY_*` env vars
+  (`docs/deployment.md` §7); both webhooks stay mounted so payments already
+  in flight keep resolving through their own provider across a switch.
 - **Trial**: registration provisions a trial subscription on
   `platform_settings.trial.default_plan_slug` (default: professional — full
   experience) for `default_trial_days` (default 30); both super-admin
