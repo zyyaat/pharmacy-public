@@ -180,15 +180,13 @@ JOIN permissions p ON p.key = ANY(ARRAY[
 ])
 ON CONFLICT (plan_id, permission_id) DO NOTHING;
 
--- free & starter: their enabled features' permission sets
-INSERT INTO plan_permissions (plan_id, permission_id)
-SELECT pl.id, fp.permission_id
-FROM plans pl
-JOIN plan_features pf ON pf.plan_id = pl.id
-JOIN feature_permissions fp ON fp.feature_key = pf.feature_key
-WHERE pl.slug IN ('free', 'starter')
-ON CONFLICT (plan_id, permission_id) DO NOTHING;
-
+-- ORDER MATTERS (lesson of the seed-drift bug): plan_features MUST be
+-- populated BEFORE the free/starter plan_permissions insert below, which
+-- derives those permissions FROM plan_features × feature_permissions.
+-- Seeding the derived table while its source is still empty silently
+-- produced plans with zero business permissions (active subscription,
+-- every module 403 plan_permission_denied). Repair for databases that
+-- already ran the old order: migration 28_saas_plan_seed_repair.sql.
 INSERT INTO plan_features (plan_id, feature_key)
 SELECT pl.id, f.key
 FROM plans pl
@@ -199,6 +197,15 @@ JOIN features f ON f.key = ANY( CASE pl.slug
                'attendance','branches','reports','multi_branch'] END::text[])
 WHERE pl.slug IN ('free','starter','professional','enterprise')
 ON CONFLICT (plan_id, feature_key) DO NOTHING;
+
+-- free & starter: their enabled features' permission sets
+INSERT INTO plan_permissions (plan_id, permission_id)
+SELECT pl.id, fp.permission_id
+FROM plans pl
+JOIN plan_features pf ON pf.plan_id = pl.id
+JOIN feature_permissions fp ON fp.feature_key = pf.feature_key
+WHERE pl.slug IN ('free', 'starter')
+ON CONFLICT (plan_id, permission_id) DO NOTHING;
 
 -- professional & enterprise: every permission except the platform realm
 -- (super-admin only) and the pharmacy.admin master key — a plan must never

@@ -328,7 +328,15 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // positive price (Stripe-model) — closes the "0 EGP" dead-end checkout
 // (plan editor no longer accepts unpriced public plans; pharmacy UI renders
 // them as contact-support instead of a doomed subscribe button).
-const APILevel = 72
+// 73 — plan seed repair: migration 26 seeded free/starter plan_permissions
+// by joining plan_features BEFORE plan_features was populated, so those
+// plans held only the 12-key core set — a company on «البداية» showed an
+// ACTIVE subscription while every module API answered plan_permission_denied.
+// Migration 28 repairs the data (idempotent, strictly additive), migration
+// 27 is wired into the chain retroactively (payments.idempotency_key was
+// authored but never applied — manual payments would 42703), and a startup
+// consistency guard logs any plan whose features lack their permissions.
+const APILevel = 73
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

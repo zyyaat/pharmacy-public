@@ -113,6 +113,17 @@ var migrationChain = []migration{
         {
                 name: "00000000000026_saas_plans.sql",
         },
+        {
+                // Wired retroactively: the file existed on disk but was never
+                // in this chain, so payments.idempotency_key (and its
+                // replay-protection index) were missing while the manual
+                // payment endpoint already referenced the column — any
+                // rebuild would 42703 on first manual payment.
+                name: "00000000000027_billing_hardening.sql",
+        },
+        {
+                name: "00000000000028_saas_plan_seed_repair.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing
@@ -189,7 +200,46 @@ func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
                 log.Printf("[MIGRATIONS] Applied migration %s", item.name)
         }
 
+        warnPlanPermissionDrift(ctx, conn)
         return nil
+}
+
+// warnPlanPermissionDrift is the permanent lesson of the seed-drift bug
+// (migration 26 seeded plan_permissions for free/starter from an empty
+// plan_features): a plan whose advertised features are missing their
+// enforcement permissions produces exactly the confusing ticket of an
+// ACTIVE subscription whose every module API answers
+// plan_permission_denied. Detection is automatic and loud; correction is
+// NEVER automatic — enforcement data changes go through audited
+// migrations or the super admin's plan editor, never through a startup
+// side-effect.
+func warnPlanPermissionDrift(ctx context.Context, conn *pgxpool.Conn) {
+        rows, err := conn.Query(ctx, `
+                SELECT pl.slug,
+                       array_agg(DISTINCT p2.key ORDER BY p2.key) AS missing
+                FROM plans pl
+                JOIN plan_features pf ON pf.plan_id = pl.id
+                JOIN feature_permissions fp ON fp.feature_key = pf.feature_key
+                JOIN permissions p2 ON p2.id = fp.permission_id
+                WHERE NOT EXISTS (
+                        SELECT 1 FROM plan_permissions pp
+                        WHERE pp.plan_id = pl.id
+                          AND pp.permission_id = p2.id)
+                GROUP BY pl.slug`)
+        if err != nil {
+                log.Printf("[PLANS] consistency check failed (non-fatal): %v", err)
+                return
+        }
+        defer rows.Close()
+        for rows.Next() {
+                var slug string
+                var missing []string
+                if err := rows.Scan(&slug, &missing); err != nil {
+                        log.Printf("[PLANS] consistency scan failed (non-fatal): %v", err)
+                        return
+                }
+                log.Printf("[PLANS] WARNING: plan %q advertises features whose permissions are missing (%d): %v — subscribers will see plan_permission_denied; repair via a migration or the plan editor", slug, len(missing), missing)
+        }
 }
 
 func migrationApplied(ctx context.Context, conn *pgxpool.Conn, name string) (bool, error) {
