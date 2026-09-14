@@ -165,6 +165,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // in the Paymob dashboard as
                 // https://<backend-host>/api/v1/payments/webhook/paymob?token=…
                 v1.POST("/payments/webhook/paymob", h.PaymobWebhook)
+                // Public XPay webhook (Phase X — the replacement gateway): no
+                // session auth — the proof is the HMAC-SHA256 XPay-Signature
+                // over the raw body + optional URL token. Registered in the
+                // XPay dashboard as
+                // https://<backend-host>/api/v1/payments/webhook/xpay?token=…
+                // Paymob's webhook stays mounted: pending paymob payments keep
+                // resolving through their own provider even after the switch.
+                v1.POST("/payments/webhook/xpay", h.XPayWebhook)
                 // SaaS subscription surface (Task 90): these two are part of
                 // the lockout allow-list — an expired/suspended company must
                 // always be able to read its own status and the public plans
@@ -418,7 +426,20 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // official library price, «removed» library entries are informational only
 // — imported products stay owned by the pharmacy. Tenant audit rows
 // (libraries.import / libraries.sync) via writeAuditLog.
-const APILevel = 76
+// 77 — XPay replaces Paymob as the active online gateway (Phase X):
+// config-driven provider priority (XPAY_SECRET_KEY + XPAY_PUBLISHABLE_KEY +
+// XPAY_WEBHOOK_SECRET ⇒ xpay, else the Phase G paymob subset, else manual
+// only). POST /checkout/sessions (api.xpay.app) with Idempotency-Key =
+// payments.id and metadata.payment_id anchor; web gets the inline drop-in
+// (client_secret + pk), mobile/legacy get the hosted session URL on
+// embed_url via ui_mode. POST /payments/webhook/xpay: HMAC-SHA256
+// XPay-Signature (t,v1 over the raw body, 300s replay window) + optional
+// URL token; fulfil ONLY on paymentStatus=paid from checkout.session.completed
+// or async_payment_succeeded; event.id dedup; amount tamper check; expired
+// / async_payment_failed flip only pending rows. Paymob webhook stays
+// mounted — in-flight paymob payments keep resolving. paymob-diagnostics
+// now reports active_gateway + the xpay config subset.
+const APILevel = 77
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

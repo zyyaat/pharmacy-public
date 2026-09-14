@@ -58,6 +58,17 @@ type Config struct {
         PaymobHMACSecret          string // HMAC-SHA512 webhook verification secret
         PaymobWebhookToken        string // random token appended to the webhook URL (?token=…)
         PaymobBaseURL             string // default https://accept.paymob.com
+
+        // XPay payments (Phase X) — the replacement gateway. Same philosophy:
+        // optional, webhook-activated, secrets server-only. When the required
+        // subset is present XPay takes checkout priority over Paymob (unset
+        // XPAY_* to fall back — instant rollback). The webhook secret is the
+        // endpoint's whsec_* shown once when the endpoint is created.
+        XPAYSecretKey      string // sk_test_* / sk_live_* — server-only (Authorization: Bearer …)
+        XPAYPublishableKey string // pk_test_* / pk_live_* — loaded by the browser SDK
+        XPAYWebhookSecret  string // whsec_* — HMAC-SHA256 webhook verification secret
+        XPAYWebhookToken   string // random token appended to the webhook URL (?token=…)
+        XPAYBaseURL        string // default https://api.xpay.app
 }
 
 // Load reads configuration from environment variables with sensible defaults
@@ -108,6 +119,13 @@ func Load() *Config {
                 PaymobHMACSecret:          strings.TrimSpace(getEnv("PAYMOB_HMAC_SECRET", "")),
                 PaymobWebhookToken:        strings.TrimSpace(getEnv("PAYMOB_WEBHOOK_TOKEN", "")),
                 PaymobBaseURL:             strings.TrimRight(getEnv("PAYMOB_BASE_URL", "https://accept.paymob.com"), "/"),
+
+                // XPay payments (Phase X) — the replacement gateway
+                XPAYSecretKey:      strings.TrimSpace(getEnv("XPAY_SECRET_KEY", "")),
+                XPAYPublishableKey: strings.TrimSpace(getEnv("XPAY_PUBLISHABLE_KEY", "")),
+                XPAYWebhookSecret:  strings.TrimSpace(getEnv("XPAY_WEBHOOK_SECRET", "")),
+                XPAYWebhookToken:   strings.TrimSpace(getEnv("XPAY_WEBHOOK_TOKEN", "")),
+                XPAYBaseURL:        strings.TrimRight(getEnv("XPAY_BASE_URL", "https://api.xpay.app"), "/"),
         }
 
         // Log important configuration for debugging
@@ -146,6 +164,31 @@ func (c *Config) PaymobEnabled() bool {
                 c.PaymobPublicKey != "" &&
                 c.PaymobCardIntegrationID != "" &&
                 c.PaymobHMACSecret != ""
+}
+
+// XPayEnabled reports whether the XPay gateway has its required credential
+// subset: secret key (server session creation), publishable key (browser
+// SDK), and the webhook endpoint signing secret (whsec_*) — the only path
+// that activates a subscription.
+func (c *Config) XPayEnabled() bool {
+        return c.XPAYSecretKey != "" &&
+                c.XPAYPublishableKey != "" &&
+                c.XPAYWebhookSecret != ""
+}
+
+// ActiveGateway resolves which gateway NEW checkout sessions go to:
+// "xpay" when configured (the replacement gateway), falling back to
+// "paymob" (Phase G), then "" (manual payments only). Pending payments
+// keep resolving through their OWN provider's webhook regardless of this
+// choice, so switching gateways never strands in-flight payments.
+func (c *Config) ActiveGateway() string {
+        if c.XPayEnabled() {
+                return "xpay"
+        }
+        if c.PaymobEnabled() {
+                return "paymob"
+        }
+        return ""
 }
 
 // IsDevelopment returns true if running in development mode

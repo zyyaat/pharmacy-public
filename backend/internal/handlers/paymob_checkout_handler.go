@@ -34,13 +34,27 @@ import (
         "github.com/pharmacy-os/backend/internal/paymob"
 )
 
-// CreatePharmacyCheckout creates a pending payment + Paymob intention and
-// returns everything the subscription modal needs to render the embedded
-// checkout iframe: { payment_id, client_secret, public_key, embed_url }.
+// CreatePharmacyCheckout is the provider-agnostic checkout entrypoint
+// (Phase X): it resolves the ACTIVE gateway from config — XPay when its
+// credential subset is present (the replacement gateway), falling back to
+// Paymob (Phase G) — then runs the shared plan/company/payment-row logic
+// ONCE and dispatches to the provider branch. The provider name is stored
+// on the payments row, so each payment keeps resolving through its OWN
+// provider's webhook even after a gateway switch: nothing in-flight is
+// ever stranded.
+//
+// Checkout is deliberately NOT behind the plan permission/status gates: an
+// expired or suspended company must be able to pay to recover — that is
+// the entire point of the recovery flow. The mutation principal + CSRF
+// guards still apply, and the company scope is resolved server-side.
 func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
-        if h.config == nil || !h.config.PaymobEnabled() {
+        gateway := ""
+        if h.config != nil {
+                gateway = h.config.ActiveGateway()
+        }
+        if gateway == "" {
                 c.JSON(http.StatusServiceUnavailable, gin.H{
-                        "error":   "paymob_not_configured",
+                        "error":   "payment_not_configured",
                         "message": "الدفع الإلكتروني غير مفعّل حالياً — تواصل مع الدعم أو استخدم الدفع اليدوي",
                 })
                 return
@@ -60,9 +74,18 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
                 return
         }
 
+        // ui_mode: "embedded" (web inline drop-in — the XPay iframe lives on
+        // our domain, the closest analog of the Paymob Pixel) | "hosted"
+        // (full-tab checkout URL — the mobile WebView path). Defaults to
+        // HOSTED for legacy clients: an old APK that never sends ui_mode
+        // still gets a loadable embed_url, while the updated web app asks
+        // for embedded explicitly. locale ("en"|"ar") only localizes the
+        // checkout page — it never touches billing state.
         var body struct {
                 PlanID          string `json:"plan_id"`
                 BillingInterval string `json:"billing_interval"`
+                UIMode          string `json:"ui_mode"`
+                Locale          string `json:"locale"`
         }
         if err := c.ShouldBindJSON(&body); err != nil || body.PlanID == "" {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body", "message": "plan_id و billing_interval مطلوبان"})
@@ -71,6 +94,16 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
         if body.BillingInterval != models.BillingIntervalMonthly && body.BillingInterval != models.BillingIntervalYearly {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_interval", "message": "اختر فوترة شهرية أو سنوية"})
                 return
+        }
+        if body.UIMode == "" {
+                body.UIMode = "hosted"
+        }
+        if body.UIMode != "embedded" && body.UIMode != "hosted" {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_ui_mode", "message": "طريقة عرض الدفع غير معروفة"})
+                return
+        }
+        if body.Locale != "en" && body.Locale != "ar" {
+                body.Locale = ""
         }
 
         ctx := c.Request.Context()
@@ -103,7 +136,6 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "plan_price_not_configured", "message": "سعر هذه الخطة غير مضبوط بعد"})
                 return
         }
-
         // company snapshot for the intention billing_data
         var companyName, companyEmail string
         if err := tx.QueryRow(ctx, `
@@ -117,11 +149,11 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
         if err := tx.QueryRow(ctx, `
                 INSERT INTO payments (company_id, plan_id, billing_interval,
                                       amount_piastres, currency, provider, status, metadata)
-                VALUES ($1, $2, $3, $4, $5, 'paymob', 'pending',
-                        jsonb_build_object('initiated_by', $6::text, 'channel', 'embedded_checkout'))
+                VALUES ($1, $2, $3, $4, $5, $6, 'pending',
+                        jsonb_build_object('initiated_by', $7::text, 'channel', $8::text))
                 RETURNING id::text
-        `, companyID, body.PlanID, body.BillingInterval, amount, currency,
-                principal.Email).Scan(&paymentID); err != nil {
+        `, companyID, body.PlanID, body.BillingInterval, amount, currency, gateway,
+                principal.Email, body.UIMode).Scan(&paymentID); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_insert_failed", "detail": err.Error()})
                 return
         }
@@ -134,40 +166,93 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
         if h.config.PublicAppURL != "" {
                 redirectionURL = strings.TrimRight(h.config.PublicAppURL, "/") +
                         "/settings/subscription?payment=" + paymentID
+                // XPay substitutes {CHECKOUT_SESSION_ID} before redirecting,
+                // so the return URL itself carries the session for forensics.
+                if gateway == "xpay" {
+                        redirectionURL += "&session={CHECKOUT_SESSION_ID}"
+                }
         }
 
+        shared := checkoutShared{
+                ctx:             ctx,
+                tx:              tx,
+                paymentID:       paymentID,
+                planID:          body.PlanID,
+                planName:        planName,
+                currency:        currency,
+                amount:          amount,
+                billingInterval: body.BillingInterval,
+                intervalLabel:   intervalLabel,
+                companyName:     companyName,
+                companyEmail:    companyEmail,
+                uiMode:          body.UIMode,
+                locale:          body.Locale,
+                redirectionURL:  redirectionURL,
+        }
+        if gateway == "xpay" {
+                h.createXPaySessionTx(c, shared)
+                return
+        }
+        h.createPaymobIntentionTx(c, shared)
+}
+
+// checkoutShared carries everything the provider branches need after the
+// shared plan snapshot + pending payment row are in place. The tx is open;
+// the branch owns the commit and every response from here on.
+type checkoutShared struct {
+        ctx             context.Context
+        tx              pgx.Tx
+        paymentID       string
+        planID          string
+        planName        string
+        currency        string
+        amount          int64
+        billingInterval string
+        intervalLabel   string
+        companyName     string
+        companyEmail    string
+        uiMode          string
+        locale          string
+        redirectionURL  string
+}
+
+// createPaymobIntentionTx is the Phase G branch — unchanged semantics:
+// intention → honest ledger on failure → txn rows + reference binding →
+// commit → embedded Unified Checkout response.
+func (h *Handler) createPaymobIntentionTx(c *gin.Context, s checkoutShared) {
+        ctx, tx := s.ctx, s.tx
         client := paymob.New(h.config.PaymobSecretKey, h.config.PaymobPublicKey,
                 h.config.PaymobCardIntegrationID, h.config.PaymobWalletIntegrationID,
                 h.config.PaymobBaseURL)
         intention, err := client.CreateIntention(ctx, paymob.IntentionRequest{
-                AmountPiastres:   amount,
-                Currency:         currency,
-                SpecialReference: paymentID,
+                AmountPiastres:   s.amount,
+                Currency:         s.currency,
+                SpecialReference: s.paymentID,
                 NotificationURL:  h.paymobWebhookURL(c),
-                RedirectionURL:   redirectionURL,
-                ItemName:         planName,
-                ItemDescription:  intervalLabel + " — " + planName,
-                BillingFirstName: companyName,
+                RedirectionURL:   s.redirectionURL,
+                ItemName:         s.planName,
+                ItemDescription:  s.intervalLabel + " — " + s.planName,
+                BillingFirstName: s.companyName,
                 BillingLastName:  "OS",
-                BillingEmail:     companyEmail,
+                BillingEmail:     s.companyEmail,
         })
         if err != nil {
                 // keep the ledger honest: record the failed intent attempt, then fail
                 if _, _ = tx.Exec(ctx, `
                         INSERT INTO payment_transactions (payment_id, txn_type, hmac_verified, payload)
                         VALUES ($1, 'intent', FALSE, jsonb_build_object('error', $2::text))
-                `, paymentID, err.Error()); err != nil {
-                        log.Printf("[paymob] intent txn log failed payment=%s: %v", paymentID, err)
+                `, s.paymentID, err.Error()); err != nil {
+                        log.Printf("[paymob] intent txn log failed payment=%s: %v", s.paymentID, err)
                 }
                 if _, _ = tx.Exec(ctx, `
                         UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1
-                `, paymentID); err != nil {
-                        log.Printf("[paymob] payment fail-mark failed payment=%s: %v", paymentID, err)
+                `, s.paymentID); err != nil {
+                        log.Printf("[paymob] payment fail-mark failed payment=%s: %v", s.paymentID, err)
                 }
                 if commitErr := tx.Commit(ctx); commitErr != nil {
                         log.Printf("[paymob] commit after intent failure failed: %v", commitErr)
                 }
-                log.Printf("[paymob] intention failed payment=%s: %v", paymentID, err)
+                log.Printf("[paymob] intention failed payment=%s: %v", s.paymentID, err)
                 c.JSON(http.StatusBadGateway, gin.H{
                         "error":   "paymob_intention_failed",
                         "message": "تعذر بدء عملية الدفع — حاول مرة أخرى أو تواصل مع الدعم",
@@ -179,13 +264,13 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
         if _, err := tx.Exec(ctx, `
                 INSERT INTO payment_transactions (payment_id, txn_type, provider_transaction_id, hmac_verified, payload)
                 VALUES ($1, 'intent', $2, FALSE, $3::jsonb)
-        `, paymentID, intention.IntentionOrderID, rawJSON(intention.Raw)); err != nil {
+        `, s.paymentID, intention.IntentionOrderID, rawJSON(intention.Raw)); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "intent_txn_insert_failed", "detail": err.Error()})
                 return
         }
         if _, err := tx.Exec(ctx, `
                 UPDATE payments SET provider_reference = $2, updated_at = NOW() WHERE id = $1
-        `, paymentID, intention.IntentionOrderID); err != nil {
+        `, s.paymentID, intention.IntentionOrderID); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_reference_failed"})
                 return
         }
@@ -196,15 +281,16 @@ func (h *Handler) CreatePharmacyCheckout(c *gin.Context) {
         }
 
         c.JSON(http.StatusCreated, gin.H{"data": gin.H{
-                "payment_id":      paymentID,
-                "amount_piastres": amount,
-                "currency":        currency,
-                "billing_interval": body.BillingInterval,
-                "plan":            gin.H{"id": body.PlanID, "name": planName},
-                "client_secret":   intention.ClientSecret,
-                "public_key":      h.config.PaymobPublicKey,
-                "embed_url":       client.EmbedURL(intention.ClientSecret),
-                "status":          "pending",
+                "payment_id":       s.paymentID,
+                "amount_piastres":  s.amount,
+                "currency":         s.currency,
+                "billing_interval": s.billingInterval,
+                "plan":             gin.H{"id": s.planID, "name": s.planName},
+                "provider":         "paymob",
+                "client_secret":    intention.ClientSecret,
+                "public_key":       h.config.PaymobPublicKey,
+                "embed_url":        client.EmbedURL(intention.ClientSecret),
+                "status":           "pending",
         }})
 }
 
