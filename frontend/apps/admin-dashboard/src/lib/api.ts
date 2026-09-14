@@ -579,10 +579,11 @@ export const subscriptionsApi = {
     const response = await apiFetch<{ data: BillingOverview }>('/platform-admin/subscriptions/overview')
     return response.data
   },
-  async list(params: { status?: string; search?: string; page?: number; pageSize?: number; history?: boolean } = {}) {
+  async list(params: { status?: string; search?: string; company_id?: string; page?: number; pageSize?: number; history?: boolean } = {}) {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
     if (params.search) query.set('search', params.search)
+    if (params.company_id) query.set('company_id', params.company_id)
     if (params.history) query.set('history', 'true')
     query.set('page', String(params.page ?? 1))
     query.set('page_size', String(params.pageSize ?? 50))

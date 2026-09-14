@@ -69,5 +69,12 @@
   "reactivate_p90": "90 gün",
   "view_full_history": "Tüm geçmişi göster",
   "view_current_only": "Yalnızca güncel",
-  "history_badge": "Geçmiş: {n}"
+  "history_badge": "Geçmiş: {n}",
+  "history_btn": "Geçmiş",
+  "history_page_title": "Şirket abonelik geçmişi",
+  "history_page_subtitle": "Bu şirketin abonelik sürümlerinin tümü, en yeniden en eskiye",
+  "history_back": "Listeye dön",
+  "col_created": "Oluşturuldu",
+  "history_governing": "Yürürlükte",
+  "history_no_company": "Şirket seçilmedi — listedeki bir hesabın yanındaki Geçmiş düğmesinden geçmişi açın"
 }

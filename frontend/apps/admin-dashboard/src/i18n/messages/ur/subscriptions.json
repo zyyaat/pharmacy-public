@@ -69,5 +69,12 @@
   "reactivate_p90": "90 دن",
   "view_full_history": "مکمل تاریخ دیکھیں",
   "view_current_only": "صرف موجودہ",
-  "history_badge": "تاریخ: {n}"
+  "history_badge": "تاریخ: {n}",
+  "history_btn": "تاریخچہ",
+  "history_page_title": "کمپنی کی سبسکرپشن کی تاریخچہ",
+  "history_page_subtitle": "اس کمپنی کی سبسکرپشن کے تمام ورژن، نئے سے پرانے تک",
+  "history_back": "فہرست پر واپس",
+  "col_created": "بنایا گیا",
+  "history_governing": "موجودہ",
+  "history_no_company": "کوئی کمپنی منتخب نہیں — فہرست میں کسی اکاؤنٹ کے پاس تاریخچہ بٹن سے تاریخچہ کھولیں"
 }

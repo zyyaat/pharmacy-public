@@ -69,5 +69,12 @@
   "reactivate_p90": "90 días",
   "view_full_history": "Ver historial completo",
   "view_current_only": "Solo actual",
-  "history_badge": "Historial: {n}"
+  "history_badge": "Historial: {n}",
+  "history_btn": "Historial",
+  "history_page_title": "Historial de suscripciones de la empresa",
+  "history_page_subtitle": "Todas las versiones de suscripción de esta empresa, la más reciente primero",
+  "history_back": "Volver a la lista",
+  "col_created": "Creado",
+  "history_governing": "Vigente",
+  "history_no_company": "No se seleccionó ninguna empresa — abre un historial desde el botón Historial junto a una cuenta de la lista"
 }

@@ -69,5 +69,12 @@
   "reactivate_p90": "90 days",
   "view_full_history": "Show full history",
   "view_current_only": "Current only",
-  "history_badge": "History: {n}"
+  "history_badge": "History: {n}",
+  "history_btn": "History",
+  "history_page_title": "Company subscription history",
+  "history_page_subtitle": "Every version of this company's subscriptions, newest first",
+  "history_back": "Back to list",
+  "col_created": "Created",
+  "history_governing": "Governing",
+  "history_no_company": "No company selected — open a ledger from the History button next to an account in the list"
 }

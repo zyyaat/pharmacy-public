@@ -69,5 +69,12 @@
   "reactivate_p90": "90 يومًا",
   "view_full_history": "عرض السجل الكامل",
   "view_current_only": "عرض الحالي فقط",
-  "history_badge": "سجل: {n}"
+  "history_badge": "سجل: {n}",
+  "history_btn": "السجل",
+  "history_page_title": "سجل اشتراكات الشركة",
+  "history_page_subtitle": "كل إصدارات اشتراك هذه الشركة من الأحدث إلى الأقدم",
+  "history_back": "رجوع للقائمة",
+  "col_created": "أُنشئ في",
+  "history_governing": "الحاوية",
+  "history_no_company": "لم تُحدَّد شركة — افتح السجل من زر «السجل» بجوار الحساب في القائمة"
 }

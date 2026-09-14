@@ -69,5 +69,12 @@
   "reactivate_p90": "90 天",
   "view_full_history": "查看完整历史",
   "view_current_only": "仅看当前",
-  "history_badge": "历史: {n}"
+  "history_badge": "历史: {n}",
+  "history_btn": "记录",
+  "history_page_title": "公司订阅记录",
+  "history_page_subtitle": "该公司订阅的所有版本，从最新到最旧",
+  "history_back": "返回列表",
+  "col_created": "创建于",
+  "history_governing": "生效中",
+  "history_no_company": "未选择公司 — 请从列表中账户旁的“记录”按钮打开记录"
 }

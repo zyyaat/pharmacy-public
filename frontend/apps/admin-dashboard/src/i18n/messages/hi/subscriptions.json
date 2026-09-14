@@ -69,5 +69,12 @@
   "reactivate_p90": "90 दिन",
   "view_full_history": "पूरा इतिहास देखें",
   "view_current_only": "केवल वर्तमान",
-  "history_badge": "इतिहास: {n}"
+  "history_badge": "इतिहास: {n}",
+  "history_btn": "इतिहास",
+  "history_page_title": "कंपनी सदस्यता इतिहास",
+  "history_page_subtitle": "इस कंपनी की सदस्यता के सभी संस्करण, नवीनतम पहले",
+  "history_back": "सूची पर वापस",
+  "col_created": "बनाया गया",
+  "history_governing": "प्रभावी",
+  "history_no_company": "कोई कंपनी चयनित नहीं — सूची में किसी खाते के आगे इतिहास बटन से इतिहास खोलें"
 }

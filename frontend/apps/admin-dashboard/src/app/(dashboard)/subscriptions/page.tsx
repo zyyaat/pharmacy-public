@@ -7,9 +7,10 @@
 // SEARCH picker instead of pasting raw UUIDs.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarClock, Ban, PauseCircle, PlayCircle, Wallet, UserPlus,
-  Hourglass, Search, CheckCircle2, Users, TrendingUp, AlertTriangle,
+  Hourglass, Search, CheckCircle2, Users, TrendingUp, AlertTriangle, History,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,8 +41,8 @@ export default function SubscriptionsPage() {
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState("");
+  const router = useRouter();
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assign, setAssign] = useState({ company_id: "", company_name: "", plan_id: "", interval: "monthly", trial_days: "0", period_end: "" });
@@ -77,7 +78,6 @@ export default function SubscriptionsPage() {
         subscriptionsApi.list({
           status: statusFilter === "all" ? undefined : statusFilter,
           search: search || undefined,
-          history: showHistory || undefined,
         }),
         plansApi.list(),
         subscriptionsApi.overview().catch(() => null),
@@ -90,7 +90,7 @@ export default function SubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search, showHistory, t]);
+  }, [statusFilter, search, t]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -309,14 +309,6 @@ export default function SubscriptionsPage() {
             <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
-        <Button
-          variant={showHistory ? "default" : "outline"}
-          size="sm"
-          className="sm:self-stretch"
-          onClick={() => setShowHistory((v) => !v)}
-        >
-          {showHistory ? t("view_current_only") : t("view_full_history")}
-        </Button>
       </div>
 
       <Card>
@@ -345,7 +337,13 @@ export default function SubscriptionsPage() {
                       <div className="text-xs text-muted-foreground" dir="ltr">{row.company.email}</div>
                       {(row.versions ?? 1) > 1 && (
                         <div className="mt-0.5">
-                          <Badge variant="outline">{t("history_badge").replace("{n}", String(row.versions))}</Badge>
+                          <button
+                            className="cursor-pointer"
+                            title={t("history_btn")}
+                            onClick={() => router.push(`/subscriptions/history?company=${row.company.id}`)}
+                          >
+                            <Badge variant="outline">{t("history_badge").replace("{n}", String(row.versions))}</Badge>
+                          </button>
                         </div>
                       )}
                     </td>
@@ -362,6 +360,10 @@ export default function SubscriptionsPage() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">{t(`source_${row.source}`)}</td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" title={t("history_btn")}
+                          onClick={() => router.push(`/subscriptions/history?company=${row.company.id}`)}>
+                          <History className="h-4 w-4" />
+                        </Button>
                         {(row.status === "active" || row.status === "trial") && (
                           <Button variant="ghost" size="icon" title={row.status === "trial" ? t("extend_trial_title") : t("extend")}
                             onClick={() => { setExtendRow(row); setExtendDate(""); }}>
