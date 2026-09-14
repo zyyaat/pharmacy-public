@@ -328,7 +328,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // positive price (Stripe-model) — closes the "0 EGP" dead-end checkout
 // (plan editor no longer accepts unpriced public plans; pharmacy UI renders
 // them as contact-support instead of a doomed subscribe button).
-const APILevel = 71
+const APILevel = 72
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

@@ -66,5 +66,8 @@
   "reactivate_p7": "7 天",
   "reactivate_p14": "14 天",
   "reactivate_p30": "30 天",
-  "reactivate_p90": "90 天"
+  "reactivate_p90": "90 天",
+  "view_full_history": "查看完整历史",
+  "view_current_only": "仅看当前",
+  "history_badge": "历史: {n}"
 }

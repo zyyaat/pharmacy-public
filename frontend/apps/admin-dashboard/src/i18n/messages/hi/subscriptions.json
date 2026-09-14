@@ -66,5 +66,8 @@
   "reactivate_p7": "7 दिन",
   "reactivate_p14": "14 दिन",
   "reactivate_p30": "30 दिन",
-  "reactivate_p90": "90 दिन"
+  "reactivate_p90": "90 दिन",
+  "view_full_history": "पूरा इतिहास देखें",
+  "view_current_only": "केवल वर्तमान",
+  "history_badge": "इतिहास: {n}"
 }

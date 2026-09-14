@@ -66,5 +66,8 @@
   "reactivate_p7": "7 دن",
   "reactivate_p14": "14 دن",
   "reactivate_p30": "30 دن",
-  "reactivate_p90": "90 دن"
+  "reactivate_p90": "90 دن",
+  "view_full_history": "مکمل تاریخ دیکھیں",
+  "view_current_only": "صرف موجودہ",
+  "history_badge": "تاریخ: {n}"
 }

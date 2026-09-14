@@ -40,6 +40,7 @@ export default function SubscriptionsPage() {
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState("");
 
   const [assignOpen, setAssignOpen] = useState(false);
@@ -76,6 +77,7 @@ export default function SubscriptionsPage() {
         subscriptionsApi.list({
           status: statusFilter === "all" ? undefined : statusFilter,
           search: search || undefined,
+          history: showHistory || undefined,
         }),
         plansApi.list(),
         subscriptionsApi.overview().catch(() => null),
@@ -88,7 +90,7 @@ export default function SubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search, t]);
+  }, [statusFilter, search, showHistory, t]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -307,6 +309,14 @@ export default function SubscriptionsPage() {
             <option key={s} value={s}>{t(`status_${s}`)}</option>
           ))}
         </select>
+        <Button
+          variant={showHistory ? "default" : "outline"}
+          size="sm"
+          className="sm:self-stretch"
+          onClick={() => setShowHistory((v) => !v)}
+        >
+          {showHistory ? t("view_current_only") : t("view_full_history")}
+        </Button>
       </div>
 
       <Card>
@@ -333,6 +343,11 @@ export default function SubscriptionsPage() {
                     <td className="px-4 py-3 text-sm">
                       <div className="font-medium">{row.company.name}</div>
                       <div className="text-xs text-muted-foreground" dir="ltr">{row.company.email}</div>
+                      {(row.versions ?? 1) > 1 && (
+                        <div className="mt-0.5">
+                          <Badge variant="outline">{t("history_badge").replace("{n}", String(row.versions))}</Badge>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">{row.plan.name_ar || row.plan.name}</td>
                     <td className="px-4 py-3 text-sm">

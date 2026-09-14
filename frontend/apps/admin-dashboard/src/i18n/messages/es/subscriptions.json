@@ -66,5 +66,8 @@
   "reactivate_p7": "7 días",
   "reactivate_p14": "14 días",
   "reactivate_p30": "30 días",
-  "reactivate_p90": "90 días"
+  "reactivate_p90": "90 días",
+  "view_full_history": "Ver historial completo",
+  "view_current_only": "Solo actual",
+  "history_badge": "Historial: {n}"
 }

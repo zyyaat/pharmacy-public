@@ -98,9 +98,19 @@ func (h *Handler) ListPlatformSubscriptions(c *gin.Context) {
         }
         whereSQL := strings.Join(where, " AND ")
 
+        // Effective view by default: ONE governing row per company (live row
+        // if any, else the newest terminal row). Plan switches used to
+        // accumulate a row per change — one company showed 3 plans × 3
+        // statuses with no visible hierarchy. history=true returns the full
+        // per-change ledger instead (versions badge shows the depth).
+        history := c.Query("history") == "true"
+
         var total int
-        if err := h.db.QueryRow(ctx, `
-                SELECT COUNT(*)::int
+        countSQL := `SELECT COUNT(DISTINCT s.company_id)::int`
+        if history {
+                countSQL = `SELECT COUNT(*)::int`
+        }
+        if err := h.db.QueryRow(ctx, countSQL+`
                 FROM subscriptions s
                 JOIN companies c ON c.id = s.company_id
                 WHERE `+whereSQL, args...).Scan(&total); err != nil {
@@ -111,18 +121,54 @@ func (h *Handler) ListPlatformSubscriptions(c *gin.Context) {
         args = append(args, pageSize, (page-1)*pageSize)
         limitIdx := strconv.Itoa(len(args) - 1)
         offsetIdx := strconv.Itoa(len(args))
-        rows, err := h.db.Query(ctx, `
-                SELECT s.id::text, s.company_id::text, c.name, c.email,
-                       s.plan_id::text, p.slug, p.name, p.name_ar,
-                       s.status, s.billing_interval,
-                       s.current_period_start, s.current_period_end, s.trial_ends_at,
-                       s.cancel_at_period_end, s.source, s.created_at
-                FROM subscriptions s
-                JOIN companies c ON c.id = s.company_id
-                JOIN plans p ON p.id = s.plan_id
-                WHERE `+whereSQL+`
-                ORDER BY s.created_at DESC
-                LIMIT $`+limitIdx+` OFFSET $`+offsetIdx, args...)
+
+        // Both branches return the same column order (+ versions last) so the
+        // scanner below stays shared.
+        var listSQL string
+        if history {
+                listSQL = `
+                        SELECT s.id::text, s.company_id::text, c.name, c.email,
+                               s.plan_id::text, p.slug, p.name, p.name_ar,
+                               s.status, s.billing_interval,
+                               s.current_period_start, s.current_period_end, s.trial_ends_at,
+                               s.cancel_at_period_end, s.source, s.created_at,
+                               0::int AS versions
+                        FROM subscriptions s
+                        JOIN companies c ON c.id = s.company_id
+                        JOIN plans p ON p.id = s.plan_id
+                        WHERE ` + whereSQL + `
+                        ORDER BY s.created_at DESC
+                        LIMIT $` + limitIdx + ` OFFSET $` + offsetIdx
+        } else {
+                listSQL = `
+                        SELECT id, company_id, name, email, plan_id, slug, plan_name, name_ar,
+                               status, billing_interval, current_period_start, current_period_end,
+                               trial_ends_at, cancel_at_period_end, source, created_at, versions
+                        FROM (
+                                SELECT DISTINCT ON (s.company_id)
+                                       s.id::text AS id, s.company_id::text AS company_id,
+                                       c.name AS name, c.email AS email,
+                                       s.plan_id::text AS plan_id, p.slug AS slug,
+                                       p.name AS plan_name, p.name_ar AS name_ar,
+                                       s.status AS status, s.billing_interval AS billing_interval,
+                                       s.current_period_start AS current_period_start,
+                                       s.current_period_end AS current_period_end,
+                                       s.trial_ends_at AS trial_ends_at,
+                                       s.cancel_at_period_end AS cancel_at_period_end,
+                                       s.source AS source, s.created_at AS created_at,
+                                       CASE WHEN s.status IN ('pending','trial','active') THEN 0 ELSE 1 END AS prio,
+                                       (SELECT COUNT(*) FROM subscriptions x
+                                        WHERE x.company_id = s.company_id)::int AS versions
+                                FROM subscriptions s
+                                JOIN companies c ON c.id = s.company_id
+                                JOIN plans p ON p.id = s.plan_id
+                                WHERE ` + whereSQL + `
+                                ORDER BY s.company_id, prio, s.created_at DESC
+                        ) t
+                        ORDER BY t.prio ASC, t.created_at DESC, t.id
+                        LIMIT $` + limitIdx + ` OFFSET $` + offsetIdx
+        }
+        rows, err := h.db.Query(ctx, listSQL, args...)
         if err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "subscriptions_query_failed"})
                 return
@@ -136,10 +182,11 @@ func (h *Handler) ListPlatformSubscriptions(c *gin.Context) {
                 var periodStart, periodEnd, trialEndsAt *time.Time
                 var cancelAtPeriodEnd bool
                 var createdAt time.Time
+                var versions int
                 if err := rows.Scan(&id, &companyIDStr, &companyName, &companyEmail,
                         &planID, &planSlug, &planName, &planNameAr,
                         &status, &billingInterval, &periodStart, &periodEnd, &trialEndsAt,
-                        &cancelAtPeriodEnd, &source, &createdAt); err != nil {
+                        &cancelAtPeriodEnd, &source, &createdAt, &versions); err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "subscriptions_scan_failed"})
                         return
                 }
@@ -155,6 +202,7 @@ func (h *Handler) ListPlatformSubscriptions(c *gin.Context) {
                         "cancel_at_period_end": cancelAtPeriodEnd,
                         "source":               source,
                         "created_at":           createdAt.UTC().Format(time.RFC3339),
+                        "versions":             versions,
                 })
         }
         c.JSON(http.StatusOK, gin.H{
@@ -163,10 +211,14 @@ func (h *Handler) ListPlatformSubscriptions(c *gin.Context) {
         })
 }
 
-// CreatePlatformSubscription assigns a plan to a company manually. Any
-// live subscription is cancelled first (one live row per company); the new
-// row is inserted with source='manual'. Optional trial_days creates a
-// trial instead of a paid period.
+// CreatePlatformSubscription assigns a plan to a company manually. Plan
+// switching is a TRANSITION on the live row (Stripe-style price change),
+// not close-then-open: the old flow accumulated one row per switch
+// (production evidence: one company ended with 3 rows × 3 plans × 3
+// statuses and nobody could tell which row governs). Lifecycle history
+// stays in audit_logs. A NEW row is only opened when nothing is live
+// (fresh assignment after expiry/cancellation). Optional trial_days
+// creates a trial instead of a paid period.
 func (h *Handler) CreatePlatformSubscription(c *gin.Context) {
         var body struct {
                 CompanyID       string     `json:"company_id"`
@@ -240,30 +292,52 @@ func (h *Handler) CreatePlatformSubscription(c *gin.Context) {
                 periodEnd = body.PeriodEnd
         }
 
-        // Cancel any live rows FIRST — the partial unique index allows only one
-        // live subscription per company, so the new row cannot coexist with the
-        // old one even for a single statement.
-        if _, err := tx.Exec(ctx, `
-                UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
+        // Transition the live row IN PLACE when one exists — the partial
+        // unique index allows only one live row per company, and re-opening a
+        // new row per plan change made the ledger unreadable. When no live
+        // row exists, open a fresh one (fresh assignment after termination).
+        var liveSubID string
+        switchErr := tx.QueryRow(ctx, `
+                SELECT id::text FROM subscriptions
                 WHERE company_id = $1 AND status IN ('trial','active','pending')
-        `, body.CompanyID); err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_cleanup_failed"})
+                ORDER BY created_at DESC LIMIT 1
+        `, body.CompanyID).Scan(&liveSubID)
+        hasLive := switchErr == nil
+        if switchErr != nil && switchErr != pgx.ErrNoRows {
+                log.Printf("[platform-subscriptions] assign live lookup company=%s: %v", body.CompanyID, switchErr)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_lookup_failed"})
                 return
         }
 
         var subscriptionID string
-        if err := tx.QueryRow(ctx, `
-                INSERT INTO subscriptions
-                    (company_id, plan_id, status, billing_interval,
-                     current_period_start, current_period_end, trial_ends_at, source)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual')
-                RETURNING id::text
-        `, body.CompanyID, body.PlanID, newStatus, body.BillingInterval,
-                periodStart, periodEnd, trialEndsAt).Scan(&subscriptionID); err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{
-                        "error": "subscription_insert_failed", "detail": err.Error(),
-                })
-                return
+        if hasLive {
+                if _, err := tx.Exec(ctx, `
+                        UPDATE subscriptions SET plan_id = $2, status = $3, billing_interval = $4,
+                               current_period_start = $5, current_period_end = $6, trial_ends_at = $7,
+                               cancel_at_period_end = FALSE, updated_at = NOW()
+                        WHERE id = $1
+                `, liveSubID, body.PlanID, newStatus, body.BillingInterval,
+                        periodStart, periodEnd, trialEndsAt); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{
+                                "error": "subscription_transition_failed", "detail": err.Error(),
+                        })
+                        return
+                }
+                subscriptionID = liveSubID
+        } else {
+                if err := tx.QueryRow(ctx, `
+                        INSERT INTO subscriptions
+                            (company_id, plan_id, status, billing_interval,
+                             current_period_start, current_period_end, trial_ends_at, source)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual')
+                        RETURNING id::text
+                `, body.CompanyID, body.PlanID, newStatus, body.BillingInterval,
+                        periodStart, periodEnd, trialEndsAt).Scan(&subscriptionID); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{
+                                "error": "subscription_insert_failed", "detail": err.Error(),
+                        })
+                        return
+                }
         }
 
         // Keep the legacy display column + company status in sync.

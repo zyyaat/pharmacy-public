@@ -66,5 +66,8 @@
   "reactivate_p7": "7 gün",
   "reactivate_p14": "14 gün",
   "reactivate_p30": "30 gün",
-  "reactivate_p90": "90 gün"
+  "reactivate_p90": "90 gün",
+  "view_full_history": "Tüm geçmişi göster",
+  "view_current_only": "Yalnızca güncel",
+  "history_badge": "Geçmiş: {n}"
 }

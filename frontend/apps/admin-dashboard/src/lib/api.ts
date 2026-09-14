@@ -473,6 +473,7 @@ export type SubscriptionRow = {
   cancel_at_period_end: boolean
   source: string
   created_at: string
+  versions?: number
 }
 
 export type PlanPayload = {
@@ -578,10 +579,11 @@ export const subscriptionsApi = {
     const response = await apiFetch<{ data: BillingOverview }>('/platform-admin/subscriptions/overview')
     return response.data
   },
-  async list(params: { status?: string; search?: string; page?: number; pageSize?: number } = {}) {
+  async list(params: { status?: string; search?: string; page?: number; pageSize?: number; history?: boolean } = {}) {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
     if (params.search) query.set('search', params.search)
+    if (params.history) query.set('history', 'true')
     query.set('page', String(params.page ?? 1))
     query.set('page_size', String(params.pageSize ?? 50))
     const response = await apiFetch<{ data: SubscriptionRow[]; pagination: { total: number } }>(

@@ -66,5 +66,8 @@
   "reactivate_p7": "7 أيام",
   "reactivate_p14": "14 يومًا",
   "reactivate_p30": "30 يومًا",
-  "reactivate_p90": "90 يومًا"
+  "reactivate_p90": "90 يومًا",
+  "view_full_history": "عرض السجل الكامل",
+  "view_current_only": "عرض الحالي فقط",
+  "history_badge": "سجل: {n}"
 }
