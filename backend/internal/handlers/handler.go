@@ -123,6 +123,27 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // and (with PAYMOB_DIAG_API_KEY) lists the integration IDs
                 // that really exist on the account. Read-only GET.
                 platformAdmin.GET("/payments/paymob-diagnostics", h.PaymobDiagnostics)
+                // Central product libraries («مكتبات المنتجات») — the
+                // platform control room for the shared catalog: named,
+                // country-targeted, versioned libraries with official prices
+                // per entry + Excel bulk import (price bulletins). Every
+                // write is transactional + audited to platform_audit_logs.
+                // Pharmacy-side import/sync ships in the next api level.
+                platformAdmin.GET("/libraries", h.ListPlatformLibraries)
+                platformAdmin.POST("/libraries", auth.CSRF(auth.PlatformRealm), h.CreatePlatformLibrary)
+                platformAdmin.GET("/libraries/:id", h.GetPlatformLibrary)
+                platformAdmin.PUT("/libraries/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformLibrary)
+                platformAdmin.DELETE("/libraries/:id", auth.CSRF(auth.PlatformRealm), h.DeletePlatformLibrary)
+                platformAdmin.POST("/libraries/:id/publish", auth.CSRF(auth.PlatformRealm), h.PublishPlatformLibrary)
+                platformAdmin.GET("/libraries/:id/changes", h.ListPlatformLibraryChanges)
+                platformAdmin.GET("/libraries/:id/products", h.ListPlatformLibraryProducts)
+                platformAdmin.POST("/libraries/:id/products", auth.CSRF(auth.PlatformRealm), h.AddPlatformLibraryProduct)
+                platformAdmin.PUT("/libraries/:id/products/:pid", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformLibraryProduct)
+                platformAdmin.DELETE("/libraries/:id/products/:pid", auth.CSRF(auth.PlatformRealm), h.RemovePlatformLibraryProduct)
+                platformAdmin.POST("/libraries/:id/import/preview", auth.CSRF(auth.PlatformRealm), h.PreviewPlatformLibraryImport)
+                platformAdmin.POST("/libraries/:id/import/execute", auth.CSRF(auth.PlatformRealm), h.ExecutePlatformLibraryImport)
+                platformAdmin.GET("/catalog/products", h.ListPlatformCatalogProducts)
+                platformAdmin.PUT("/catalog/products/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformCatalogProduct)
 
                 // Pharmacy data is scoped from the authenticated employee/company
                 // principal. These endpoints intentionally do not accept a pharmacy
@@ -357,7 +378,20 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // of ALL platform billing audit rows: the tenant writeAuditLog requires a
 // pharmacy scope a platform principal does not have, so every plan/-
 // subscription/payment audit write used to fail under `_ =`.
-const APILevel = 74
+// 75 — central product libraries («مكتبات المنتجات»): migration 31 adds
+// product_libraries (named, country-targeted, versioned, publishable) +
+// library_products (the OFFICIAL regulated price lives on the library
+// entry, not the global product — one drug, different official prices per
+// country/currency) + library_changes (append-only log powering the
+// pharmacy «الفرق منذ آخر مزامنة» diff) + pharmacy_library_syncs
+// (per-pharmacy last-synced pointer), and global_products gains
+// is_verified + source provenance. Platform-admin endpoints under
+// /platform-admin/libraries (+ /products sub-tree) and
+// /platform-admin/catalog/products: full CRUD, version publishing, Excel
+// bulk import (thousands of products, preview→execute like the pharmacy
+// import), every write audited to platform_audit_logs. Pharmacy-side
+// import/sync ships in the next api level.
+const APILevel = 75
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

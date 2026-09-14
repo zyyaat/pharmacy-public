@@ -136,6 +136,15 @@ var migrationChain = []migration{
                 // an optional company_id for the per-company logs page.
                 name: "00000000000030_platform_audit_logs.sql",
         },
+        {
+                // Central product libraries: named, country-targeted,
+                // versioned catalogs with official prices per library entry,
+                // an append-only change log powering pharmacy diffs, and
+                // per-pharmacy sync pointers. global_products gains
+                // is_verified + source provenance.
+                name:          "00000000000031_product_libraries.sql",
+                legacyMarkers: []string{"product_libraries", "library_products", "library_changes", "pharmacy_library_syncs"},
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

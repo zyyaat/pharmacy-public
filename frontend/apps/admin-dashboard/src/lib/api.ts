@@ -742,6 +742,243 @@ export const paymentsApi = {
 }
 
 // ============================================
+// Central product libraries («مكتبات المنتجات المركزية»)
+// Named, country-targeted, versioned catalogs with the OFFICIAL regulated
+// price living on the library entry (library_products), an append-only
+// change log powering the pharmacy diff, and Excel bulk import for price
+// bulletins. Backend: /platform-admin/libraries (+ /catalog/products).
+// ============================================
+
+export type LibraryRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  country_code: string | null;
+  currency: string;
+  is_published: boolean;
+  version: number;
+  published_at: string | null;
+  product_count: number;
+  synced_pharmacies: number;
+  draft_changes: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LibraryPayload = {
+  name: string;
+  description?: string;
+  country_code?: string;
+  currency?: string;
+};
+
+export type LibraryProductRow = {
+  id: string;
+  global_product_id: string;
+  official_price_piastres: number;
+  notes: string | null;
+  name: string;
+  generic_name: string | null;
+  strength: string | null;
+  dosage_form: string;
+  product_category: string;
+  barcode: string | null;
+  manufacturer_name: string | null;
+  active_ingredient: string | null;
+  requires_prescription: string;
+  is_verified: boolean;
+  updated_at: string;
+};
+
+export type LibraryChangeRow = {
+  id: string;
+  global_product_id: string;
+  product_name: string;
+  version: number;
+  change_type: "added" | "price_changed" | "metadata_changed" | "removed";
+  old_price_piastres: number | null;
+  new_price_piastres: number | null;
+  summary: string | null;
+  created_at: string;
+};
+
+export type CatalogProductRow = {
+  id: string;
+  name: string;
+  generic_name: string | null;
+  strength: string | null;
+  dosage_form: string;
+  product_category: string;
+  barcode: string | null;
+  manufacturer_name: string | null;
+  is_verified: boolean;
+  source: string;
+  is_active: boolean;
+  libraries: Array<{ id: string; name: string }>;
+};
+
+export type LibraryImportPreview = {
+  file_type: string;
+  headers: string[];
+  mapping: Record<string, number>;
+  fields: string[];
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  invalid_reasons: string[];
+  sample: Record<string, string>[];
+};
+
+export type LibraryImportReport = {
+  total_rows: number;
+  added: number;
+  price_updated: number;
+  products_created: number;
+  unchanged: number;
+  failed: number;
+  errors: string[];
+};
+
+export type Pagination = {
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type NewCatalogProduct = {
+  name: string;
+  generic_name?: string;
+  brand_name?: string;
+  dosage_form?: string;
+  strength?: string;
+  product_category?: string;
+  requires_prescription?: string;
+  barcode?: string;
+  generate_barcode?: boolean;
+  manufacturer_name?: string;
+  manufacturer_country?: string;
+  active_ingredient?: string;
+  atc_code?: string;
+  therapeutic_class?: string;
+  storage_instructions?: string;
+  description?: string;
+};
+
+export const librariesApi = {
+  async list() {
+    const response = await apiFetch<{ data: LibraryRow[] }>("/platform-admin/libraries");
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiFetch<{ data: LibraryRow }>(`/platform-admin/libraries/${id}`);
+    return response.data;
+  },
+
+  async create(payload: LibraryPayload) {
+    const response = await apiFetch<{ data: LibraryRow }>("/platform-admin/libraries", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  },
+
+  async update(id: string, payload: LibraryPayload) {
+    const response = await apiFetch<{ data: LibraryRow }>(`/platform-admin/libraries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  },
+
+  async remove(id: string) {
+    await apiFetch(`/platform-admin/libraries/${id}`, { method: "DELETE" });
+  },
+
+  async publish(id: string) {
+    const response = await apiFetch<{ data: { version: number; first_publish: boolean } }>(
+      `/platform-admin/libraries/${id}/publish`,
+      { method: "POST" }
+    );
+    return response.data;
+  },
+
+  async products(id: string, search: string, page: number, pageSize = 20) {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (search) params.set("search", search);
+    const response = await apiFetch<{ data: LibraryProductRow[]; pagination: Pagination }>(
+      `/platform-admin/libraries/${id}/products?${params}`
+    );
+    return { items: response.data, pagination: response.pagination };
+  },
+
+  async changes(id: string, page: number, pageSize = 20) {
+    const response = await apiFetch<{ data: LibraryChangeRow[]; pagination: Pagination }>(
+      `/platform-admin/libraries/${id}/changes?page=${page}&page_size=${pageSize}`
+    );
+    return { items: response.data, pagination: response.pagination };
+  },
+
+  async addProduct(id: string, payload: { global_product_id?: string; official_price_piastres?: number; notes?: string; new_product?: NewCatalogProduct }) {
+    const response = await apiFetch<{ data: { global_product_id: string; action: string } }>(
+      `/platform-admin/libraries/${id}/products`,
+      { method: "POST", body: JSON.stringify(payload) }
+    );
+    return response.data;
+  },
+
+  async updateProduct(id: string, pid: string, payload: { official_price_piastres?: number; notes?: string }) {
+    await apiFetch(`/platform-admin/libraries/${id}/products/${pid}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async removeProduct(id: string, pid: string) {
+    await apiFetch(`/platform-admin/libraries/${id}/products/${pid}`, { method: "DELETE" });
+  },
+
+  async importPreview(id: string, file: File, mapping?: Record<string, number>) {
+    const form = new FormData();
+    form.append("file", file);
+    if (mapping) form.append("mapping", JSON.stringify(mapping));
+    const response = await apiFetch<{ data: LibraryImportPreview }>(
+      `/platform-admin/libraries/${id}/import/preview`,
+      { method: "POST", body: form }
+    );
+    return response.data;
+  },
+
+  async importExecute(id: string, file: File, mapping?: Record<string, number>) {
+    const form = new FormData();
+    form.append("file", file);
+    if (mapping) form.append("mapping", JSON.stringify(mapping));
+    const response = await apiFetch<{ data: LibraryImportReport }>(
+      `/platform-admin/libraries/${id}/import/execute`,
+      { method: "POST", body: form }
+    );
+    return response.data;
+  },
+
+  async catalogProducts(search: string, page: number, pageSize = 20) {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (search) params.set("search", search);
+    const response = await apiFetch<{ data: CatalogProductRow[]; pagination: Pagination }>(
+      `/platform-admin/catalog/products?${params}`
+    );
+    return { items: response.data, pagination: response.pagination };
+  },
+
+  async updateCatalogProduct(id: string, payload: Partial<NewCatalogProduct> & { is_verified?: boolean; is_active?: boolean }) {
+    await apiFetch(`/platform-admin/catalog/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+// ============================================
 // Health Check
 // ============================================
 

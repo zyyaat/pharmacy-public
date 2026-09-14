@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Wallet,
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -48,6 +49,11 @@ const sidebarItems: SidebarItem[] = [
     title: "plans",
     href: "/plans",
     icon: <Package className="h-5 w-5" />,
+  },
+  {
+    title: "libraries",
+    href: "/libraries",
+    icon: <Library className="h-5 w-5" />,
   },
   {
     title: "subscriptions",
