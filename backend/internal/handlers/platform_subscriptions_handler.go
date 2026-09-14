@@ -360,6 +360,28 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                 }
                 summary = "تعليق اشتراك " + planSlug
         case "reactivate":
+                // Name the exact blocking row: the one-live-per-company rule
+                // (unique partial index) forbids a second live subscription,
+                // and the admin can only resolve the conflict if the message
+                // says WHICH live state stands in the way — labels mirror the
+                // admin list (ar: بانتظار الدفع / تجريبي / نشط). The 23505
+                // guard below remains the race safety net.
+                var liveStatus string
+                if err := tx.QueryRow(ctx, `
+                        SELECT status FROM subscriptions
+                        WHERE company_id = $1 AND id <> $2
+                          AND status IN ('pending','trial','active')
+                        ORDER BY created_at DESC LIMIT 1
+                `, companyID, id).Scan(&liveStatus); err == nil {
+                        label := map[string]string{
+                                "pending": "بانتظار الدفع",
+                                "trial":   "تجريبي",
+                                "active":  "نشط",
+                        }[liveStatus]
+                        c.JSON(http.StatusConflict, gin.H{"error": "subscription_conflict",
+                                "message": "لا يمكن إعادة التفعيل: لهذه الشركة اشتراك آخر بحالة «" + label + "» ما زال حيًا — ألغِه من القائمة أولًا (فلتر «كل الحالات» إن لم يظهر) ثم أعد تفعيل هذا الصف"})
+                        return
+                }
                 // Reactivation must restore access IMMEDIATELY: reactivating a
                 // row whose period end is past (or missing) would be lazily
                 // re-expired on the very next read — an invisible no-op trap.
