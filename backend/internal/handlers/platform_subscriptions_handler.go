@@ -352,12 +352,20 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                                 effectiveEnd = &t
                         }
                 }
-                if _, err := tx.Exec(ctx, `
+                tag, err := tx.Exec(ctx, `
                         UPDATE subscriptions SET status = 'active',
                                current_period_end = COALESCE($2, current_period_end), updated_at = NOW()
                         WHERE id = $1 AND status IN ('suspended','expired','cancelled')
-                `, id, effectiveEnd); err != nil {
+                `, id, effectiveEnd)
+                if err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_reactivate_failed"})
+                        return
+                }
+                // صفر صفوف = حالة لا يغطيها الزر أصلًا (مثل trial المنتهية) —
+                // كان يُعاد 200 «نجاح» بلا أي تغيير: فخ صامت أثبته إعادة الإنتاج.
+                if tag.RowsAffected() == 0 {
+                        c.JSON(http.StatusConflict, gin.H{"error": "invalid_state",
+                                "message": "لا يمكن إعادة تفعيل الاشتراك في حالته الحالية — حدّث الصفحة وأعد المحاولة أو سجّل دفعة يدوية"})
                         return
                 }
                 if _, err := tx.Exec(ctx, `

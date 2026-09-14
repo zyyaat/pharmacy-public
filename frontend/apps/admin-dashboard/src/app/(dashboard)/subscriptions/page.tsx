@@ -18,7 +18,7 @@ import {
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import {
-  plansApi, subscriptionsApi, companiesApi,
+  plansApi, subscriptionsApi, companiesApi, ApiError,
   type PlanRow, type SubscriptionRow, type BillingOverview,
 } from "@/lib/api";
 import { useT } from "@/i18n/provider";
@@ -113,8 +113,10 @@ export default function SubscriptionsPage() {
       await subscriptionsApi.action(row.id, { action });
       toast.success(t("saved"));
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -129,8 +131,10 @@ export default function SubscriptionsPage() {
       });
       toast.success(t("saved"));
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -153,8 +157,10 @@ export default function SubscriptionsPage() {
       toast.success(t("saved"));
       setAssignOpen(false);
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -171,8 +177,10 @@ export default function SubscriptionsPage() {
       toast.success(t("saved"));
       setReactRow(null);
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -189,8 +197,10 @@ export default function SubscriptionsPage() {
       toast.success(t("saved"));
       setExtendRow(null);
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -211,8 +221,10 @@ export default function SubscriptionsPage() {
       toast.success(res?.duplicate ? t("duplicate_payment") : t("saved"));
       setPayRow(null);
       await reload();
-    } catch {
-      toast.error(t("failed"));
+    } catch (e) {
+      // رسالة الخادم الحقيقية أولًا (invalid_state/period_end_required…) —
+      // «فشل» العمياء تركت المسؤول بلا سبب (درس بلاغ إعادة التفعيل)
+      toast.error(e instanceof ApiError && e.message ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
