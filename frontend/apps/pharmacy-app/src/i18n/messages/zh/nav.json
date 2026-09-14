@@ -1,6 +1,7 @@
 {
   "dashboard": "控制面板",
   "inventory": "库存与药品",
+  "libraries": "产品库",
   "pos": "销售点",
   "sales": "销售记录",
   "customers": "客户账户",

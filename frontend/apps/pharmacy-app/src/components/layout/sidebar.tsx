@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight, NotebookPen } from 'lucide-react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, Library, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight, NotebookPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
@@ -19,6 +19,7 @@ import { useT } from '@/i18n/provider'
 const items = [
   { key: 'dashboard', href: '/', icon: LayoutDashboard },
   { key: 'inventory', href: '/inventory', icon: Package },
+  { key: 'libraries', href: '/libraries', icon: Library },
   { key: 'pos', href: '/pos', icon: ReceiptText },
   { key: 'sales', href: '/sales', icon: History },
   { key: 'customers', href: '/customers', icon: NotebookPen },
@@ -40,6 +41,7 @@ function requiredPermissions(href: string): string[] | null {
 const ITEM_FEATURES: Record<string, string> = {
   '/inventory': 'inventory',
   '/inventory/movements': 'inventory',
+  '/libraries': 'inventory',
   '/pos': 'pos',
   '/sales': 'sales',
   '/customers': 'customers',

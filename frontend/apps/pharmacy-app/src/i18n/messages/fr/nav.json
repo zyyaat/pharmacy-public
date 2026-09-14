@@ -1,6 +1,7 @@
 {
   "dashboard": "Tableau de bord",
   "inventory": "Inventaire et médicaments",
+  "libraries": "Bibliothèques de produits",
   "pos": "Point de vente",
   "sales": "Journal des ventes",
   "customers": "Comptes clients",

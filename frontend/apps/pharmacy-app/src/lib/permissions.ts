@@ -12,6 +12,7 @@ export type { PermissionModule, PermissionTemplate }
 export const SIDEBAR_PERMISSION_ROUTES: Array<{ href: string; anyOf: string[] }> = [
   { href: '/inventory/movements', anyOf: ['inventory.movements.view', 'inventory.view'] },
   { href: '/inventory', anyOf: ['inventory.view'] },
+  { href: '/libraries', anyOf: ['inventory.view'] },
   { href: '/pos', anyOf: ['pos.access'] },
   { href: '/sales', anyOf: ['sales.view'] },
   { href: '/customers', anyOf: ['customers.view'] },

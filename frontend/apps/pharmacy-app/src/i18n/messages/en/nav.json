@@ -1,6 +1,7 @@
 {
   "dashboard": "Dashboard",
   "inventory": "Inventory & Medicines",
+  "libraries": "Product Libraries",
   "pos": "Point of Sale",
   "sales": "Sales Log",
   "customers": "Customer Accounts",

@@ -1,6 +1,7 @@
 {
   "dashboard": "Panel",
   "inventory": "Inventario y medicamentos",
+  "libraries": "Bibliotecas de productos",
   "pos": "Punto de venta",
   "sales": "Registro de ventas",
   "customers": "Cuentas de clientes",
