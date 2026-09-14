@@ -10,6 +10,7 @@
 package handlers
 
 import (
+        "context"
         "errors"
         "log"
         "net/http"
@@ -33,6 +34,43 @@ import (
 func uniqueViolation(err error) bool {
         var pgErr *pgconn.PgError
         return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// liveBlocker finds the company's OTHER live subscription (pending/trial/
+// active) — the row that would break one_live_subscription_per_company when
+// reactivate/extend set this row active. Empty status = no blocker.
+func liveBlocker(ctx context.Context, tx pgx.Tx, companyID, excludeID string) (string, string, *time.Time, error) {
+        var blockerID, blockerStatus string
+        var trialEnds *time.Time
+        err := tx.QueryRow(ctx, `
+                SELECT id::text, status, trial_ends_at
+                FROM subscriptions
+                WHERE company_id = $1::uuid AND id <> $2::uuid
+                  AND status IN ('pending','trial','active')
+                ORDER BY created_at DESC
+                LIMIT 1
+        `, companyID, excludeID).Scan(&blockerID, &blockerStatus, &trialEnds)
+        if err == pgx.ErrNoRows {
+                return "", "", nil, nil
+        }
+        if err != nil {
+                return "", "", nil, err
+        }
+        return blockerID, blockerStatus, trialEnds, nil
+}
+
+// retireStaleIntent cancels an UNPAID pending payment-intent row atomically
+// inside the caller's transaction. A pending intent never granted access and
+// never recorded revenue, so retiring it is bookkeeping hygiene, not a
+// billing decision — the admin must not have to hunt for an invisible row
+// (production evidence: a stale Paymob intent blocked every reactivate with
+// an opaque 500, and the blocking row was hidden behind status filters).
+func retireStaleIntent(ctx context.Context, tx pgx.Tx, blockerID string) error {
+        _, err := tx.Exec(ctx, `
+                UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
+                WHERE id = $1::uuid AND status = 'pending'
+        `, blockerID)
+        return err
 }
 
 // ListPlatformSubscriptions returns the subscription ledger with company
@@ -296,6 +334,7 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
         }
 
         summary := ""
+        autoCancelledPending := ""
         switch body.Action {
         case "extend", "set_period_end":
                 if body.CurrentPeriodEnd == nil {
@@ -315,6 +354,25 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                         }
                         summary = "تمديد تجربة " + planSlug
                 } else {
+                        blockerID, blockerStatus, _, err := liveBlocker(ctx, tx, companyID, id)
+                        if err != nil {
+                                log.Printf("[platform-subscriptions] extend blocker lookup error id=%s: %v", id, err)
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_lookup_failed"})
+                                return
+                        }
+                        if blockerStatus == "pending" {
+                                if err := retireStaleIntent(ctx, tx, blockerID); err != nil {
+                                        log.Printf("[platform-subscriptions] extend retire-stale error id=%s: %v", blockerID, err)
+                                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_extend_failed"})
+                                        return
+                                }
+                                autoCancelledPending = blockerID
+                        } else if blockerStatus != "" {
+                                label := map[string]string{"trial": "تجريبي", "active": "نشط"}[blockerStatus]
+                                c.JSON(http.StatusConflict, gin.H{"error": "subscription_conflict",
+                                        "message": "لا يمكن التمديد: الشركة لديها اشتراك «" + label + "» حي — ألغِه من القائمة أولًا إن أردت تمديد هذا الصف بدلًا منه"})
+                                return
+                        }
                         if _, err := tx.Exec(ctx, `
                                 UPDATE subscriptions SET status = 'active', current_period_end = $2,
                                        cancel_at_period_end = COALESCE($3, cancel_at_period_end), updated_at = NOW()
@@ -360,26 +418,42 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                 }
                 summary = "تعليق اشتراك " + planSlug
         case "reactivate":
-                // Name the exact blocking row: the one-live-per-company rule
-                // (unique partial index) forbids a second live subscription,
-                // and the admin can only resolve the conflict if the message
-                // says WHICH live state stands in the way — labels mirror the
-                // admin list (ar: بانتظار الدفع / تجريبي / نشط). The 23505
-                // guard below remains the race safety net.
-                var liveStatus string
-                if err := tx.QueryRow(ctx, `
-                        SELECT status FROM subscriptions
-                        WHERE company_id = $1 AND id <> $2
-                          AND status IN ('pending','trial','active')
-                        ORDER BY created_at DESC LIMIT 1
-                `, companyID, id).Scan(&liveStatus); err == nil {
-                        label := map[string]string{
-                                "pending": "بانتظار الدفع",
-                                "trial":   "تجريبي",
-                                "active":  "نشط",
-                        }[liveStatus]
+                // One live subscription per company (unique partial index).
+                // Resolution policy (product decision after the production
+                // 500 report — the admin must never hunt for an invisible
+                // blocking row):
+                //   pending  → retire it automatically (unpaid intent: no
+                //              access ever granted, no revenue recorded) and
+                //              proceed — audited as auto_cancelled_pending;
+                //   trial/active → refuse with the EXACT state and end date,
+                //              because cancelling a live access-granting state
+                //              is a real commercial decision, not hygiene.
+                // The 23505 guard below remains the race safety net.
+                blockerID, blockerStatus, blockerTrialEnd, err := liveBlocker(ctx, tx, companyID, id)
+                if err != nil {
+                        log.Printf("[platform-subscriptions] blocker lookup error id=%s: %v", id, err)
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_lookup_failed"})
+                        return
+                }
+                if blockerStatus == "pending" {
+                        if err := retireStaleIntent(ctx, tx, blockerID); err != nil {
+                                log.Printf("[platform-subscriptions] reactivate retire-stale error id=%s: %v", blockerID, err)
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_reactivate_failed"})
+                                return
+                        }
+                        autoCancelledPending = blockerID
+                } else if blockerStatus != "" {
+                        label := map[string]string{"trial": "تجريبي", "active": "نشط"}[blockerStatus]
+                        hint := map[string]string{
+                                "trial":  "ألغِه من القائمة أولًا إن أردت تفعيل هذا الصف بدلًا منه",
+                                "active": "الوصول مفتوح أصلًا؛ إن أردت تفعيل هذا الصف بدلًا منه ألغِ الصف النشط أولًا",
+                        }[blockerStatus]
+                        detail := ""
+                        if blockerStatus == "trial" && blockerTrialEnd != nil {
+                                detail = " حتى " + blockerTrialEnd.Format("2006-01-02")
+                        }
                         c.JSON(http.StatusConflict, gin.H{"error": "subscription_conflict",
-                                "message": "لا يمكن إعادة التفعيل: لهذه الشركة اشتراك آخر بحالة «" + label + "» ما زال حيًا — ألغِه من القائمة أولًا (فلتر «كل الحالات» إن لم يظهر) ثم أعد تفعيل هذا الصف"})
+                                "message": "لا يمكن إعادة التفعيل: الشركة لديها اشتراك «" + label + "» حي" + detail + " — " + hint})
                         return
                 }
                 // Reactivation must restore access IMMEDIATELY: reactivating a
@@ -442,7 +516,8 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
         }
 
         _ = writeAuditLog(ctx, tx, principal, "subscription."+body.Action, "billing", "subscription", id,
-                map[string]any{"action": body.Action, "from_status": status}, summary)
+                map[string]any{"action": body.Action, "from_status": status,
+                        "auto_cancelled_pending": autoCancelledPending}, summary)
         if err := tx.Commit(ctx); err != nil {
                 log.Printf("[platform-subscriptions] commit error action=%s id=%s: %v", body.Action, id, err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "subscription_commit_failed"})
