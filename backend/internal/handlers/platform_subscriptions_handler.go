@@ -355,7 +355,7 @@ func (h *Handler) CreatePlatformSubscription(c *gin.Context) {
                 return
         }
 
-        _ = writeAuditLog(ctx, tx, principal, "subscription.assign", "billing", "subscription", subscriptionID,
+        _ = writePlatformAuditLog(ctx, tx, principal, "subscription.assign", "billing", "subscription", subscriptionID, body.CompanyID,
                 map[string]any{"company_id": body.CompanyID, "plan": planSlug, "status": newStatus},
                 "إسناد خطة " + planName + " إلى " + companyName)
         if err := tx.Commit(ctx); err != nil {
@@ -589,7 +589,7 @@ func (h *Handler) UpdatePlatformSubscription(c *gin.Context) {
                 return
         }
 
-        _ = writeAuditLog(ctx, tx, principal, "subscription."+body.Action, "billing", "subscription", id,
+        _ = writePlatformAuditLog(ctx, tx, principal, "subscription."+body.Action, "billing", "subscription", id, companyID,
                 map[string]any{"action": body.Action, "from_status": status,
                         "auto_cancelled_pending": autoCancelledPending}, summary)
         if err := tx.Commit(ctx); err != nil {
@@ -710,7 +710,7 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
                 return
         }
 
-        _ = writeAuditLog(ctx, tx, principal, "payment.manual", "billing", "payment", paymentID,
+        _ = writePlatformAuditLog(ctx, tx, principal, "payment.manual", "billing", "payment", paymentID, body.CompanyID,
                 map[string]any{"company_id": body.CompanyID, "plan": planSlug, "amount_piastres": amount},
                 "تسجيل دفع يدوي لخطة " + planName)
         if err := tx.Commit(ctx); err != nil {

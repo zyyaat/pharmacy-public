@@ -371,7 +371,57 @@ func (s *Service) loadSets(ctx context.Context, eff *models.EffectivePlan) error
         eff.Permissions = permissions
         eff.Features = features
         eff.Limits = limits
+        // Per-company overrides merge ON TOP of the plan baseline (migration
+        // 29) — one merged source of truth for gates and sidebar alike.
+        if err := s.loadEntitlementOverrides(ctx, eff.CompanyID, eff); err != nil {
+                return err
+        }
         return nil
+}
+
+// loadEntitlementOverrides merges per-company overrides ON TOP of the plan
+// sets (migration 29): feature/permission enabled-flags and limit values.
+// Unexpired overrides only — expires_at makes promotional grants
+// self-reversing. Merging INSIDE loadSets means the cached EffectivePlan is
+// one merged source of truth: the permission gate, the limit gate and the
+// pharmacy sidebar (which serializes eff.Features) can never diverge —
+// the lesson of the plan_features/plan_permissions seed drift.
+func (s *Service) loadEntitlementOverrides(ctx context.Context, companyID string, eff *models.EffectivePlan) error {
+        rows, err := s.db.Query(ctx, `
+                SELECT kind, key, enabled, value
+                FROM company_entitlements
+                WHERE company_id = $1
+                  AND (expires_at IS NULL OR expires_at > NOW())
+        `, companyID)
+        if err != nil {
+                return fmt.Errorf("load company entitlements: %w", err)
+        }
+        defer rows.Close()
+        for rows.Next() {
+                var kind, key string
+                var enabled *bool
+                var value *int
+                if err := rows.Scan(&kind, &key, &enabled, &value); err != nil {
+                        return err
+                }
+                switch kind {
+                case "feature":
+                        if eff.Features == nil {
+                                eff.Features = make(map[string]bool)
+                        }
+                        eff.Features[key] = enabled != nil && *enabled
+                case "permission":
+                        if eff.Permissions == nil {
+                                eff.Permissions = make(map[string]bool)
+                        }
+                        eff.Permissions[key] = enabled != nil && *enabled
+                case "limit":
+                        if value != nil && eff.Limits != nil {
+                                eff.Limits[key] = *value
+                        }
+                }
+        }
+        return rows.Err()
 }
 
 // ---------------------------------------------------------------------------

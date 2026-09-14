@@ -343,7 +343,7 @@ func (h *Handler) CreatePlatformPlan(c *gin.Context) {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "plan_sets_failed"})
                 return
         }
-        _ = writeAuditLog(ctx, tx, principal, "plan.create", "billing", "plan", id,
+        _ = writePlatformAuditLog(ctx, tx, principal, "plan.create", "billing", "plan", id, "",
                 map[string]any{"slug": payload.Slug, "name": payload.Name},
                 "إنشاء خطة "+payload.Name)
         if err := tx.Commit(ctx); err != nil {
@@ -429,7 +429,7 @@ func (h *Handler) UpdatePlatformPlan(c *gin.Context) {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "plan_sets_failed"})
                 return
         }
-        _ = writeAuditLog(ctx, tx, principal, "plan.update", "billing", "plan", id,
+        _ = writePlatformAuditLog(ctx, tx, principal, "plan.update", "billing", "plan", id, "",
                 map[string]any{"name": payload.Name},
                 "تعديل خطة "+payload.Name)
         if err := tx.Commit(ctx); err != nil {

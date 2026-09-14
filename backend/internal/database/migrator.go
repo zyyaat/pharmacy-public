@@ -124,6 +124,18 @@ var migrationChain = []migration{
         {
                 name: "00000000000028_saas_plan_seed_repair.sql",
         },
+        {
+                // Per-company entitlement overrides (plan baseline + per-account
+                // grants/denies/limit tweaks) + the platform audit log table.
+                name: "00000000000029_company_entitlements.sql",
+        },
+        {
+                // Platform actions were silently un-audited: the tenant
+                // writeAuditLog needs a pharmacy scope a platform principal
+                // does not have. This table hosts global billing events with
+                // an optional company_id for the per-company logs page.
+                name: "00000000000030_platform_audit_logs.sql",
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

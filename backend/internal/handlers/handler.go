@@ -108,6 +108,16 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.GET("/payments", h.ListPlatformPayments)
                 platformAdmin.POST("/payments/manual", auth.CSRF(auth.PlatformRealm), h.CreateManualPayment)
                 platformAdmin.POST("/payments/:id/refund", auth.CSRF(auth.PlatformRealm), h.RefundPlatformPayment)
+                // Task 15 — per-company account page: profile + per-company
+                // entitlement overrides (plan baseline + per-account merge)
+                // + the account's own audit log. Company-scoped routes are
+                // NESTED under /companies/:id/* so the wildcard-free path
+                // keeps /payments/paymob-diagnostics resolvable.
+                platformAdmin.GET("/companies/:id", h.GetPlatformCompany)
+                platformAdmin.GET("/companies/:id/entitlements", h.ListCompanyEntitlements)
+                platformAdmin.POST("/companies/:id/entitlements", auth.CSRF(auth.PlatformRealm), h.UpsertCompanyEntitlement)
+                platformAdmin.DELETE("/companies/:id/entitlements/:eid", auth.CSRF(auth.PlatformRealm), h.DeleteCompanyEntitlement)
+                platformAdmin.GET("/companies/:id/logs", h.ListCompanyLogs)
                 // Task 90 prod diagnostics — super-admin self-service for the
                 // intention 404 investigation: echoes the exact Paymob config
                 // and (with PAYMOB_DIAG_API_KEY) lists the integration IDs
@@ -336,7 +346,18 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // 27 is wired into the chain retroactively (payments.idempotency_key was
 // authored but never applied — manual payments would 42703), and a startup
 // consistency guard logs any plan whose features lack their permissions.
-const APILevel = 73
+// 74 — per-company account page + «التحكم الكامل» (professional SaaS
+// pattern): migration 29 adds company_entitlements — per-account
+// feature/permission/limit overrides merged ON TOP of the plan baseline
+// (resolution: override → plan) inside loadSets, so the permission gate,
+// the limit gate and the pharmacy sidebar all see ONE merged source of
+// truth; overrides are self-reversing via expires_at and audited. New
+// endpoints: GET /platform-admin/companies/:id (+ /entitlements CRUD +
+// /logs). Migration 30 adds platform_audit_logs and fixes the silent loss
+// of ALL platform billing audit rows: the tenant writeAuditLog requires a
+// pharmacy scope a platform principal does not have, so every plan/-
+// subscription/payment audit write used to fail under `_ =`.
+const APILevel = 74
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

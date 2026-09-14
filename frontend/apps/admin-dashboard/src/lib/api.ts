@@ -538,6 +538,88 @@ export const featuresApi = {
   },
 }
 
+// ============================================
+// Account page API (Task 15 — per-company control + logs)
+// ============================================
+
+export type CompanyProfile = {
+  id: string
+  name: string
+  name_ar: string
+  email: string
+  phone: string
+  status: string
+  legacy_plan: string
+  max_users_per_account: number
+  created_at: string
+  subscription: SubscriptionRow | null
+  usage: Record<string, number>
+  active_overrides: number
+}
+
+export type EntitlementRow = {
+  id: string
+  kind: 'feature' | 'permission' | 'limit'
+  key: string
+  enabled: boolean | null
+  value: number | null
+  reason: string
+  expires_at: string | null
+  created_by: string
+  created_at: string
+  expired: boolean
+  bundle_key: string
+}
+
+export type EntitlementPayload = {
+  kind: 'feature' | 'permission' | 'limit'
+  key: string
+  enabled?: boolean
+  value?: number
+  reason?: string
+  expires_at?: string
+}
+
+export type CompanyLogRow = {
+  id: string
+  action: string
+  entity_type: string
+  entity_id: string
+  summary: string
+  actor: string
+  created_at: string
+}
+
+export const accountApi = {
+  async profile(id: string) {
+    const response = await apiFetch<{ data: CompanyProfile }>(`/platform-admin/companies/${id}`)
+    return response.data
+  },
+
+  async entitlements(id: string) {
+    const response = await apiFetch<{ data: EntitlementRow[] }>(
+      `/platform-admin/companies/${id}/entitlements`)
+    return response.data
+  },
+
+  async upsertEntitlement(id: string, payload: EntitlementPayload) {
+    const response = await apiFetch<{ data: { id: string } }>(
+      `/platform-admin/companies/${id}/entitlements`,
+      { method: 'POST', body: JSON.stringify(payload) })
+    return response.data
+  },
+
+  async deleteEntitlement(id: string, eid: string) {
+    await apiFetch(`/platform-admin/companies/${id}/entitlements/${eid}`, { method: 'DELETE' })
+  },
+
+  async logs(id: string, page = 1) {
+    const response = await apiFetch<{ data: CompanyLogRow[]; pagination: { total: number; page: number } }>(
+      `/platform-admin/companies/${id}/logs?page=${page}&page_size=50`)
+    return response
+  },
+}
+
 export type PaymentRow = {
   id: string
   company: { id: string; name: string; email: string }

@@ -75,3 +75,69 @@ func writeAuditLog(
 func auditFailure(scope string, err error) {
         log.Printf("[AUDIT] %s write failed: %v", scope, err)
 }
+
+// writePlatformAuditLog records a platform (global SaaS operator) action in
+// platform_audit_logs (migration 30). The tenant writeAuditLog can never
+// host these events: audit_logs.pharmacy_id is NOT NULL (tenant RLS) and a
+// platform principal carries no pharmacy — every billing mutation used to
+// fail that lookup silently under `_ =`, so NO platform audit row was ever
+// written. companyID links the event to the affected account so the new
+// per-company logs page can show one account's history; plan-scope events
+// (plan.create/update) pass an empty companyID and land only in the global
+// feed.
+func writePlatformAuditLog(
+        ctx context.Context,
+        tx pgx.Tx,
+        principal *auth.Principal,
+        action, actionCategory, entityType, entityID, companyID string,
+        metadata map[string]any,
+        summary string,
+) error {
+        if metadata == nil {
+                metadata = map[string]any{}
+        }
+        blob, err := json.Marshal(metadata)
+        if err != nil {
+                blob = []byte(`{}`)
+        }
+        var actorID string
+        if principal != nil {
+                actorID = principal.ID
+        }
+        _, err = tx.Exec(ctx, `
+                INSERT INTO platform_audit_logs (
+                        actor_id, actor_email, actor_display_name, actor_role,
+                        action, action_category, entity_type, entity_id, company_id,
+                        metadata, changes_summary, severity
+                ) VALUES (
+                        NULLIF($1, ''), $2, $3, $4,
+                        $5, $6, $7, NULLIF($8, ''), NULLIF($9, '')::uuid,
+                        $10::jsonb, $11, 'info'
+                )
+        `, actorID,
+                principalEmail(principal), principalName(principal), principalRole(principal),
+                action, actionCategory, entityType, entityID, companyID,
+                string(blob), summary)
+        return err
+}
+
+func principalEmail(p *auth.Principal) string {
+        if p == nil {
+                return ""
+        }
+        return p.Email
+}
+
+func principalName(p *auth.Principal) string {
+        if p == nil {
+                return ""
+        }
+        return p.DisplayName
+}
+
+func principalRole(p *auth.Principal) string {
+        if p == nil {
+                return ""
+        }
+        return p.Role
+}
