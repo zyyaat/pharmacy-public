@@ -217,6 +217,17 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 pharmacy.GET("/imports/products/template", perm("inventory.import"), h.ProductImportTemplate)
                 pharmacy.POST("/imports/products/preview", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.PreviewProductImport)
                 pharmacy.POST("/imports/products/execute", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.ExecuteProductImport)
+                // مكتبات المنتجات المركزية (المرحلة 2): المكتبات المرئية
+                // للصيدلية حسب البلد + الاستيراد الذكي بالبوابات الثلاث
+                // (اختيار ← كشف تكرار ← سقف الخطة) + سحب التحديثات بعد النشر.
+                // القاعدة الحمراء: المخزون والتكلفة لا يُمسّان أبدًا.
+                pharmacy.GET("/libraries", perm("inventory.view"), h.ListPharmacyLibraries)
+                pharmacy.GET("/libraries/:id", perm("inventory.view"), h.GetPharmacyLibrary)
+                pharmacy.GET("/libraries/:id/products", perm("inventory.view"), h.ListPharmacyLibraryProducts)
+                pharmacy.GET("/libraries/:id/diff", perm("inventory.view"), h.GetPharmacyLibraryDiff)
+                pharmacy.POST("/libraries/:id/import/preview", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.PreviewPharmacyLibraryImport)
+                pharmacy.POST("/libraries/:id/import/execute", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.ExecutePharmacyLibraryImport)
+                pharmacy.POST("/libraries/:id/sync", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("inventory.import"), h.SyncPharmacyLibrary)
                 pharmacy.GET("/pos/products", perm("pos.access"), h.LookupPOSProduct)
                 pharmacy.GET("/pos/search", perm("pos.access"), h.SearchPOSProducts)
                 pharmacy.POST("/pos/sales", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), perm("pos.access"), h.CreatePOSSale)
@@ -391,7 +402,23 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // bulk import (thousands of products, preview→execute like the pharmacy
 // import), every write audited to platform_audit_logs. Pharmacy-side
 // import/sync ships in the next api level.
-const APILevel = 75
+// 76 — pharmacy-side library import & sync (product libraries Phase 2):
+// GET /pharmacy/libraries (+ /:id, /:id/products, /:id/diff) list the
+// libraries visible to this pharmacy (published + country match/universal)
+// with per-library sync state («not_imported | up_to_date |
+// update_available» + pending change counts). POST /:id/import/preview →
+// /import/execute run the three approved gates: selection, dedup against
+// the pharmacy's own products (exact barcode → suggest link; pg_trgm name
+// similarity ≥ 0.55 surfaces suspects with side-by-side matches, ≥ 0.72
+// auto-links during sync), and the plan product limit as a soft gate
+// (skipped items flagged plan_limit — never a silent failure). POST
+// /:id/sync pulls only the delta since the pharmacy's last synced version.
+// Red lines enforced server-side: inventory batches and stock movements are
+// never touched, cost_price is never written, selling_price follows the
+// official library price, «removed» library entries are informational only
+// — imported products stay owned by the pharmacy. Tenant audit rows
+// (libraries.import / libraries.sync) via writeAuditLog.
+const APILevel = 76
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
