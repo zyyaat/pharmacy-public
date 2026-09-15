@@ -51,6 +51,45 @@ const (
         PaymentStatusCancelled = "cancelled"
 )
 
+// How a payment's success became known to us (payments.confirmation_source).
+// webhook = provider event with a verified signature; sync = we pulled the
+// session from the provider API (lost-webhook recovery); manual = the super
+// admin's own out-of-band entry.
+const (
+        PaymentConfirmedByWebhook = "webhook"
+        PaymentConfirmedBySync    = "sync"
+        PaymentConfirmedByManual  = "manual"
+)
+
+// Settlement statuses (payment_settlements.status CHECK, migration 32).
+// pending = the provider captured the money (confirmation) but the bank
+// payout is not matched yet; settled/partially_settled = the operator
+// matched an XPay payout batch; unknown/disputed = conflict or chargeback
+// — always paired with payments.needs_review. Manual payments have no
+// settlement row: there is no provider to settle with.
+const (
+        SettlementStatusPending          = "pending"
+        SettlementStatusSettled          = "settled"
+        SettlementStatusPartiallySettled = "partially_settled"
+        SettlementStatusFailed           = "failed"
+        SettlementStatusDisputed         = "disputed"
+        SettlementStatusUnknown          = "unknown"
+)
+
+// payment_transactions event kinds added by migration 32 (the original
+// intent/webhook/refund/void stay unchanged).
+const (
+        TxnTypeSync         = "sync"
+        TxnTypeSettlement   = "settlement"
+        TxnTypeReview       = "review"
+        TxnTypeStatusChange = "status_change"
+)
+
+// StalePendingHours marks when an unconfirmed online payment becomes a
+// reconciliation candidate: after this long a session is either abandoned
+// or its webhook was lost — the resync action asks the provider directly.
+const StalePendingHours = 24
+
 // Known plan limit keys. The limits table itself is dynamic (any key), but
 // the backend enforces these counters at the matching creation endpoints.
 const (
@@ -188,6 +227,7 @@ func (e *EffectivePlan) Limit(key string) int {
 // Payment is one payment attempt (Paymob intention or manual registration).
 type Payment struct {
         ID                string     `json:"id"`
+        Number            string     `json:"number,omitempty"`
         CompanyID         string     `json:"company_id"`
         SubscriptionID    string     `json:"subscription_id,omitempty"`
         PlanID            string     `json:"plan_id"`
@@ -197,9 +237,34 @@ type Payment struct {
         Provider          string     `json:"provider"`
         ProviderReference string     `json:"provider_reference,omitempty"`
         Status            string     `json:"status"`
+        ConfirmedAt       *time.Time `json:"confirmed_at,omitempty"`
+        ConfirmationSource string    `json:"confirmation_source,omitempty"`
+        FailureCode       string     `json:"failure_code,omitempty"`
+        FailureMessage    string     `json:"failure_message,omitempty"`
+        RefundedAmount    int64      `json:"refunded_amount_piastres"`
+        NeedsReview       bool       `json:"needs_review"`
+        ReviewReason      string     `json:"review_reason,omitempty"`
         Metadata          map[string]interface{} `json:"metadata,omitempty"`
         CreatedAt         time.Time  `json:"created_at"`
         UpdatedAt         time.Time  `json:"updated_at"`
+}
+
+// PaymentSettlement is the operator-verified financial state of one online
+// payment with the provider (migration 32). One row per payment; history
+// lives in payment_transactions.
+type PaymentSettlement struct {
+        ID                         string     `json:"id"`
+        PaymentID                  string     `json:"payment_id"`
+        Provider                   string     `json:"provider"`
+        Status                     string     `json:"status"`
+        SettledAmountPiastres      *int64     `json:"settled_amount_piastres,omitempty"`
+        FeesPiastres               *int64     `json:"fees_piastres,omitempty"`
+        Currency                   string     `json:"currency"`
+        ProviderSettlementReference string    `json:"provider_settlement_reference,omitempty"`
+        SettledAt                  *time.Time `json:"settled_at,omitempty"`
+        LastSyncedAt               *time.Time `json:"last_synced_at,omitempty"`
+        CreatedAt                  time.Time  `json:"created_at"`
+        UpdatedAt                  time.Time  `json:"updated_at"`
 }
 
 // PaymentTransaction is one raw provider event on a payment (audit ledger).

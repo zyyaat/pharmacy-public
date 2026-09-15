@@ -682,13 +682,17 @@ func (h *Handler) CreateManualPayment(c *gin.Context) {
         }
 
         // The payment ledger row — succeeded immediately (manual confirmation
-        // by the super admin IS the proof on the manual path).
+        // by the super admin IS the proof on the manual path). Phase S1: the
+        // confirmation stamp carries source='manual'; NO settlement row —
+        // there is no provider to settle with.
         var paymentID string
         if err := tx.QueryRow(ctx, `
                 INSERT INTO payments (company_id, plan_id, billing_interval,
-                                      amount_piastres, provider, status, metadata, idempotency_key)
+                                      amount_piastres, provider, status, metadata, idempotency_key,
+                                      confirmed_at, confirmation_source)
                 VALUES ($1, $2, $3, $4, 'manual', 'succeeded',
-                        jsonb_build_object('note', NULLIF($5, '')::text, 'actor', $6::text), NULLIF($7, '')::text)
+                        jsonb_build_object('note', NULLIF($5, '')::text, 'actor', $6::text), NULLIF($7, '')::text,
+                        NOW(), 'manual')
                 RETURNING id::text
         `, body.CompanyID, body.PlanID, body.BillingInterval, amount,
                 strings.TrimSpace(body.Note), principal.Email,

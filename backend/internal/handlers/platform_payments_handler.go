@@ -28,8 +28,11 @@ import (
         "github.com/pharmacy-os/backend/internal/models"
 )
 
-// ListPlatformPayments returns the payments ledger (manual + Paymob) with
-// company and plan labels. Filters: status, provider, company_id, search.
+// ListPlatformPayments returns the payments ledger (manual + online) with
+// company and plan labels. Filters: status, provider, company_id, search,
+// needs_review, settlement (settlement-state filter). Phase S1 exposes the
+// reconciliation columns inline: number, confirmation, settlement state,
+// review flag, refund amount.
 func (h *Handler) ListPlatformPayments(c *gin.Context) {
         ctx := c.Request.Context()
         page, pageSize := pagination(c)
@@ -37,9 +40,11 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
         provider := strings.TrimSpace(c.Query("provider"))
         companyID := strings.TrimSpace(c.Query("company_id"))
         search := strings.TrimSpace(c.Query("search"))
+        needsReview := strings.TrimSpace(c.Query("needs_review"))
+        settlement := strings.TrimSpace(c.Query("settlement"))
 
         where := []string{"TRUE"}
-        args := make([]any, 0, 5)
+        args := make([]any, 0, 7)
         if status != "" {
                 args = append(args, status)
                 where = append(where, "p.status = $"+strconv.Itoa(len(args)))
@@ -56,6 +61,15 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
                 args = append(args, "%"+search+"%")
                 where = append(where, "(c.name ILIKE $"+strconv.Itoa(len(args))+" OR c.email ILIKE $"+strconv.Itoa(len(args))+")")
         }
+        if needsReview == "true" || needsReview == "1" {
+                where = append(where, "p.needs_review")
+        }
+        if settlement == "unsettled" {
+                where = append(where, "p.provider <> 'manual' AND COALESCE(ps.status, 'missing') NOT IN ('settled','partially_settled')")
+        } else if settlement != "" {
+                args = append(args, settlement)
+                where = append(where, "ps.status = $"+strconv.Itoa(len(args)))
+        }
         whereSQL := strings.Join(where, " AND ")
 
         var total int
@@ -63,6 +77,7 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
                 SELECT COUNT(*)::int
                 FROM payments p
                 JOIN companies c ON c.id = p.company_id
+                LEFT JOIN payment_settlements ps ON ps.payment_id = p.id
                 WHERE `+whereSQL, args...).Scan(&total); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "payments_count_failed"})
                 return
@@ -72,15 +87,21 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
         limitIdx := strconv.Itoa(len(args) - 1)
         offsetIdx := strconv.Itoa(len(args))
         rows, err := h.db.Query(ctx, `
-                SELECT p.id::text, p.company_id::text, c.name, c.email,
+                SELECT p.id::text, COALESCE(p.number, ''), p.company_id::text, c.name, c.email,
                        p.plan_id::text, pl.slug, pl.name, COALESCE(pl.name_ar, ''),
                        p.billing_interval, p.amount_piastres, p.currency,
                        p.provider, p.status,
                        COALESCE(p.metadata->>'note', ''),
-                       p.subscription_id::text, p.created_at
+                       COALESCE(p.subscription_id::text, ''), p.created_at,
+                       p.confirmed_at, COALESCE(p.confirmation_source, ''),
+                       COALESCE(p.failure_code, ''), COALESCE(p.failure_message, ''),
+                       p.refunded_amount_piastres, p.needs_review, COALESCE(p.review_reason, ''),
+                       COALESCE(ps.status, CASE WHEN p.provider = 'manual' THEN 'manual' ELSE 'missing' END),
+                       COALESCE(ps.provider_settlement_reference, ''), ps.settled_at
                 FROM payments p
                 JOIN companies c ON c.id = p.company_id
                 JOIN plans pl ON pl.id = p.plan_id
+                LEFT JOIN payment_settlements ps ON ps.payment_id = p.id
                 WHERE `+whereSQL+`
                 ORDER BY p.created_at DESC
                 LIMIT $`+limitIdx+` OFFSET $`+offsetIdx, args...)
@@ -94,17 +115,25 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
         for rows.Next() {
                 var id, companyIDStr, companyName, companyEmail, planID, planSlug, planName, planNameAr string
                 var interval, currency, provider, status, note, subscriptionID string
-                var amount int64
+                var number, confirmationSource, failureCode, failureMessage, reviewReason, settlementStatus, settlementRef string
+                var amount, refundedAmount int64
                 var createdAt time.Time
-                if err := rows.Scan(&id, &companyIDStr, &companyName, &companyEmail,
+                var confirmedAt, settledAt *time.Time
+                var needsReview bool
+                if err := rows.Scan(&id, &number, &companyIDStr, &companyName, &companyEmail,
                         &planID, &planSlug, &planName, &planNameAr,
                         &interval, &amount, &currency, &provider, &status,
-                        &note, &subscriptionID, &createdAt); err != nil {
-                        c.JSON(http.StatusInternalServerError, gin.H{"error": "payments_scan_failed"})
+                        &note, &subscriptionID, &createdAt,
+                        &confirmedAt, &confirmationSource,
+                        &failureCode, &failureMessage,
+                        &refundedAmount, &needsReview, &reviewReason,
+                        &settlementStatus, &settlementRef, &settledAt); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "payments_scan_failed", "detail": err.Error()})
                         return
                 }
                 payments = append(payments, gin.H{
                         "id":               id,
+                        "number":           number,
                         "company":          gin.H{"id": companyIDStr, "name": companyName, "email": companyEmail},
                         "plan":             gin.H{"id": planID, "slug": planSlug, "name": planName, "name_ar": planNameAr},
                         "billing_interval": interval,
@@ -115,6 +144,17 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
                         "note":             note,
                         "subscription_id":  subscriptionID,
                         "created_at":       createdAt.UTC().Format(time.RFC3339),
+                        // Phase S1 reconciliation surface
+                        "confirmed_at":         formatRFC3339Nullable(confirmedAt),
+                        "confirmation_source":  confirmationSource,
+                        "failure_code":         failureCode,
+                        "failure_message":      failureMessage,
+                        "refunded_amount_piastres": refundedAmount,
+                        "needs_review":         needsReview,
+                        "review_reason":        reviewReason,
+                        "settlement_status":    settlementStatus,
+                        "settlement_reference": settlementRef,
+                        "settled_at":           formatRFC3339Nullable(settledAt),
                 })
         }
         if err := rows.Err(); err != nil {
@@ -125,6 +165,15 @@ func (h *Handler) ListPlatformPayments(c *gin.Context) {
                 "data":       payments,
                 "pagination": gin.H{"total": total, "page": page, "page_size": pageSize},
         })
+}
+
+// formatRFC3339Nullable renders an optional timestamp in the API's UTC
+// RFC3339 convention (nil → empty string — the ledger's null-safe shape).
+func formatRFC3339Nullable(t *time.Time) string {
+        if t == nil {
+                return ""
+        }
+        return t.UTC().Format(time.RFC3339)
 }
 
 // SubscriptionsOverview returns the operator KPIs for the subscriptions
@@ -275,10 +324,12 @@ func (h *Handler) RefundPlatformPayment(c *gin.Context) {
         }
 
         if _, err := tx.Exec(ctx, `
-                UPDATE payments SET status = 'refunded', metadata = COALESCE(metadata, '{}'::jsonb)
-                        || jsonb_build_object('refund_note', NULLIF($2, '')::text,
-                                              'refund_actor', $3::text,
-                                              'refunded_at', NOW()),
+                UPDATE payments SET status = 'refunded',
+                        refunded_amount_piastres = amount_piastres,
+                        metadata = COALESCE(metadata, '{}'::jsonb)
+                                || jsonb_build_object('refund_note', NULLIF($2, '')::text,
+                                                      'refund_actor', $3::text,
+                                                      'refunded_at', NOW()),
                        updated_at = NOW()
                 WHERE id = $1
         `, id, strings.TrimSpace(body.Note), principal.Email); err != nil {

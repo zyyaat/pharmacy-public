@@ -145,6 +145,18 @@ var migrationChain = []migration{
                 name:          "00000000000031_product_libraries.sql",
                 legacyMarkers: []string{"product_libraries", "library_products", "library_changes", "pharmacy_library_syncs"},
         },
+        {
+                // Payment settlement & subscription reconciliation: separates
+                // CONFIRMED (provider captured — webhook/sync/manual) from
+                // SETTLED (money reached our bank — operator-verified from
+                // the XPay payout batch, since XPay has no payout API/webhook).
+                // payment_settlements (one row per online payment) + payments
+                // confirmation/failure/review/refund-amount columns + SUB-/PAY-
+                // human references via sequence triggers + the event ledger's
+                // sync/settlement/review/status_change txn types.
+                name:          "00000000000032_payment_settlements.sql",
+                legacyMarkers: []string{"payment_settlements"},
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

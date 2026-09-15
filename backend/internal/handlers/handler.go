@@ -108,6 +108,14 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.GET("/payments", h.ListPlatformPayments)
                 platformAdmin.POST("/payments/manual", auth.CSRF(auth.PlatformRealm), h.CreateManualPayment)
                 platformAdmin.POST("/payments/:id/refund", auth.CSRF(auth.PlatformRealm), h.RefundPlatformPayment)
+                // Phase S1 — settlement & reconciliation: the operator's
+                // matching worklist (read-only) plus the two audited actions
+                // a payment row supports: recording the provider payout batch
+                // (settle) and pulling the session truth from XPay (resync).
+                platformAdmin.GET("/payments/reconciliation", h.PaymentsReconciliation)
+                platformAdmin.GET("/payments/:id", h.GetPlatformPaymentDetail)
+                platformAdmin.POST("/payments/:id/settlement", auth.CSRF(auth.PlatformRealm), h.SettlePlatformPayment)
+                platformAdmin.POST("/payments/:id/resync", auth.CSRF(auth.PlatformRealm), h.ResyncPlatformPayment)
                 // Task 15 — per-company account page: profile + per-company
                 // entitlement overrides (plan baseline + per-account merge)
                 // + the account's own audit log. Company-scoped routes are
@@ -439,7 +447,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // / async_payment_failed flip only pending rows. Paymob webhook stays
 // mounted — in-flight paymob payments keep resolving. paymob-diagnostics
 // now reports active_gateway + the xpay config subset.
-const APILevel = 77
+const APILevel = 78
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {

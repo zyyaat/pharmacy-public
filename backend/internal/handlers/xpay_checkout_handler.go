@@ -27,6 +27,7 @@ import (
         "io"
         "log"
         "net/http"
+        "strings"
 
         "github.com/gin-gonic/gin"
         "github.com/jackc/pgx/v5"
@@ -161,7 +162,11 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
 
         // Anchor the event to our payment row: metadata.payment_id (set at
         // session creation) is primary; the session id stored on
-        // payments.provider_reference is the fallback.
+        // payments.provider_reference is the fallback. Activation-capable
+        // events (checkout.session.*) MUST anchor — otherwise 400 so XPay
+        // retries. Pure-record events (charge.*/refund.*) never activate
+        // anything: when they cannot anchor we accept and ignore them (200)
+        // instead of burning XPay's retry budget on events we do not need.
         paymentID := nestedString(obj, "metadata", "payment_id")
         if paymentID == "" {
                 sessionID, _ := obj["id"].(string)
@@ -171,6 +176,11 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                                 WHERE provider = 'xpay' AND provider_reference = $1
                                 ORDER BY created_at DESC LIMIT 1
                         `, sessionID).Scan(&paymentID); err != nil {
+                                if !strings.HasPrefix(event.Type, "checkout.session.") {
+                                        log.Printf("[xpay] webhook: unanchored %s ignored (event %s)", event.Type, event.ID)
+                                        c.JSON(http.StatusOK, gin.H{"received": true, "result": "ignored_unanchored"})
+                                        return
+                                }
                                 log.Printf("[xpay] webhook: no payment for session %s (event %s %s)", sessionID, event.Type, event.ID)
                                 c.JSON(http.StatusBadRequest, gin.H{"error": "payment_not_found"})
                                 return
@@ -178,7 +188,24 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                 }
         }
         if paymentID == "" {
+                if !strings.HasPrefix(event.Type, "checkout.session.") {
+                        c.JSON(http.StatusOK, gin.H{"received": true, "result": "ignored_unanchored"})
+                        return
+                }
                 c.JSON(http.StatusBadRequest, gin.H{"error": "payment_reference_missing"})
+                return
+        }
+        if !isUUID(paymentID) {
+                // signed but garbage anchor: not our row, never our problem —
+                // activation-capable events still 400 so the provider retries;
+                // record-only events are accepted and dropped.
+                if !strings.HasPrefix(event.Type, "checkout.session.") {
+                        log.Printf("[xpay] webhook: non-uuid anchor %q on %s (event %s) ignored", paymentID, event.Type, event.ID)
+                        c.JSON(http.StatusOK, gin.H{"received": true, "result": "ignored_unanchored"})
+                        return
+                }
+                log.Printf("[xpay] webhook: non-uuid anchor %q on %s (event %s) rejected", paymentID, event.Type, event.ID)
+                c.JSON(http.StatusBadRequest, gin.H{"error": "payment_not_found"})
                 return
         }
 
@@ -196,12 +223,12 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
         }
         defer tx.Rollback(ctx)
 
-        var companyID, planID, paymentStatusStored string
+        var companyID, planID, paymentStatusStored, currency string
         var storedAmount int64
         err = tx.QueryRow(ctx, `
-                SELECT company_id::text, plan_id::text, status, amount_piastres
+                SELECT company_id::text, plan_id::text, status, amount_piastres, currency
                 FROM payments WHERE id = $1 FOR UPDATE
-        `, paymentID).Scan(&companyID, &planID, &paymentStatusStored, &storedAmount)
+        `, paymentID).Scan(&companyID, &planID, &paymentStatusStored, &storedAmount, &currency)
         if err == pgx.ErrNoRows {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "payment_not_found"})
                 return
@@ -239,6 +266,9 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                                 paymentID, amountTotal, storedAmount)
                         record(true)
                         _, _ = tx.Exec(ctx, `UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1`, paymentID)
+                        _ = flagPaymentReviewTx(ctx, tx, paymentID,
+                                "webhook amount mismatch: provider says "+formatInt64(amountTotal)+", stored "+formatInt64(storedAmount))
+                        _ = setSettlementStatusTx(ctx, tx, paymentID, "xpay", currency, models.SettlementStatusUnknown)
                         _ = tx.Commit(ctx)
                         c.JSON(http.StatusOK, gin.H{"received": true, "result": "amount_mismatch_failed"})
                         return
@@ -263,6 +293,17 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_update_failed"})
                         return
                 }
+                // Phase S1: stamp WHEN/HOW the capture became known + open the
+                // settlement snapshot as 'pending' (captured, not yet matched
+                // to a payout batch — XPay has no payout webhook to close it).
+                if err := markPaymentConfirmedTx(ctx, tx, paymentID, models.PaymentConfirmedByWebhook); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "confirmation_stamp_failed"})
+                        return
+                }
+                if err := ensureSettlementRowTx(ctx, tx, paymentID, "xpay", currency, amountTotal); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "settlement_row_failed"})
+                        return
+                }
                 record(true)
                 // Provider webhook has no tenant session: the hmac_verified row in
                 // payment_transactions IS the immutable audit trail here.
@@ -283,8 +324,10 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                 // one never regresses.
                 if err == nil && paymentStatusStored == models.PaymentStatusPending {
                         if _, err := tx.Exec(ctx, `
-                                UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1
-                        `, paymentID); err != nil {
+                                UPDATE payments SET status = 'failed',
+                                        failure_code = $2, failure_message = $3, updated_at = NOW()
+                                WHERE id = $1
+                        `, paymentID, event.Type, providerFailureMessage(event.Type, obj)); err != nil {
                                 c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_update_failed"})
                                 return
                         }
@@ -292,6 +335,31 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                 record(true)
                 _ = tx.Commit(ctx)
                 c.JSON(http.StatusOK, gin.H{"received": true, "result": "recorded"})
+
+        case event.Type == "charge.refunded":
+                // A refund landed (our API path never initiates one today —
+                // dashboard-issued or future provider-side flows land here).
+                // Passive recording: grow refunded_amount, flip the status only
+                // when the refund reaches the full amount. Never regresses a
+                // succeeded row on a partial refund.
+                refunded := int64(0)
+                if v, ok := obj["amountRefunded"].(float64); ok {
+                        refunded = int64(v)
+                }
+                if refunded > 0 && paymentStatusStored == models.PaymentStatusSucceeded {
+                        if _, err := tx.Exec(ctx, `
+                                UPDATE payments SET refunded_amount_piastres = $2,
+                                        status = CASE WHEN $2 >= amount_piastres THEN 'refunded' ELSE status END,
+                                        updated_at = NOW()
+                                WHERE id = $1
+                        `, paymentID, refunded); err != nil {
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_update_failed"})
+                                return
+                        }
+                }
+                record(true)
+                _ = tx.Commit(ctx)
+                c.JSON(http.StatusOK, gin.H{"received": true, "result": "refund_recorded"})
 
         default:
                 // charge.failed (customer may retry inside the same session — never
@@ -302,4 +370,21 @@ func (h *Handler) XPayWebhook(c *gin.Context) {
                 _ = tx.Commit(ctx)
                 c.JSON(http.StatusOK, gin.H{"received": true, "result": "recorded"})
         }
+}
+
+// providerFailureMessage extracts a human-readable failure reason from the
+// event object when the payment flips to failed (migration 32 adds
+// payments.failure_code/failure_message so the ledger shows WHY without
+// unwrapping JSONB payloads). The uuid check is isUUID (sales_history_handler).
+func providerFailureMessage(eventType string, obj map[string]any) string {
+        if m, ok := obj["failureMessage"].(string); ok && strings.TrimSpace(m) != "" {
+                return m
+        }
+        switch eventType {
+        case "checkout.session.expired":
+                return "XPay session expired before payment"
+        case "checkout.session.async_payment_failed":
+                return "Async payment reference failed or expired unpaid"
+        }
+        return eventType
 }

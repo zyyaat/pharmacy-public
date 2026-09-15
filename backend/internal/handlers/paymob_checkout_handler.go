@@ -439,12 +439,12 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
         }
         defer tx.Rollback(ctx)
 
-        var companyID, planID, paymentStatus string
+        var companyID, planID, paymentStatus, currency string
         var storedAmount int64
         err = tx.QueryRow(ctx, `
-                SELECT company_id::text, plan_id::text, status, amount_piastres
+                SELECT company_id::text, plan_id::text, status, amount_piastres, currency
                 FROM payments WHERE id = $1 FOR UPDATE
-        `, paymentID).Scan(&companyID, &planID, &paymentStatus, &storedAmount)
+        `, paymentID).Scan(&companyID, &planID, &paymentStatus, &storedAmount, &currency)
         if err == pgx.ErrNoRows {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "payment_not_found"})
                 return
@@ -460,6 +460,9 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
                 log.Printf("[paymob] webhook AMOUNT MISMATCH payment=%s webhook=%d stored=%d — failing payment", paymentID, amountCents, storedAmount)
                 insertWebhookTxn(ctx, tx, paymentID, providerTxnID, amountCents, obj, true)
                 _, _ = tx.Exec(ctx, `UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1`, paymentID)
+                _ = flagPaymentReviewTx(ctx, tx, paymentID,
+                        "webhook amount mismatch: provider says "+formatInt64(amountCents)+", stored "+formatInt64(storedAmount))
+                _ = setSettlementStatusTx(ctx, tx, paymentID, "paymob", currency, models.SettlementStatusUnknown)
                 _ = tx.Commit(ctx)
                 c.JSON(http.StatusOK, gin.H{"received": true, "result": "amount_mismatch_failed"})
                 return
@@ -487,6 +490,16 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_update_failed"})
                         return
                 }
+                // Phase S1: confirmation stamp + settlement snapshot — identical
+                // semantics to the XPay path, whichever provider resolved.
+                if err := markPaymentConfirmedTx(ctx, tx, paymentID, models.PaymentConfirmedByWebhook); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "confirmation_stamp_failed"})
+                        return
+                }
+                if err := ensureSettlementRowTx(ctx, tx, paymentID, "paymob", currency, amountCents); err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "settlement_row_failed"})
+                        return
+                }
                 insertWebhookTxn(ctx, tx, paymentID, providerTxnID, amountCents, obj, true)
                 // Tenant audit (audit_logs) is pharmacy-scoped and session-bound — a
                 // provider webhook has neither. The hmac_verified row in
@@ -508,8 +521,11 @@ func (h *Handler) PaymobWebhook(c *gin.Context) {
                 // a definitive failure (declined card etc.) — the modal's poll will
                 // see it and let the customer retry.
                 if _, err := tx.Exec(ctx, `
-                        UPDATE payments SET status = 'failed', updated_at = NOW() WHERE id = $1
-                `, paymentID); err != nil {
+                        UPDATE payments SET status = 'failed',
+                                failure_code = 'payment_declined',
+                                failure_message = $2, updated_at = NOW()
+                        WHERE id = $1
+                `, paymentID, providerFailureMessage("paymob.declined", obj)); err != nil {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "payment_update_failed"})
                         return
                 }
