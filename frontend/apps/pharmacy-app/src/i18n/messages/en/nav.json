@@ -39,5 +39,6 @@
   "out_badge": "Out",
   "low_badge": "Low",
   "open_customers": "Open customer accounts to collect",
-  "open_inventory": "Open inventory to take action"
+  "open_inventory": "Open inventory to take action",
+  "support": "Support"
 }

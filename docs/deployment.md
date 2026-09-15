@@ -421,3 +421,58 @@ subscription gets `SUB-00001`, every payment `PAY-00001` (sequence-backed
 triggers; unique). Unanchored `charge.*` events answer `200 ignored` so
 they never burn XPay's retry budget; unanchored `checkout.session.*`
 events still 400 so XPay retries them.
+
+## 9. Support system — live chat + tickets (Phase T1/T2 — migration 33, api_level 79)
+
+The support surface is a per-company live chat channel plus a ticket
+work-item, both reachable from the pharmacy OS (web) and the platform
+admin dashboard. Architecture in one line: **REST is the source of truth;
+the WebSocket hub only accelerates delivery** — a dropped socket falls
+back to polling the same endpoints and never loses a message.
+
+### 9.1 Endpoints
+
+Company side (pharmacy realm; deliberately NOT plan-gated, NOT
+permission-gated — a suspended company must still reach support; mutation
+principal + CSRF still apply):
+
+- `GET  /pharmacy/support/overview` — badge counters + platform presence
+- `GET/POST /pharmacy/support/conversations` — list / open a channel
+- `GET  /pharmacy/support/conversations/:id` — detail (+ linked ticket)
+- `GET/POST /pharmacy/support/conversations/:id/messages` — cursor pages / send
+- `POST /pharmacy/support/conversations/:id/read` — clears ONLY the company counter
+- `POST /pharmacy/support/conversations/:id/close` — closing is a lifecycle
+  event with a system message; history stays readable; new human messages
+  answer 409 afterwards
+- `POST /pharmacy/support/attachments`, `GET /pharmacy/support/attachments/:id`
+- `GET/POST /pharmacy/support/tickets` — own tickets / create (escalating a
+  conversation or standalone; a standalone ticket with a body auto-opens
+  its chat thread)
+- `GET /pharmacy/support/ws` — the live socket (cookie or Bearer)
+
+Platform side (`/platform-admin/support/*`, super-admin realm): the same
+conversation surface with inbox filters `all|unread|unanswered|closed`,
+the ticket table (`status/priority/category/company_id`, urgent-first)
+plus the audited lifecycle `PATCH /support/tickets/:id`
+(`open → in_progress → waiting_customer → in_progress → resolved
+(+resolution note) → closed`, reopen from resolved/closed back to
+`in_progress`; invalid transitions answer 409 with the allowed targets;
+every accepted change writes a platform audit row, a system message in
+the linked chat, and a hub push).
+
+### 9.2 Operations
+
+- Attachments are stored INLINE in Postgres (`support_attachments`, ≤2 MiB,
+  png/jpeg/webp/gif/pdf only, single-use per message). Fine for support
+  traffic; revisit only if volume grows.
+- Ticket numbers: `TKT-00001` via sequence trigger (same pattern as
+  SUB-/PAY-).
+- Quiet-hours email: when a message lands and the OTHER side has no live
+  socket, one email per 15-minute window per conversation+side is sent via
+  Brevo. Set `PLATFORM_SUPPORT_EMAIL` to route platform-side alerts to a
+  dedicated inbox (falls back to `MAIL_FROM_EMAIL`).
+- WebSocket: served from the same process (`/api/v1/{pharmacy|platform-admin}/support/ws`).
+  The handshake accepts same-origin + the configured `CORS_ORIGINS`
+  (incl. `*.subdomain` wildcards). Behind proxies, ensure upgrade requests
+  are forwarded — if a client cannot upgrade it silently degrades to
+  polling, so nothing breaks either way.

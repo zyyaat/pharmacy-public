@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, Library, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight, NotebookPen } from 'lucide-react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, History, LayoutDashboard, Library, LifeBuoy, LogOut, Package, ReceiptText, Settings, Store, Users, X, ArrowLeftRight, NotebookPen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
@@ -28,6 +28,9 @@ const items = [
   { key: 'attendance', href: '/attendance', icon: CalendarCheck },
   { key: 'branches', href: '/branches', icon: Store },
   { key: 'reports', href: '/reports', icon: BarChart3 },
+  // الدعم: يظهر لكل من له جلسة — بلا صلاحية وبلا بوابة خطة (مثل الخلفية:
+  // شركة موقوفة يجب أن تستطيع طلب المساعدة).
+  { key: 'support', href: '/support', icon: LifeBuoy },
 ]
 
 /** الصلاحية المطلوبة لظهور كل عنصر في القائمة (مرتبة من الأكثر تحديدًا). */

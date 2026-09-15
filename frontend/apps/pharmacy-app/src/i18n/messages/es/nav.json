@@ -39,5 +39,6 @@
   "out_badge": "Agotado",
   "low_badge": "Bajo",
   "open_customers": "Abrir cuentas de clientes para cobrar",
-  "open_inventory": "Abrir inventario para actuar"
+  "open_inventory": "Abrir inventario para actuar",
+  "support": "Soporte"
 }

@@ -39,5 +39,6 @@
   "out_badge": "Épuisé",
   "low_badge": "Faible",
   "open_customers": "Ouvrir les comptes clients pour encaisser",
-  "open_inventory": "Ouvrir l'inventaire pour agir"
+  "open_inventory": "Ouvrir l'inventaire pour agir",
+  "support": "Assistance"
 }

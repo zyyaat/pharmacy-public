@@ -20,6 +20,7 @@ import {
   X,
   Wallet,
   Library,
+  LifeBuoy,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,6 +65,13 @@ const sidebarItems: SidebarItem[] = [
     title: "payments",
     href: "/payments",
     icon: <Wallet className="h-5 w-5" />,
+  },
+  {
+    // Support desk: every operator can see it — reaching users in trouble
+    // is the whole point (backend is never plan/permission-gated either).
+    title: "support",
+    href: "/support",
+    icon: <LifeBuoy className="h-5 w-5" />,
   },
   {
     title: "users",

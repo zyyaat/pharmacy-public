@@ -39,5 +39,6 @@
   "out_badge": "售罄",
   "low_badge": "不足",
   "open_customers": "打开客户账户收款",
-  "open_inventory": "打开库存进行处理"
+  "open_inventory": "打开库存进行处理",
+  "support": "客服"
 }
