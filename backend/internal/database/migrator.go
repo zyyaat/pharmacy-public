@@ -157,6 +157,18 @@ var migrationChain = []migration{
                 name:          "00000000000032_payment_settlements.sql",
                 legacyMarkers: []string{"payment_settlements"},
         },
+        {
+                // Support system (live chat + tickets): support_conversations
+                // (the per-company chat channel with per-side unread counters
+                // and close semantics), append-only support_messages (system
+                // rows record lifecycle inside the chat), support_attachments
+                // (png/jpeg/webp/pdf <= 2 MiB inline) and support_tickets
+                // (TKT-00001 references via sequence trigger, the full
+                // open/in_progress/waiting_customer/resolved/closed lifecycle
+                // with reopen). Support is never plan-gated.
+                name:          "00000000000033_support_system.sql",
+                legacyMarkers: []string{"support_conversations", "support_messages", "support_tickets", "support_attachments"},
+        },
 }
 
 // RunMigrations creates the migration ledger and applies any missing

@@ -3,6 +3,7 @@ package handlers
 
 import (
         "github.com/gin-gonic/gin"
+        "github.com/gorilla/websocket"
         "github.com/jackc/pgx/v5/pgxpool"
         "github.com/pharmacy-os/backend/internal/auth"
         "github.com/pharmacy-os/backend/internal/config"
@@ -19,6 +20,10 @@ type Handler struct {
         auth    *auth.Handler
         company *CompanyHandler
         subs    *subscription.Service
+        // Support live chat (Phase T1): the WebSocket hub + its upgrader.
+        // REST stays the source of truth; the hub only accelerates delivery.
+        supportHub      *supportHub
+        supportUpgrader websocket.Upgrader
 }
 
 // New creates a new Handler instance
@@ -26,6 +31,8 @@ func New(cfg *config.Config, db ...*pgxpool.Pool) *Handler {
         h := &Handler{config: cfg}
         if len(db) > 0 && db[0] != nil {
                 h.db = db[0]
+                h.supportHub = newSupportHub(db[0])
+                h.supportUpgrader = h.newSupportUpgrader()
                 // SaaS plan enforcement (Task 90): one process-wide service
                 // backs both the pharmacy and company permission gates.
                 h.subs = subscription.NewService(db[0])
@@ -116,6 +123,24 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 platformAdmin.GET("/payments/:id", h.GetPlatformPaymentDetail)
                 platformAdmin.POST("/payments/:id/settlement", auth.CSRF(auth.PlatformRealm), h.SettlePlatformPayment)
                 platformAdmin.POST("/payments/:id/resync", auth.CSRF(auth.PlatformRealm), h.ResyncPlatformPayment)
+                // Phase T1 — support live chat + tickets: the platform inbox
+                // (conversation list with unread/unanswered filters), the
+                // ticket work table and the audited lifecycle PATCH. Support
+                // is never plan-gated — a locked-out company must still reach
+                // the operator. The platform socket pushes committed events;
+                // REST stays the source of truth.
+                platformAdmin.GET("/support/overview", h.GetPlatformSupportOverview)
+                platformAdmin.GET("/support/conversations", h.ListPlatformSupportConversations)
+                platformAdmin.GET("/support/conversations/:id", h.GetPlatformSupportConversation)
+                platformAdmin.GET("/support/conversations/:id/messages", h.ListPlatformSupportMessages)
+                platformAdmin.POST("/support/conversations/:id/messages", auth.CSRF(auth.PlatformRealm), h.SendPlatformSupportMessage)
+                platformAdmin.POST("/support/conversations/:id/read", auth.CSRF(auth.PlatformRealm), h.MarkPlatformSupportRead)
+                platformAdmin.POST("/support/conversations/:id/close", auth.CSRF(auth.PlatformRealm), h.ClosePlatformSupportConversation)
+                platformAdmin.POST("/support/attachments", auth.CSRF(auth.PlatformRealm), h.UploadPlatformSupportAttachment)
+                platformAdmin.GET("/support/attachments/:id", h.GetPlatformSupportAttachment)
+                platformAdmin.GET("/support/tickets", h.ListPlatformSupportTickets)
+                platformAdmin.PATCH("/support/tickets/:id", auth.CSRF(auth.PlatformRealm), h.UpdatePlatformSupportTicket)
+                platformAdmin.GET("/support/ws", h.SupportPlatformWS)
                 // Task 15 — per-company account page: profile + per-company
                 // entitlement overrides (plan baseline + per-account merge)
                 // + the account's own audit log. Company-scoped routes are
@@ -303,6 +328,26 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
                 // must still respect the subscription lockout (expired/
                 // suspended companies are gated by status only).
                 pharmacy.PUT("/onboarding", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.guardPlanStatus(h.UpdatePharmacyOnboarding))
+                // Phase T1 — support live chat + tickets (company side):
+                // deliberately NOT behind any permission key and NOT behind
+                // guardPlanStatus — every principal of the company can reach
+                // support, and above all an expired/suspended company must
+                // still be able to ask for help (same reasoning as the
+                // subscription recovery routes). Mutation principal + CSRF
+                // still guard the writes.
+                pharmacy.GET("/support/overview", h.GetPharmacySupportOverview)
+                pharmacy.GET("/support/conversations", h.ListPharmacySupportConversations)
+                pharmacy.POST("/support/conversations", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacySupportConversation)
+                pharmacy.GET("/support/conversations/:id", h.GetPharmacySupportConversation)
+                pharmacy.GET("/support/conversations/:id/messages", h.ListPharmacySupportMessages)
+                pharmacy.POST("/support/conversations/:id/messages", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.SendPharmacySupportMessage)
+                pharmacy.POST("/support/conversations/:id/read", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.MarkPharmacySupportRead)
+                pharmacy.POST("/support/conversations/:id/close", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.ClosePharmacySupportConversation)
+                pharmacy.POST("/support/attachments", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.UploadPharmacySupportAttachment)
+                pharmacy.GET("/support/attachments/:id", h.GetPharmacySupportAttachment)
+                pharmacy.GET("/support/tickets", h.ListPharmacySupportTickets)
+                pharmacy.POST("/support/tickets", auth.RequirePharmacyMutationPrincipal(), auth.CSRF(auth.PharmacyRealm), h.CreatePharmacySupportTicket)
+                pharmacy.GET("/support/ws", h.SupportPharmacyWS)
         }
         // Temporary diagnostics for legacy-schema forensics. Only exposed when
         // APP_DEBUG=true; remove APP_DEBUG from the hosting environment in production.
@@ -447,7 +492,23 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 // / async_payment_failed flip only pending rows. Paymob webhook stays
 // mounted — in-flight paymob payments keep resolving. paymob-diagnostics
 // now reports active_gateway + the xpay config subset.
-const APILevel = 78
+// 79 — Support system (live chat + tickets, Phase T1): migration 33 adds
+// support_conversations (per-company chat channel, per-side unread counters
+// + read pointers + close semantics), append-only support_messages (system
+// rows record ticket lifecycle inside the chat), support_attachments
+// (png/jpeg/webp/pdf ≤2MiB inline) and support_tickets (TKT-00001 via
+// sequence trigger; open → in_progress → waiting_customer → resolved →
+// closed with reopen). WebSocket hub (gorilla/websocket, in-process) pushes
+// committed events — message.new / typing / conversation.updated /
+// ticket.updated — with REST as the source of truth and client-side polling
+// fallback. Both realms get symmetric REST surfaces: company side under
+// /pharmacy/support/* (NEVER plan-gated or permission-gated — a suspended
+// company must reach support), platform side under /platform-admin/support/*
+// with unread/unanswered inbox filters and the audited lifecycle PATCH.
+// Quiet-hours email via Brevo when the receiving side has no live socket
+// (one mail per 15-minute window per conversation+side, PLATFORM_SUPPORT_EMAIL
+// overrides the platform inbox).
+const APILevel = 79
 
 // HealthCheck returns the health status of the API
 func (h *Handler) HealthCheck(c *gin.Context) {
