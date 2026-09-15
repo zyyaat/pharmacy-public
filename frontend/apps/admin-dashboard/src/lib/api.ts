@@ -622,6 +622,7 @@ export const accountApi = {
 
 export type PaymentRow = {
   id: string
+  number?: string
   company: { id: string; name: string; email: string }
   plan: { id: string; slug: string; name: string; name_ar?: string }
   billing_interval: 'monthly' | 'yearly'
@@ -631,7 +632,67 @@ export type PaymentRow = {
   status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'voided' | 'cancelled'
   note?: string
   subscription_id?: string
+  provider_reference?: string
   created_at: string
+  // Phase S1 — settlement & reconciliation surface
+  confirmed_at?: string
+  confirmation_source?: '' | 'webhook' | 'sync' | 'manual'
+  failure_code?: string
+  failure_message?: string
+  refunded_amount_piastres?: number
+  needs_review?: boolean
+  review_reason?: string
+  settlement_status?: string
+  settlement_reference?: string
+  settled_at?: string
+}
+
+export type PaymentSettlementStatus =
+  | 'pending'
+  | 'settled'
+  | 'partially_settled'
+  | 'failed'
+  | 'disputed'
+  | 'unknown'
+  | 'manual'
+  | 'missing'
+
+export type PaymentTimelineEntry = {
+  txn_type: 'intent' | 'webhook' | 'refund' | 'void' | 'sync' | 'settlement' | 'review' | 'status_change'
+  provider_transaction_id?: string
+  amount_piastres: number
+  hmac_verified: boolean
+  payload: Record<string, unknown>
+  created_at: string
+}
+
+export type PaymentDetail = PaymentRow & {
+  timeline: PaymentTimelineEntry[]
+  settlement: {
+    status: PaymentSettlementStatus
+    settled_amount?: number | null
+    fees_piastres?: number | null
+    reference?: string
+    settled_at?: string
+    last_synced_at?: string
+  }
+}
+
+export type ReconciliationData = {
+  summary: {
+    stale_pending_count: number
+    confirmed_unsettled_count: number
+    confirmed_unsettled_piastres: number
+    needs_review_count: number
+    settlement_conflicts_count: number
+    refunded_count: number
+    stale_pending_after_hours: number
+  }
+  stale_pending: PaymentRow[]
+  confirmed_unsettled: PaymentRow[]
+  needs_review: PaymentRow[]
+  settlement_conflicts: PaymentRow[]
+  refunded: PaymentRow[]
 }
 
 export type BillingOverview = {
@@ -718,18 +779,53 @@ export const subscriptionsApi = {
 }
 
 export const paymentsApi = {
-  async list(params: { status?: string; provider?: string; company_id?: string; search?: string; page?: number; pageSize?: number } = {}) {
+  async list(params: { status?: string; provider?: string; company_id?: string; search?: string; needs_review?: boolean; settlement?: string; page?: number; pageSize?: number } = {}) {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
     if (params.provider) query.set('provider', params.provider)
     if (params.company_id) query.set('company_id', params.company_id)
     if (params.search) query.set('search', params.search)
+    if (params.needs_review) query.set('needs_review', 'true')
+    if (params.settlement) query.set('settlement', params.settlement)
     query.set('page', String(params.page ?? 1))
     query.set('page_size', String(params.pageSize ?? 50))
     const response = await apiFetch<{ data: PaymentRow[]; pagination: { total: number } }>(
       `/platform-admin/payments?${query.toString()}`
     )
     return response
+  },
+
+  async detail(id: string) {
+    const response = await apiFetch<{ data: PaymentDetail }>(`/platform-admin/payments/${id}`)
+    return response.data
+  },
+
+  async reconciliation() {
+    const response = await apiFetch<{ data: ReconciliationData }>('/platform-admin/payments/reconciliation')
+    return response.data
+  },
+
+  async settle(id: string, payload: {
+    status: PaymentSettlementStatus
+    settled_amount_piastres?: number
+    fees_piastres?: number
+    provider_settlement_reference?: string
+    settled_at?: string
+    note: string
+  }) {
+    const response = await apiFetch<{ data: { payment_id: string; settlement_status: string; settled_at: string; review_cleared: boolean } }>(
+      `/platform-admin/payments/${id}/settlement`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+    return response.data
+  },
+
+  async resync(id: string) {
+    const response = await apiFetch<{ data: { payment_id: string; result: string; provider?: Record<string, unknown> } }>(
+      `/platform-admin/payments/${id}/resync`,
+      { method: 'POST', body: JSON.stringify({}) }
+    )
+    return response.data
   },
 
   async refund(id: string, payload: { note?: string; shorten_subscription?: boolean }) {

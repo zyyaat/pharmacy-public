@@ -735,6 +735,26 @@ Core facts (all enforced in `internal/subscription`):
   editable without code. Existing companies were backfilled: running trials
   continue on professional, everything else grandfathered active on
   enterprise with no expiry.
+- **Settlement & reconciliation (Phase S1, migration 32, api_level 78)**:
+  three money questions, three answers — CONFIRMED
+  (`payments.confirmed_at` + `confirmation_source` webhook|sync|manual,
+  stamped automatically by every proving path), ACTIVATED (the unchanged
+  single `applySucceededPaymentTx` transition), SETTLED
+  (`payment_settlements`, one row per online payment). XPay pays out in
+  batches with NO payout API/webhook, so settlement-to-bank is recorded by
+  the super admin after matching the payout batch in the XPay dashboard —
+  reference + note + audit row mandatory (`docs/deployment.md` §8). A pull
+  resync (`GET /checkout/sessions/:id` via the server-only secret) closes
+  the lost-webhook gap from the reconciliation worklist: paid+matching →
+  activates with source `sync` (idempotent), expired → fails, amount
+  mismatch or a succeeded row the provider no longer reports paid →
+  `needs_review` + settlement `unknown`, never auto-resolved. The webhook
+  gained passive refund recording (`charge.refunded`: partial refunds grow
+  `refunded_amount_piastres`, full flips to `refunded`) and unanchored
+  `charge.*` events answer `200 ignored` instead of retry-burning 400s.
+  Human references `SUB-/PAY-00001` are sequence-trigger assigned. Manual
+  payments carry `confirmation_source=manual` and have no settlement row
+  (nothing to settle with).
 
 ---
 

@@ -375,3 +375,49 @@ Super-admin diagnostics (`GET /platform-admin/payments/paymob-diagnostics`)
 now reports `active_gateway` plus the masked XPay config subset, so a
 "which gateway is live?" question is answerable from the server without
 credentials.
+
+## 8. Payment settlement & reconciliation (Phase S1 — migration 32, api_level 78)
+
+Three money questions now have three separate answers:
+
+| Question | Where it lives | Who proves it |
+| --- | --- | --- |
+| CONFIRMED — did the provider capture the money? | `payments.confirmed_at` + `confirmation_source` (`webhook` \| `sync` \| `manual`) | automatic: signed webhook, pull resync, or the manual entry itself |
+| ACTIVATED — did the subscription extend? | `subscriptions` via `applySucceededPaymentTx` | automatic, single guarded transition |
+| SETTLED — did the money reach OUR bank? | `payment_settlements` (one row per online payment) | the OPERATOR, after matching the payout batch in the XPay dashboard |
+
+XPay has NO payout API and NO payout webhook (docs.xpay.app → Payouts and
+settlement: payouts run on an ops-controlled schedule and surface in the
+dashboard only). Settlement-to-bank is therefore recorded here as an
+OPERATOR-VERIFIED fact — never guessed, never automated:
+
+1. Open **Admin dashboard → Payments**. The reconciliation worklist groups
+   payments into five buckets: needs review / settlement conflicts /
+   confirmed-unsettled / stale pending (older than 24h) / refunded.
+2. For each succeeded online payment, match the payout batch in the XPay
+   dashboard (Transactions → Payouts), then open the payment (eye icon) →
+   **Settlement** → status `settled`, the payout batch reference, optional
+   fees, and a REQUIRED note. Every change writes a `settlement` event to
+   the payment timeline plus a `platform_audit_logs` row (who/when/why).
+   `partially_settled` records partial amounts; `disputed`/`unknown` raise
+   the review flag; clearing a review also requires the settle action with
+   a note.
+3. Lost webhook? A pending payment older than 24h lands in the stale
+   bucket — **Resync** asks XPay directly (`GET /checkout/sessions/:id`,
+   server-only secret). Paid + amount match → activates through the same
+   guarded transition (source stamped `sync`); session expired → fails the
+   payment; amount mismatch or a succeeded row the provider no longer
+   reports paid → flagged for review, NEVER auto-activated or regressed.
+4. Refunds: the internal refund action stays manual (no XPay refund API
+   calls are made today). Provider-issued refunds (dashboard refunds) land
+   passively through the `charge.refunded` webhook: partial refunds grow
+   `payments.refunded_amount_piastres` and keep the payment `succeeded`;
+   a refund reaching the full amount flips it to `refunded`.
+
+New endpoints (all platform-admin scoped): `GET /payments/reconciliation`,
+`GET /payments/:id` (detail + event timeline), `POST /payments/:id/settlement`
+(CSRF), `POST /payments/:id/resync` (CSRF). Human references: every
+subscription gets `SUB-00001`, every payment `PAY-00001` (sequence-backed
+triggers; unique). Unanchored `charge.*` events answer `200 ignored` so
+they never burn XPay's retry budget; unanchored `checkout.session.*`
+events still 400 so XPay retries them.
