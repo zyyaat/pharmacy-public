@@ -1,0 +1,14 @@
+# Root Dockerfile builds ONLY the Go backend (see the COPY lines inside).
+# Keep the build context small when the project root is the repository root.
+.git
+.github
+.agents
+frontend
+mobile
+docs
+scripts
+screenshots
+attached_assets
+backups
+node_modules
+*.md

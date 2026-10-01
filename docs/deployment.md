@@ -476,3 +476,182 @@ the linked chat, and a hub push).
   (incl. `*.subdomain` wildcards). Behind proxies, ensure upgrade requests
   are forwarded — if a client cannot upgrade it silently degrades to
   polling, so nothing breaks either way.
+
+## 10. Deploy the backend on RunxBuild
+
+RunxBuild (runxbuild.com) hosts the backend as a **Web Service** built
+from this repository with Docker: connect the GitHub account, import
+`pharmacy-public`, select branch `main`, and every push deploys
+automatically (rolling updates, instant rollbacks from the dashboard).
+
+### 10.1 Service settings
+
+```text
+Build Type:       Docker
+Branch:           main (auto-deploy on push)
+Build Command:    (leave empty)
+Predeploy Command:(leave empty)
+Start Command:    (leave empty — the Dockerfile CMD runs the server)
+```
+
+Dockerfile location — two equivalent paths:
+
+- Repository root as project root → RunxBuild finds the **root
+  `Dockerfile`** (committed at the repo root; it builds `backend/` exactly
+  like `backend/Dockerfile`, deps are vendored so the build never touches
+  the network).
+- Or set the project root / Dockerfile path to `backend/Dockerfile` and
+  keep the root wrapper unused. (A root `.dockerignore` keeps the build
+  context small; DockHosting's docs warn about over-broad ignore patterns
+  breaking `COPY` — the committed one only excludes frontend/mobile/docs
+  assets the backend never references.)
+
+**Port**: RunxBuild requires the app to listen on the `PORT` environment
+variable it injects. The server already resolves `PORT` >
+`BACKEND_PORT` > `8080`, binds all interfaces and `EXPOSE 8080` is in the
+Dockerfile — do **not** set `PORT` manually in the panel.
+
+### 10.2 Environment variables
+
+Paste the full set from `backend/.env.example` into the service's
+Environment Variables / Secrets panel (encrypted at rest, injected at
+runtime). The load-bearing subset:
+
+```text
+APP_ENV=production
+DATABASE_URL=<DockHosting Postgres public URL — see §11>
+RIVER_DSN=<same value as DATABASE_URL; reserved>
+CORS_ORIGINS=https://<pharmacy-frontend>,https://<admin-frontend>,https://<marketing-frontend>
+PUBLIC_APP_URL=https://<pharmacy-frontend>
+BREVO_API_KEY=<secret>
+MAIL_FROM_EMAIL=<verified Brevo sender>
+MAIL_FROM_NAME=Pharmacy OS
+PLATFORM_SUPPORT_EMAIL=<dedicated support inbox — §9.2>
+AUTH_COOKIE_SECURE=true
+BOOTSTRAP_SUPER_ADMIN_EMAIL=<…>
+BOOTSTRAP_SUPER_ADMIN_PASSWORD=<secret>
+```
+
+Plus the payment gateway secrets when online checkout is active (§6
+Paymob, §7 XPay — unset `XPAY_*` to fall back). `APP_ENV=production`
+makes startup fail fast when `CORS_ORIGINS`, `PUBLIC_APP_URL` or
+`BOOTSTRAP_SUPER_ADMIN_EMAIL` is missing — that is the checklist, not a
+bug.
+
+### 10.3 Replicas: keep ONE instance
+
+The support WebSocket hub (§9) and its presence flags are
+**process-local**: with multiple replicas, sockets land on different
+containers and live pushes/presence split (chat then degrades to the
+6-second polling fallback instead of dying — but do not scale out until
+the hub is externalized, e.g. Redis pub/sub). Rolling deploys momentarily
+run two containers; sockets reconnect with capped backoff and polling
+covers the gap, so deploys are safe on one replica.
+
+### 10.4 First boot & verification
+
+1. Fresh `DATABASE_URL` (§11) → the container builds the whole schema via
+   embedded migrations (chain 1→33, advisory-locked), then bootstraps the
+   super admin.
+2. Verify `GET https://<backend-host>/api/v1/health` reports
+   `api_level: 79` after every deploy.
+3. Open the admin dashboard support page in a browser: the presence dot
+   and typing indicator confirm the WebSocket upgrade works through
+   RunxBuild's ingress; if it ever refuses the upgrade, clients silently
+   degrade to polling (by design).
+4. Attach the custom domain (automatic HTTPS), then make sure every
+   frontend origin is listed in `CORS_ORIGINS` and `AUTH_COOKIE_DOMAIN`
+   stays empty while frontends live on different hosts.
+
+## 11. The database — DockHosting Postgres (primary), Supabase (alternative)
+
+The backend talks to exactly one PostgreSQL instance via `DATABASE_URL`
+(and `RIVER_DSN`, kept identical). Migrations run at startup from SQL
+embedded in the binary — **no manual SQL step, no migration job, works on
+any provider**. The database is a separate resource from the app on both
+platforms.
+
+### 11.1 Primary: DockHosting managed PostgreSQL (dockhosting.dev)
+
+Create it: dashboard → **Databases → New database** → engine
+**PostgreSQL**, version 16 (15/14 also supported) → the instance and its
+connection string are generated in seconds. DockHosting generates the
+default user/password; create additional users/databases from Manage if
+wanted.
+
+**Connecting from RunxBuild = the public path.** DockHosting's private
+network only spans projects *inside* DockHosting; a service on another
+platform is exactly the "outside" case its docs describe. So:
+
+1. Database → **Public access** → switch ON. A **dedicated public port**
+   is assigned per database (two databases never share a port).
+2. The public endpoint is **TLS-encrypted** → put `sslmode=require` in
+   the URL (mandatory).
+3. Database → **Firewall** → allow-list the RunxBuild egress IPs (IP or
+   CIDR rules apply immediately, refused at the network layer). With no
+   rules the port accepts from anywhere — fine for bring-up, tighten
+   before real traffic.
+4. Copy host/port/user/password from the Public access tab:
+
+```text
+DATABASE_URL=postgresql://<user>:<password>@<host>:<public-port>/<dbname>?sslmode=require&pool_max_conns=10
+RIVER_DSN=<same value>
+```
+
+pgx keeps a pool of long-lived connections, so the public-path TLS
+handshake is paid per pooled connection, not per query — the latency
+DockHosting attributes to public connections mostly disappears for a
+pooled Go server.
+
+If the backend ever moves ONTO DockHosting: attach the database to the
+project and use the **injected private connection string** instead
+(faster, zero public exposure, firewall becomes unnecessary).
+
+### 11.2 What happens on boot (fresh database)
+
+1. Container pings `DATABASE_URL`.
+2. Embedded migrations apply the full chain (1→33) inside a
+   `pg_advisory_lock` (`backend/internal/database/migrator.go`) — safe to
+   re-run on every deploy. A direct Postgres connection (DockHosting
+   public path) preserves session-level locks, so the lock is fully
+   effective.
+3. `HealPharmacyRegistrationEmail` self-heal (idempotent).
+4. Super-admin bootstrap when `BOOTSTRAP_SUPER_ADMIN_*` is set
+   (mandatory in production).
+5. `GET /api/v1/health` answers with `api_level: 79`.
+
+### 11.3 Operational rules
+
+- `DATABASE_URL` lives only in the RunxBuild secrets panel — never in
+  Vercel/`NEXT_PUBLIC_*`, never in the repository. Frontends never touch
+  Postgres.
+- `RIVER_DSN` keeps the same value (the River worker is still a stub,
+  `internal/jobs`; the var is reserved so future activation needs no
+  config change).
+- `pool_max_conns=10` caps the pgx pool — tune to the DockHosting plan's
+  connection limits (Free tier = 1 database, watch its metrics page for
+  connection/CPU headroom).
+- Password/credential rotation: DockHosting can regenerate users;
+  update `DATABASE_URL` (and `RIVER_DSN`) in the panel and redeploy. No
+  other secret references the database.
+- Backups: DockHosting runs automatic backups with on-demand snapshots —
+  keep both enabled. The support attachments are stored inline in
+  Postgres (§9.2), so database backups are the only attachment backup.
+
+### 11.4 Alternative: Supabase (session pooler)
+
+If the database stays on Supabase instead:
+
+```text
+postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require&pool_max_conns=10
+```
+
+Session pooler (5432) is the recommended shape there: it preserves
+session semantics for the migration advisory lock and works over IPv4.
+The transaction pooler (6543) also works because the backend already
+runs `QueryExecModeExec` (no server-side prepared statements —
+`cmd/server/main.go`); the direct `db.<ref>.supabase.co` host is
+IPv6-only and should be avoided on PaaS egress. Supabase is ONLY the
+Postgres provider — authentication is Go-managed and no Supabase
+SDK/REST/Data API is used anywhere; disable its Data API for least
+exposure.
