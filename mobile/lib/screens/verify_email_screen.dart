@@ -7,11 +7,13 @@ import '../core/api_client.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../state/app_state.dart';
+import '../widgets/otp_boxes.dart';
 import '../widgets/ui.dart';
 
 /// Task 62 — التحقق من البريد بنسخة الويب حرفيًا: بطاقة مركزية rounded-3xl
 /// ظل 2xl فيها أيقونة 64 rounded-2xl تتنقل ألوانها حسب الحالة، اسم العلامة
-/// بلون الهوية، عنوان 2xl، حقل رمز h-14 بخط 2xl بتباعد 0.6em، زر تحقق h-12
+/// بلون الهوية، عنوان 2xl، حقل رمز بخط 2xl (طُوّر لاحقًا إلى مربعات OTP
+/// منفصلة جنب بعض — OtpBoxes مطابق لـ otp-input.tsx في الويب)، زر تحقق h-12
 /// بظل الهوية، زر إعادة إرسال نصي، وزر رجوع محدد h-11.
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key});
@@ -281,28 +283,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                   AuthInput(controller: _email, keyboard: TextInputType.emailAddress, ltr: true, hint: 'name@pharmacy.com'),
                   const SizedBox(height: 16),
 
-                  // الرمز: h-14 بخط 2xl وتباعد واسع — Task 68-f: أرقام فقط وبحد
-                  // 6 خانات مثل الويب (maxLength=6 + تنظيف onChange في page.tsx:201)
+                  // الرمز: مربعات OTP منفصلة (نظير otp-input.tsx في الويب) —
+                  // الأرقام تتجمع في _code نفسه فلا يتغير منطق التحقق
                   Text(i18n.t('auth', 'code_label'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
-                  AuthInput(
+                  OtpBoxes(
                     controller: _code,
-                    keyboard: TextInputType.number,
-                    centered: true,
-                    ltr: true,
-                    height: 56,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    onChanged: (value) {
-                      final digits = value.replaceAll(RegExp(r'\D'), '');
-                      final clamped = digits.length > 6 ? digits.substring(0, 6) : digits;
-                      if (clamped == value) return;
-                      _code.value = TextEditingValue(
-                        text: clamped,
-                        selection: TextSelection.collapsed(offset: clamped.length),
-                        composing: TextRange.empty,
-                      );
-                    },
+                    enabled: !_verifying,
+                    hasError: _error != null,
                   ),
                   if (_error != null) ...<Widget>[
                     const SizedBox(height: 16),

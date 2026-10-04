@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApiError, authApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import BrandSplash from "@/components/brand-splash";
+import OtpInput from "@/components/otp-input";
 import { getSafeRedirectPath } from "@/lib/navigation";
 import { useT } from "@/i18n/provider";
 
@@ -133,21 +134,10 @@ export default function VerifyEmailPage() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <label className="block">
+          <div className="block">
             <span className="mb-2 block text-sm font-medium">{t("code_label")}</span>
-            <input
-              className="h-14 w-full rounded-xl border border-input bg-background px-4 text-center text-2xl font-bold tracking-[0.6em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
-              dir="ltr"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              pattern="[0-9]{6}"
-              required
-              value={code}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
-            />
-          </label>
+            <OtpInput value={code} onChange={setCode} hasError={Boolean(error)} disabled={verifying} />
+          </div>
           <button
             className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             type="submit"
