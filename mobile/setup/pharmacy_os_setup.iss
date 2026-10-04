@@ -6,7 +6,7 @@
 #define AppName "Pharmacy OS"
 #define AppExe "PharmacyOS.exe"
 #define AppPublisher "Pharmacy OS"
-#define AppURL "https://pharmacy-public.dockhosting.dev"
+#define AppURL "https://pharmacy-public-b139fab03.onrunxbuild.com"
 
 #ifndef AppVersion
 #define AppVersion "1.0.0"
