@@ -160,7 +160,7 @@ export default function DiagPage() {
       <section className={card}>
         <h2 className="font-semibold">2) فحص مباشر لرابط الباكند (يتجاوز إعدادات Vercel)</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          ألصق الرابط العام للباكند على DockHosting — مثل <span className={code}>https://pharmacy-api.example.dockhosting.app</span>
+          ألصق الرابط العام للباكند على RunxBuild — مثل <span className={code}>https://pharmacy-public-b139fab03.onrunxbuild.com</span>
         </p>
         <form className="mt-3 flex flex-wrap gap-3" onSubmit={probeDirect}>
           <input
