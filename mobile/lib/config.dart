@@ -5,7 +5,7 @@
 class AppConfig {
   /// عنوان الـ API — يُستبدل بقيمة GitHub Variable/API_BASE_URL
   /// أو إدخال Run workflow عند البناء.
-  /// الافتراضي هو خادم الإنتاج الحقيقي (RunxBuild) حتى يعمل التطبيق
+  /// الافتراضي هو خادم الإنتاج الحقيقي (DockHosting) حتى يعمل التطبيق
   /// المبني بالإعدادات الافتراضية فورًا بلا أي ضبط إضافي.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
