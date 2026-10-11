@@ -142,6 +142,7 @@ jobs:
       - name: Create GitHub Release (APK خام — تحميل مباشر للموبايل)
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           V="1.0.${{ github.run_number }}"
           TAG="android-build-${{ github.run_number }}"
@@ -160,6 +161,7 @@ jobs:
       - name: Prune old android-build releases (keep newest 3)
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAGS=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
             --jq '[.[] | select(.tag_name | startswith("android-build-"))] | sort_by(.created_at) | reverse | .[3:][] | .tag_name' 2>/dev/null || true)
@@ -271,6 +273,7 @@ jobs:
       - name: Create GitHub Release (EXE مباشر)
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           V="1.0.${{ github.run_number }}"
           TAG="windows-build-${{ github.run_number }}"
@@ -287,6 +290,7 @@ jobs:
       - name: Prune old windows-build releases (keep newest 3)
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAGS=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
             --jq '[.[] | select(.tag_name | startswith("windows-build-"))] | sort_by(.created_at) | reverse | .[3:][] | .tag_name' 2>/dev/null || true)
