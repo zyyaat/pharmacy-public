@@ -1,5 +1,8 @@
 # Task 59 — بناء تطبيق الصيدلية المحمول بلا أي بيئة محلية:
-# اضغط Run workflow ← (اختياري) أدخل عنوان الـ API ← Run ← نزّل الـ APK من Artifacts.
+# اضغط Run workflow ← (اختياري) أدخل عنوان الـ API ← Run ← نزّل الـ APK.
+# Task 105 — التحميل للمستخدم النهائي من Releases (ملفات خام بلا ضغط — الموبايل
+# لا يجيد فك ZIP): release-android بعد الأندرويد وrelease-windows بعد الويندوز،
+# كل منها بوسم مستقل (android-build-N / windows-build-N) مع تقليم القديم (آخر 3).
 # مجلد android/ يُولّد في السحابة من قالب نسخة Flutter المثبتة هنا ثم يُرقّع
 # بـ mobile/scripts/prepare_android.sh — لا حاجة لـ Flutter على أي جهاز.
 
@@ -117,6 +120,51 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
+  # Task 105 — تحميل مباشر بلا ضغط: الموبايل لا يجيد فك ZIP الذي يلتف على
+  # artifacts إجباريًا، فيُنشأ Release بوسم android-build-N يحمل APK الخام،
+  # ويظهر فور نجاح بناء الأندرويد دون انتظار الويندوز.
+  release-android:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pharmacy-mobile-apk-arm64-${{ github.run_number }}
+          path: dl-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pharmacy-mobile-apk-universal-${{ github.run_number }}
+          path: dl-univ
+
+      - name: Create GitHub Release (APK خام — تحميل مباشر للموبايل)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="1.0.${{ github.run_number }}"
+          TAG="android-build-${{ github.run_number }}"
+          mkdir -p rel
+          cp dl-arm64/app-arm64-v8a-release.apk "rel/PharmacyOS-arm64-$V.apk"
+          cp dl-univ/app-release.apk "rel/PharmacyOS-universal-$V.apk"
+          gh release delete "$TAG" --cleanup-tag -y >/dev/null 2>&1 || true
+          gh release create "$TAG" \
+            "rel/PharmacyOS-arm64-$V.apk" \
+            "rel/PharmacyOS-universal-$V.apk" \
+            --title "Pharmacy OS $V — أندرويد (تحميل مباشر)" \
+            --notes "APK خام بدون ضغط — اضغط الملف في المتصفح ليبدأ التحميل فورًا ثم افتحه من الإشعارات وثبّته (اسمح مرة واحدة بالتثبيت من مصادر غير معروفة).
+          • PharmacyOS-arm64-$V.apk — لهواتف أندرويد الحديثة (الاختيار الطبيعي، أصغر حجمًا)
+          • PharmacyOS-universal-$V.apk — احتياط لكل المعماريات (أكبر حجمًا)"
+
+      - name: Prune old android-build releases (keep newest 3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAGS=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '[.[] | select(.tag_name | startswith("android-build-"))] | sort_by(.created_at) | reverse | .[3:][] | .tag_name' 2>/dev/null || true)
+          for T in $TAGS; do gh release delete "$T" --cleanup-tag -y || true; done
+
   # Windows desktop — EXE بجانب الـAPK: بناء Flutter Windows ثم مثبّت
   # Inno Setup احترافي (معالج عربي بصور العلامة) + حزمة portable مضغوطة.
   build-windows:
@@ -200,3 +248,46 @@ jobs:
           name: pharmacy-windows-portable-${{ github.run_number }}
           path: artifacts/*.zip
           if-no-files-found: error
+
+  # Task 105 — نداء الويندوز مستقل بوسم windows-build-N حتى لا ينتظر مستخدم
+  # الأندرويد انتهاء بناء سطح المكتب؛ الـ portable يبقى ZIP لأنه مجلد ملفات
+  # وويندوز يفتحه أصلًا، أما المثبّت فـEXE مباشر.
+  release-windows:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pharmacy-windows-setup-${{ github.run_number }}
+          path: dl-setup
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pharmacy-windows-portable-${{ github.run_number }}
+          path: dl-portable
+
+      - name: Create GitHub Release (EXE مباشر)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="1.0.${{ github.run_number }}"
+          TAG="windows-build-${{ github.run_number }}"
+          mkdir -p rel
+          cp dl-setup/*.exe "rel/PharmacyOS-Setup-$V.exe"
+          cp dl-portable/*.zip "rel/PharmacyOS-windows-portable-$V.zip"
+          gh release delete "$TAG" --cleanup-tag -y >/dev/null 2>&1 || true
+          gh release create "$TAG" \
+            "rel/PharmacyOS-Setup-$V.exe" \
+            "rel/PharmacyOS-windows-portable-$V.zip" \
+            --title "Pharmacy OS $V — ويندوز" \
+            --notes "المثبّت PharmacyOS-Setup-$V.exe مباشر بلا ضغط، وحزمة الـ portable مضغوطة لأنها مجلد ملفات يفتحه ويندوز أصلًا."
+
+      - name: Prune old windows-build releases (keep newest 3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAGS=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '[.[] | select(.tag_name | startswith("windows-build-"))] | sort_by(.created_at) | reverse | .[3:][] | .tag_name' 2>/dev/null || true)
+          for T in $TAGS; do gh release delete "$T" --cleanup-tag -y || true; done
