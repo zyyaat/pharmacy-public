@@ -106,7 +106,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
   const scheduleSearch = useCallback(
     (value: string) => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      if ([...value.trim()].length < MIN_QUERY_RUNES || isScannerCode(value)) {
+      if ([...value.trim()].length < MIN_QUERY_RUNES) {
         abortRef.current?.abort()
         requestSeq.current++
         setSearching(false)
@@ -114,6 +114,9 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
         setOpen(false)
         return
       }
+      // الأكواد الرقمية الطويلة (باركود مكتوب/ممسوح) تُبحث كأي نص — التأجيل
+      // يجمع دفعة الماسح في طلب واحد، والقائمة تبقى ظاهرة للمنتج المطابق
+      // بدل الإخفاء عند اكتمال الكود. الإضافة التلقائية تظل مسار Enter فقط.
       debounceTimer.current = setTimeout(() => runSearch(value.trim()), SEARCH_DEBOUNCE_MS)
     },
     [runSearch],
@@ -131,6 +134,13 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
   function pick(product: POSProduct, source: AddSource) {
     onMessage?.(null)
     onError?.(null)
+    // إنهاء جلسة البحث بالكامل: إلغاء المؤجّل والطلب الجاري ورفع التسلسل
+    // حتى لا تفتح القائمة شبحًا من نتيجة قديمة وصلت بعد الإضافة، مع إعادة
+    // مؤشر التحميل لحالته الساكنة فورًا.
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    abortRef.current?.abort()
+    requestSeq.current++
+    setSearching(false)
     setQuery('')
     setSuggestions([])
     setOpen(false)
@@ -144,42 +154,45 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
     inputRef.current?.focus()
   }
 
-  /** مسار الماسح: باركود تام فوراً، وإن فشل ⇒ تصحيح ذكي تلقائي */
+  /** مسار الماسح: باركود تام فوراً، وإن فشل ⇒ تصحيح ذكي تلقائي.
+   *  الإنهاء عبر try/finally خارجي واحد — سبينر «جارٍ التحقق» لا يجوز أن يعلق
+   *  في الحقل بعد نجاح الإضافة (كان return المبكر يتخطى إعادة الضبط). */
   async function resolveScannerCode(code: string) {
     setResolving(true)
     onMessage?.(null)
     onError?.(null)
     try {
-      const exact = await pharmacyApi.lookupPOSProduct(code)
-      pick(exact.data, 'barcode')
-      return
-    } catch (cause) {
-      if (!(cause instanceof ApiError) || cause.status !== 404) {
-        setResolving(false)
-        notifyError(cause instanceof ApiError ? cause.message : t('productNotFound'))
+      try {
+        const exact = await pharmacyApi.lookupPOSProduct(code)
+        pick(exact.data, 'barcode')
         return
+      } catch (cause) {
+        if (!(cause instanceof ApiError) || cause.status !== 404) {
+          notifyError(cause instanceof ApiError ? cause.message : t('productNotFound'))
+          return
+        }
       }
-    }
-    try {
-      const response = await pharmacyApi.searchPOSProducts(code, SEARCH_LIMIT)
-      const results = response.data
-      const top = results[0]
-      const topIsBarcodeHit = top && (top.match_type === 'barcode_prefix' || top.match_type === 'barcode_fuzzy')
-      if (topIsBarcodeHit && (results.length === 1 || top.score >= FUZZY_AUTO_ADD_SCORE)) {
-        pick(top, 'barcode_fuzzy')
-        onMessage?.(t('scannerCorrected', { name: top.name }))
-        return
+      try {
+        const response = await pharmacyApi.searchPOSProducts(code, SEARCH_LIMIT)
+        const results = response.data
+        const top = results[0]
+        const topIsBarcodeHit = top && (top.match_type === 'barcode_prefix' || top.match_type === 'barcode_fuzzy')
+        if (topIsBarcodeHit && (results.length === 1 || top.score >= FUZZY_AUTO_ADD_SCORE)) {
+          pick(top, 'barcode_fuzzy')
+          onMessage?.(t('scannerCorrected', { name: top.name }))
+          return
+        }
+        if (results.length > 0) {
+          setSuggestions(results)
+          setOpen(true)
+          setActiveIndex(0)
+          onMessage?.(t('barcodeNotExact'))
+          return
+        }
+        notifyError(t('barcodeNoProduct'))
+      } catch {
+        notifyError(t('barcodeSearchFailed'))
       }
-      if (results.length > 0) {
-        setSuggestions(results)
-        setOpen(true)
-        setActiveIndex(0)
-        onMessage?.(t('barcodeNotExact'))
-        return
-      }
-      notifyError(t('barcodeNoProduct'))
-    } catch {
-      notifyError(t('barcodeSearchFailed'))
     } finally {
       setResolving(false)
     }
@@ -220,7 +233,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
         return
       }
     }
-    if (event.key === 'Enter' && !open && query.trim()) {
+    if (event.key === 'Enter' && !(open && suggestions.length > 0) && query.trim()) {
       event.preventDefault()
       if (isScannerCode(query)) {
         await resolveScannerCode(query.trim())
@@ -325,7 +338,7 @@ export default function ProductSearch({ onAddProduct, onMessage, onError, disabl
         </ul>
       )}
 
-      {open && !searching && suggestions.length === 0 && [...query.trim()].length >= MIN_QUERY_RUNES && !isScannerCode(query) && (
+      {open && !searching && suggestions.length === 0 && [...query.trim()].length >= MIN_QUERY_RUNES && (
         <div className="absolute inset-x-0 top-full z-40 mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-2xl">
           <PackageSearch className="h-4 w-4 shrink-0" aria-hidden="true" />
           {t('noResults')}
