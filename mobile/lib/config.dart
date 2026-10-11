@@ -9,7 +9,7 @@ class AppConfig {
   /// المبني بالإعدادات الافتراضية فورًا بلا أي ضبط إضافي.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://pharmacy-public-b139fab03.onrunxbuild.com/api/v1',
+    defaultValue: 'https://pharmacy-public.dockhosting.dev/api/v1',
   );
 
   static const String appName = 'Pharmacy OS';
