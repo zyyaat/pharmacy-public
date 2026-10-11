@@ -42,19 +42,40 @@ export default function ReceiptPrinter({
     printedJob.current = job.jobId
 
     document.body.classList.add('printing-receipt')
+
+    let finished = false
+    let safety: ReturnType<typeof setTimeout> | undefined
+    const finish = () => {
+      if (finished) return
+      finished = true
+      window.removeEventListener('afterprint', finish)
+      if (safety !== undefined) clearTimeout(safety)
+      document.body.classList.remove('printing-receipt')
+      // تصفير الحارس عند الاكتمال: إعادة طباعة نفس الفاتورة تعمل لاحقًا،
+      // والحماية من التكرار تشمل المهمة الحية فقط لا وسمًا دائمًا لكل saleId
+      printedJob.current = null
+      doneRef.current?.()
+    }
+    // بعض المتصفحات تعيد window.print() قبل إغلاق حوار الطباعة (استدعاء غير
+    // متزامن) — والتفريغ الفوري بعد return كان يزيل الإيصال من الـ DOM
+    // وصنف العزل من body أثناء فتح الحوار، فيُطبع هيكل الصفحة نفسه بدل
+    // الفاتورة. حدث afterprint هو إشارة إغلاق الحوار الموثوقة عبر كل
+    // المتصفحات، ومؤقت الأمان يحرر الموارد إن لم يُطلق أبدًا.
+    safety = setTimeout(finish, 120000)
+
     // انتظار طلاء الإطار قبل فتح نافذة الطباعة حتى تكون المعاينة كاملة
     const timer = setTimeout(() => {
-      try {
-        window.print()
-      } finally {
-        document.body.classList.remove('printing-receipt')
-        doneRef.current?.()
-      }
+      window.addEventListener('afterprint', finish)
+      window.print()
     }, 80)
 
     return () => {
       clearTimeout(timer)
-      document.body.classList.remove('printing-receipt')
+      window.removeEventListener('afterprint', finish)
+      if (!finished) {
+        if (safety !== undefined) clearTimeout(safety)
+        document.body.classList.remove('printing-receipt')
+      }
     }
   }, [job, mounted])
 

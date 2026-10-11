@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, RotateCcw } from 'lucide-react'
+import { ArrowRight, Printer, RotateCcw } from 'lucide-react'
 import {
   ApiError,
   pharmacyApi,
@@ -24,6 +24,10 @@ import {
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, LoadingSpinner, Modal, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui'
 import { Can } from '@/components/permissions/gate'
 import { useT } from '@/i18n/provider'
+import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
+import { saleDetailToReceipt } from '@/components/pos/receipt-template'
+import { useReceiptSettings } from '@/hooks/useReceiptSettings'
+import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 
 export default function SaleDetailPage() {
   const t = useT('sales')
@@ -44,6 +48,30 @@ export default function SaleDetailPage() {
   // One idempotency key per return attempt chain: retries reuse it, so a
   // network hiccup can never create a second credit note.
   const idempotencyKey = useRef<string | null>(null)
+
+  // Task 106 — طباعة الفاتورة من صفحة التفاصيل: نفس آلية إيصال نقطة البيع
+  // المعزولة (printing-receipt) — البيانات محمّلة أصلًا فلا حاجة لأي نداء
+  const tp = useT('pos')
+  const { settings: printSettings } = useReceiptSettings()
+  const { context } = usePharmacyContext()
+  const [printJob, setPrintJob] = useState<ReceiptPrintJob | null>(null)
+
+  function printCurrent() {
+    if (!detail) return
+    setPrintJob({
+      data: saleDetailToReceipt(detail),
+      pharmacy: {
+        name: context?.pharmacy.name ?? tp('fallbackPharmacyName'),
+        city: context?.pharmacy.city,
+        address: context?.pharmacy.address,
+        phone: context?.pharmacy.phone,
+      },
+      cashierName:
+        context?.user.display_name ||
+        [context?.user.first_name, context?.user.last_name].filter(Boolean).join(' '),
+      jobId: `${saleId ?? 'sale'}-${Date.now()}`,
+    })
+  }
 
   const load = useCallback(async () => {
     if (!saleId) return
@@ -170,13 +198,18 @@ export default function SaleDetailPage() {
           </div>
           <Badge variant={saleStatusVariant(sale.status)}>{saleStatusLabel(sale.status)}</Badge>
         </div>
-        {returnableRows.length > 0 && (
-          <Can perm="sales.returns">
-            <Button onClick={openReturnModal}>
-              <RotateCcw className="h-4 w-4" /> {t('returnItems')}
-            </Button>
-          </Can>
-        )}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={printCurrent} disabled={!detail}>
+            <Printer className="h-4 w-4" /> {tp('printInvoice')}
+          </Button>
+          {returnableRows.length > 0 && (
+            <Can perm="sales.returns">
+              <Button onClick={openReturnModal}>
+                <RotateCcw className="h-4 w-4" /> {t('returnItems')}
+              </Button>
+            </Can>
+          )}
+        </div>
       </div>
 
       {successMessage && (
@@ -379,6 +412,8 @@ export default function SaleDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <ReceiptPrinter job={printJob} settings={printSettings} onDone={() => setPrintJob(null)} />
     </div>
   )
 }

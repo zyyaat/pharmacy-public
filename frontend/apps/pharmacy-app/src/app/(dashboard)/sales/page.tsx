@@ -2,13 +2,17 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { ChevronLeft, ReceiptText, RotateCcw, Search } from 'lucide-react'
+import { ChevronLeft, Printer, ReceiptText, RotateCcw, Search } from 'lucide-react'
 import { ApiError, pharmacyApi, type POSSaleSummary } from '@/lib/api'
 import { formatPiastres } from '@/lib/money'
 import { formatSaleDate, formatSaleTime, saleStatusLabel, saleStatusVariant } from '@/lib/sales'
 import { Badge, Button, Card, CardContent, Input, LoadingSpinner } from '@/components/ui'
 import { RequirePermission } from '@/components/permissions/gate'
 import { useT } from '@/i18n/provider'
+import ReceiptPrinter, { type ReceiptPrintJob } from '@/components/pos/receipt-printer'
+import { saleDetailToReceipt } from '@/components/pos/receipt-template'
+import { useReceiptSettings } from '@/hooks/useReceiptSettings'
+import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 
 const PAGE_SIZE = 20
 
@@ -21,6 +25,41 @@ export default function SalesHistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+
+  // Task 106 — طباعة الفاتورة من السجل مباشرة: نفس آلية إيصال نقطة البيع
+  // (بوابة معزولة عن الصفحة عبر printing-receipt) بدل طباعة المتصفح التي
+  // تطبع هيكل الصفحة كاملًا — وهي التي كانت تنتج «فاتورة الصفحة المزيفة»
+  const tp = useT('pos')
+  const { settings: printSettings } = useReceiptSettings()
+  const { context } = usePharmacyContext()
+  const [printJob, setPrintJob] = useState<ReceiptPrintJob | null>(null)
+  const [printingId, setPrintingId] = useState<string | null>(null)
+  const [printError, setPrintError] = useState<string | null>(null)
+
+  async function preparePrint(saleId: string) {
+    setPrintingId(saleId)
+    setPrintError(null)
+    try {
+      const response = await pharmacyApi.getPOSSale(saleId)
+      setPrintJob({
+        data: saleDetailToReceipt(response.data),
+        pharmacy: {
+          name: context?.pharmacy.name ?? tp('fallbackPharmacyName'),
+          city: context?.pharmacy.city,
+          address: context?.pharmacy.address,
+          phone: context?.pharmacy.phone,
+        },
+        cashierName:
+          context?.user.display_name ||
+          [context?.user.first_name, context?.user.last_name].filter(Boolean).join(' '),
+        jobId: `${saleId}-${Date.now()}`,
+      })
+    } catch {
+      setPrintError(tp('printPrepareFailed'))
+    } finally {
+      setPrintingId(null)
+    }
+  }
 
   const load = useCallback(async (offset: number, searchTerm: string, append: boolean) => {
     if (append) setLoadingMore(true)
@@ -83,6 +122,12 @@ export default function SalesHistoryPage() {
         </Card>
       )}
 
+      {printError && (
+        <Card>
+          <CardContent className="p-4 text-sm text-destructive">{printError}</CardContent>
+        </Card>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <LoadingSpinner />
@@ -101,9 +146,9 @@ export default function SalesHistoryPage() {
         <div className="space-y-3">
           {sales.map((sale) => (
             <div key={sale.id} className="space-y-2">
-              <Link href={`/sales/${sale.id}`} className="block">
-                <Card className="transition-colors hover:border-primary/40">
-                  <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-4">
+              <Card className="transition-colors hover:border-primary/40">
+                <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-4">
+                  <Link href={`/sales/${sale.id}`} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-2">
                     <div className="min-w-[130px]">
                       <p className="font-mono text-sm font-bold" dir="ltr">INV-{String(sale.invoice_number).padStart(6, '0')}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -129,9 +174,18 @@ export default function SalesHistoryPage() {
                       )}
                     </div>
                     <ChevronLeft className="rtl-flip h-5 w-5 shrink-0 text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              </Link>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    loading={printingId === sale.id}
+                    onClick={() => void preparePrint(sale.id)}
+                    aria-label={tp('printInvoice')}
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
               {sale.returns.map((ret) => (
                 <div key={ret.id} className="ms-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:ms-8">
@@ -169,6 +223,8 @@ export default function SalesHistoryPage() {
           )}
         </div>
       )}
+
+      <ReceiptPrinter job={printJob} settings={printSettings} onDone={() => setPrintJob(null)} />
     </div>
     </RequirePermission>
   )
