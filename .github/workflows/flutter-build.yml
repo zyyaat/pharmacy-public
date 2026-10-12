@@ -98,9 +98,9 @@ jobs:
         working-directory: mobile
         run: flutter test
 
-      - name: Build release APK (arm64-v8a — للهواتف الحديثة، التثبيت الناجح)
+      - name: Build release APK (splits v7a + arm64 — معماريّات 32/64 بت في تشغيل Gradle واحد)
         working-directory: mobile
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} --dart-define-from-file=env.json
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} --dart-define-from-file=env.json
 
       - name: Build release APK (universal — احتياط لكل المعماريات)
         working-directory: mobile
@@ -111,6 +111,13 @@ jobs:
         with:
           name: pharmacy-mobile-apk-arm64-${{ github.run_number }}
           path: mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+
+      - name: Upload v7a APK artifact (أجهزة 32-bit — Task 109)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-mobile-apk-v7a-${{ github.run_number }}
+          path: mobile/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
           if-no-files-found: error
 
       - name: Upload universal APK artifact (fallback)
@@ -136,6 +143,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: pharmacy-mobile-apk-v7a-${{ github.run_number }}
+          path: dl-v7a
+
+      - uses: actions/download-artifact@v4
+        with:
           name: pharmacy-mobile-apk-universal-${{ github.run_number }}
           path: dl-univ
 
@@ -148,14 +160,17 @@ jobs:
           TAG="android-build-${{ github.run_number }}"
           mkdir -p rel
           cp dl-arm64/app-arm64-v8a-release.apk "rel/PharmacyOS-arm64-$V.apk"
+          cp dl-v7a/app-armeabi-v7a-release.apk "rel/PharmacyOS-v7a-$V.apk"
           cp dl-univ/app-release.apk "rel/PharmacyOS-universal-$V.apk"
           gh release delete "$TAG" --cleanup-tag -y >/dev/null 2>&1 || true
           gh release create "$TAG" \
             "rel/PharmacyOS-arm64-$V.apk" \
+            "rel/PharmacyOS-v7a-$V.apk" \
             "rel/PharmacyOS-universal-$V.apk" \
             --title "Pharmacy OS $V — أندرويد (تحميل مباشر)" \
             --notes "APK خام بدون ضغط — اضغط الملف في المتصفح ليبدأ التحميل فورًا ثم افتحه من الإشعارات وثبّته (اسمح مرة واحدة بالتثبيت من مصادر غير معروفة).
-          • PharmacyOS-arm64-$V.apk — لهواتف أندرويد الحديثة (الاختيار الطبيعي، أصغر حجمًا)
+          • PharmacyOS-arm64-$V.apk — لهواتف أندرويد الحديثة 64-bit (الاختيار الطبيعي، أصغر حجمًا)
+          • PharmacyOS-v7a-$V.apk — للأجهزة الأقدم ومعماريات 32-bit (إن رفض arm64 التثبيت جرّب هذا)
           • PharmacyOS-universal-$V.apk — احتياط لكل المعماريات (أكبر حجمًا)"
 
       - name: Prune old android-build releases (keep newest 3)
