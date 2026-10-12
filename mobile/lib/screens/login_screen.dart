@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _password = TextEditingController();
   bool _loading = false;
   bool _remember = false;
+  bool _arrivedOffline = false; // Task 108 — نُقل إليها من السپلاش بسبب انقطاع الشبكة
   String? _notice;
   String? _error;
 
@@ -36,6 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final args = ModalRoute.of(context)?.settings.arguments;
     final pending = context.read<AppState>().pendingVerifyEmail;
     final i18n = AppI18n.instance;
+    // Task 108 — السپلاش يمرّر true عند النقل بسبب انقطاع الشبكة المستمر
+    // (بلا جلسة مخزّنة): نعرض لافتة تشرح قاعدة «أول دخول يحتاج إنترنت»
+    // بدل أن يصل المستخدم لشاشة صامتة لا يفهم لماذا لا يدخل. العلم bool
+    // لا يتعارض مع تعبئة البريد (args كنص = بريد العودة من التحقق).
+    _arrivedOffline = args == true;
     final from = (args is String && args.isNotEmpty) ? args : (pending ?? '');
     if (from.isNotEmpty && _email.text.isEmpty) {
       _email.text = from; // تعبئة البريد بعد العودة من التحقق (مثل ?email= في الويب)
@@ -67,7 +73,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         // Task 68-f — نفس نمط register_screen: ترجمة كود الخادم عبر نطاق errors
         // (الويب login/page.tsx:58 يعرض رسالة الخطأ الحقيقية) مع login_failed كبديل.
-        _error = i18n.error(e.code, i18n.t('auth', 'login_failed'));
+        // Task 108 — الشبكة المقطوعة وحادثة الخادم (5xx/429) تُترجم للرسالة
+        // الودودة نفسها (الخادم غير متاح فعليًا) بدل «فشل تسجيل الدخول» المبهمة.
+        final String code =
+            (e.isNetwork || e.isServerIncident) ? 'NETWORK_UNREACHABLE' : e.code;
+        _error = i18n.error(code, i18n.t('auth', 'login_failed'));
         _loading = false;
       });
     } catch (_) {
@@ -122,6 +132,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.55))),
                   const SizedBox(height: 32), // mt-8
 
+                  if (_arrivedOffline) ...<Widget>[
+                    NoticeBanner(i18n.t('auth', 'login_offline_banner')),
+                    const SizedBox(height: 20),
+                  ],
                   if (_notice != null) ...<Widget>[
                     NoticeBanner(_notice!),
                     const SizedBox(height: 20),

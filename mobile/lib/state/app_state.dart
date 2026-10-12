@@ -105,7 +105,9 @@ class AppState extends ChangeNotifier {
     try {
       user = await api.me();
     } on ApiException catch (e) {
-      if (e.isNetwork) rethrow;
+      // Task 108 — الشبكة مقطوعة أو الخادم حادث (5xx/429) = لا قرار
+      // حاسم عن الجلسة: يُرمى للسپلاش يعيد المحاولة، ولا يُمسّ شيء.
+      if (e.isNetwork || e.isServerIncident) rethrow;
       final ok = await _silentRelogin();
       if (!ok) {
         user = null;
@@ -171,16 +173,17 @@ class AppState extends ChangeNotifier {
   }
 
   /// الدخول الصامت بالبيانات المحفوظة عند فقدان كوكيز الجلسة
-  /// (انتهاء صلاحية refresh أو مسحها من الخادم). فشل الشبكة يُرمى
-  /// ليُعاد الإقلاع لاحقًا ولا يُسقط الجلسة؛ أما رفض الدخول فعلي
-  /// (كلمة المرور تغيّرت) يمسح المحفوظ ويطلب دخولًا يدويًا.
+  /// (انتهاء صلاحية refresh أو مسحها من الخادم). فشل الشبكة أو حادثة
+  /// الخادم (5xx/429 — Task 108) يُرمى ليُعاد الإقلاع لاحقًا ولا يُسقط
+  /// الجلسة ولا يمسح المحفوظات والكاش؛ أما رفض الدخول فعلي (401/403 —
+  /// كلمة المرور تغيّرت) يمسح المحفوظ ويطلب دخولًا يدويًا.
   Future<bool> _silentRelogin() async {
     final creds = await store.credentials();
     if (creds == null) return false;
     try {
       user = await api.login(creds.email, creds.password);
     } on ApiException catch (e) {
-      if (e.isNetwork) rethrow;
+      if (e.isNetwork || e.isServerIncident) rethrow;
       await store.clearCredentials();
       // Task 82 — رفض الدخول فعليًا = انتهاء بيانات الجلسة وكاشها معًا
       await OfflineCache.instance.clear();

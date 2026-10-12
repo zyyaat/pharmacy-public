@@ -12,8 +12,10 @@ import '../widgets/ui.dart';
 /// شاشة الإقلاع — BrandSplash مطابق للويب (brand-splash.tsx/css) بالشعار
 /// الحقيقي والتوهج وحلقات السونار والنقاط، مع منطق حراس الويب نفسه:
 /// onboarding مطلوب → المعالج، جلسة سليمة → اللوحة، بلا جلسة → الدخول.
-/// عند فشل الاتصال: بطاقة خطأ مرئية + إعادة محاولة يدوية وتلقائية (3 ث)
-/// — لم تعد حلقة صامتة بلا رسالة. الخروج بتلاشي bs-exiting (fade+scale+blur).
+/// عند فشل الاتصال: بطاقة خطأ مرئية + محاولة تلقائية واحدة (3 ث) ثم نقل
+/// المستخدم لشاشة الدخول مع تنبيه «أول دخول يحتاج إنترنت» عند الشبكة —
+/// لا حبس في حلقة بلا نهاية (الجلسة المخزّنة تدخل أوفلاين من الكاش أصلًا
+/// فلا تصل هنا أبدًا). الخروج بتلاشي bs-exiting (fade+scale+blur).
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -43,9 +45,23 @@ class _SplashScreenState extends State<SplashScreen> {
     final AppState state = context.read<AppState>();
     try {
       await state.boot();
-    } on ApiException catch (_) {
-      // شبكة/خادم — نبقى على الشاشة مع بطاقة خطأ مرئية وإعادة محاولة تلقائية
+    } on ApiException catch (e) {
       if (!mounted) return;
+      if (_failed) {
+        // Task 108 — ثاني فشل متتالي أثناء الإقلاع: الجلسة المخزّنة كانت
+        // دخلت أوفلاين من الكاش لو وُجدت (الكاش يردّ بدل الرمي)، فالوصول
+        // هنا يعني بلا جلسة محفوظة. الحبس في حلقة بلا نهاية يمنع المستخدم
+        // عن التطبيق كليًا — ننقله لشاشة الدخول، وعلم «انقطاع شبكة» يُظهر
+        // لافتتها التي تشرح قاعدة «أول دخول يحتاج إنترنت، وبعده يعمل
+        // التطبيق أوفلاين بالكامل».
+        setState(() => _exiting = true);
+        await Future<void>.delayed(const Duration(milliseconds: 520));
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/login', arguments: e.isNetwork ? true : null);
+        return;
+      }
+      // أول فشل (شبكة أو حادثة خادم) — بطاقة مرئية + إعادة تلقائية واحدة
+      // لالتقاط الانقطاعات اللحظية عند إقلاع الجهاز أو عودة الخادم.
       setState(() => _failed = true);
       _retry = Timer(const Duration(seconds: 3), () {
         if (mounted) _boot();
@@ -78,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _manualRetry() {
     setState(() => _failed = false);
-    _boot();
+    _boot(); // المستخدم طلب المحاولة — نمنحه الكامل من جديد
   }
 
   @override

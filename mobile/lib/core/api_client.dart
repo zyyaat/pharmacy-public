@@ -20,6 +20,11 @@ class ApiException implements Exception {
   bool get isNetwork => code == 'NETWORK_UNREACHABLE';
   bool get isPriceChanged => code == 'PRICE_CHANGED' || code == 'pos_price_changed';
 
+  /// Task 108 — حادثة خادم (5xx / 429) ليست رفضًا للجلسة: الخادم موجود
+  /// لكنه عاجز مؤقتًا — التعامل معها كالانقطاع (إعادة محاولة) لا كرفض
+  /// يمسح بيانات الدخول والكاش المحفوظ على الجهاز.
+  bool get isServerIncident => (status ?? 0) >= 500 || status == 429;
+
   @override
   String toString() => message;
 }
