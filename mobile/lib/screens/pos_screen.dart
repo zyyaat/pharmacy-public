@@ -19,7 +19,9 @@ import 'receipt_screen.dart';
 /// Task 62 + 68-i — نقطة البيع بنسخة الويب حرفيًا: بطاقة إضافة الأصناف
 /// (بحث ذكي مؤجّل 180ms بحارس تسلسل، باركود ≥6 أرقام بمسار الماسح وتصحيح
 /// تلقائي 0.72، اقتراحات بشارة نوع المطابقة وبرز اسم علمي وتمييز الجزء
-/// المطابق وبطاقة لا نتائج)، بطاقة السلة (شرائط فواتير معلّقة **مخزّنة** في
+/// المطابق وبطاقة لا نتائج — Task 110: الأكواد الرقمية تُبحث أثناء الكتابة
+/// كأي نص والقائمة لا تختفي عند اكتمالها، والإضافة تُنهي جلسة البحث كاملة)،
+/// بطاقة السلة (شرائط فواتير معلّقة **مخزّنة** في
 /// flutter_secure_storage بتسمية محسوبة وقت الإيقاف، وحدة بيع تحفظ عدد
 /// الشرائط المختار، خصم افتراضي مبلغ لا نسبة)، ومفتاح idempotency واحد
 /// لسلسلة محاولات الفاتورة كاملة (يُصكَّ عند أول محاولة ويُصفَّر بعد النجاح
@@ -221,11 +223,20 @@ class _POSScreenState extends State<POSScreen> {
   void _onSearchChanged(String v) {
     _debounce?.cancel();
     final q = v.trim();
-    // أكواد الماسح الرقمية: لا بحث أثناء الكتابة — Enter فقط (نمط الويب)
-    if (q.runes.length < _minQueryRunes || _isScannerCode(q)) {
+    // Task 110 — توحيد مع إصلاح بحث POS بالويب (Task 103، product-search.tsx):
+    // الأكواد الرقمية الطويلة (باركود مكتوب/ممسوح) تُبحث كأي نص — التأجيل
+    // يجمع دفعة الماسح في طلب واحد والقائمة تبقى ظاهرة للمنتج المطابق بدل
+    // الإخفاء النهائي لحظة اكتمال الكود، والإضافة التلقائية تظل مسار Enter
+    // فقط (_onSearchSubmitted). وتصفير _searching هنا إلزامي عند قطع جلسة
+    // بحث جارية: رفع التسلسل يُبطل استجابتها بـ early return في _runSearch
+    // بلا تصفير — فكان سبينر الحقل يعلق يدور فوق حقل فارغ (نفس عائلة عيب
+    // السبينر المعلّق الذي أُصلح بالويب).
+    if (q.runes.length < _minQueryRunes) {
       _searchSeq++; // إبطال أي استجابة قيد الطيران
       setState(() {
         _suggestions = <_Suggestion>[];
+        _searching = false;
+        _searchError = false;
         _searchedFor = '';
       });
       return;
@@ -352,12 +363,21 @@ class _POSScreenState extends State<POSScreen> {
   /// إضافة من الاختيار (قائمة/باركود/تصحيح): يُمسح النص وتُغلق القائمة
   /// وتُمسح الرسائل مثل pick في الويب — ثم يُضاف للسلة.
   void _pick(Product p) {
+    // إنهاء جلسة البحث بالكامل قبل الإضافة (web product-search.tsx pick):
+    // إلغاء المؤجّل ورفع التسلسل حتى لا تفتح القائمة شبحًا من نتيجة قديمة
+    // وصلت بعد الإضافة، وإعادة مؤشر التحميل لحالته الساكنة فورًا — الرفع
+    // وحده يُبطل الاستجابة القيد الطيران (early return في _runSearch)
+    // فبلا تصفير _searching كان السبينر يظل يدور فوق حقلٍ فارغ.
+    _debounce?.cancel();
+    _searchSeq++;
     setState(() {
       _message = null;
       _error = null;
       _searchCtrl.clear();
       _suggestions = <_Suggestion>[];
       _searchedFor = '';
+      _searching = false;
+      _searchError = false;
     });
     _addLine(p);
   }
@@ -375,14 +395,15 @@ class _POSScreenState extends State<POSScreen> {
 
   bool get _showSuggestionsList => _suggestions.isNotEmpty && _searchCtrl.text.trim().isNotEmpty;
 
+  // بطاقة «لا نتائج» تشمل الأكواد الرقمية أيضًا (Task 110 — توحيد مع الويب):
+  // الكود الرقمي يُبحث كأي نص فصندوق «لا نتائج» لا يُستثنى منه.
   bool get _showNoResults =>
       !_searching &&
       !_resolving &&
       !_searchError &&
       _suggestions.isEmpty &&
       _searchedFor == _searchCtrl.text.trim() &&
-      _searchedFor.runes.length >= _minQueryRunes &&
-      !_isScannerCode(_searchedFor);
+      _searchedFor.runes.length >= _minQueryRunes;
 
   // ------------------------------------------------------------ الحسابات
 
@@ -681,10 +702,15 @@ class _POSScreenState extends State<POSScreen> {
                                 : IconButton(
                                     icon: const Icon(Icons.close, size: 18),
                                     onPressed: () {
+                                      // نفس انضباط قطع الجلسة: إلغاء المؤجّل
+                                      // + تصفير _searching مع رفع التسلسل.
+                                      _debounce?.cancel();
                                       _searchSeq++;
                                       _searchCtrl.clear();
                                       setState(() {
                                         _suggestions = <_Suggestion>[];
+                                        _searching = false;
+                                        _searchError = false;
                                         _searchedFor = '';
                                       });
                                     },
