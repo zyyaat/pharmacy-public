@@ -1,5 +1,0 @@
-export type { Employee } from './employee'
-export type { Medication } from './medication'
-export type { Branch } from './branch'
-export type { AttendanceRecord } from './attendance'
-export type { Pharmacy } from './pharmacy'

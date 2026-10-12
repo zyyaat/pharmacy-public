@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
-  <title id="title">Pharmacy OS icon</title>
-  <desc id="desc">Green rounded square with three dark vertical bars</desc>
-  <rect width="128" height="128" rx="30" fill="#00d084"/>
-  <rect x="37" y="43" width="12" height="42" rx="6" fill="#06100d"/>
-  <rect x="58" y="35" width="12" height="58" rx="6" fill="#06100d"/>
-  <rect x="79" y="43" width="12" height="42" rx="6" fill="#06100d"/>
-</svg>

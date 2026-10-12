@@ -1,4 +1,0 @@
-{
-  "network_unreachable": "Cannot reach the server. Check your internet connection and try again.",
-  "template_download_failed": "Could not download the import template"
-}
